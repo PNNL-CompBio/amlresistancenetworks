@@ -29,17 +29,17 @@ readAndTidyMetadata<-function(){
   
 }
 
-#reads and tidies protein measurements
-#joins with metadata
-#saves tidied data and returns
-# @export
+#' reads and tidies protein measurements
+#' joins with metadata
+#' saves tidied data and returns
+#' @export
 #
 readAndTidyProtMeasures<-function(){
   metadata<-readAndTidyMetadata()
   dat<-read.table('../../ex12_data/ptrc_ex12_global_median_centered_with_genes.txt',sep='\t',header=T)
   library(tidyr)
   gilteritinib.data<-tidyr::pivot_longer(dat,-c(Protein,Gene),"Sample")%>%dplyr::left_join(metadata,by='Sample')
-saveRDS(gilt.datda,file='../inst/gilteritinibData.Rdata')
+saveRDS(gilteritinib.data,file='inst/gilteritinibData.Rds')
   return(gilteritinib.data)
 
     }
