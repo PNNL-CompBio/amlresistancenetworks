@@ -1,0 +1,9 @@
+Package: amlresistancenetworks
+Title: Calculates networks that lead to AML resistance to drugs
+Version: 0.1
+Authors: 
+Description: 
+Depends:
+License:
+LazyData: true
+RoxygenNote: 7.0.2
