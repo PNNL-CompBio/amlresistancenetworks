@@ -1,0 +1,32 @@
+---
+title: "Gilteritinib Analysis"
+author: "Sara Gosline"
+date: "2/27/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(amlresistancenetworks)
+```
+
+## Get Data
+
+This package has formatted the Gilteritnib-treated AML cells into a tidied data frame so they can be easily processed. 
+
+```{r Load Data}
+gilt.data<-readRDS(system.file('gilteritinibData.Rds',package='amlresistancenetworks'))
+
+#view as table
+```
+
+## Compute Fold changes for conditions of interest
+
+
+Here is the meat of the challenge - compute significant LFCs for each condition.
+
+```{r LFC heatmap, echo=FALSE}
+library(pheatmap)
+
+```
+## Compute raw differences between ligand treatments
