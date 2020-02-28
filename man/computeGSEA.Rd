@@ -4,10 +4,12 @@
 \alias{computeGSEA}
 \title{compute gene set enrichment}
 \usage{
-computeGSEA(genes.with.values)
+computeGSEA(genes.with.values, prot.univ)
 }
 \arguments{
-\item{output}{of genes and difference values}
+\item{genes.with.values}{of genes and difference values}
+
+\item{prot.univ}{the space of all proteins we are considering}
 }
 \value{
 gSEA output type stuff

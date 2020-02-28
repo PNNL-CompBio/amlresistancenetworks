@@ -25,7 +25,7 @@ gilt.data<-readRDS(system.file('gilteritinibData.Rds',package='amlresistancenetw
 
 #view as table
 samps<-gilt.data%>%
-  dplyr::select(c(ligand,CellLine,treatment))%>%distinct()
+  dplyr::select(c(Sample,ligand,CellLine,treatment))%>%distinct()
 
 DT::datatable(samps)
 ```
@@ -61,13 +61,95 @@ mean.diffs<-mean.vals%>%
   mutate(FGF2_to_parent=FGF2-None)%>%
   mutate(FL_to_parent=FL-None)
 
+DT::datatable(mean.diffs)
+```
 
-### FGF2 vs FLT3 Ligand in MV411
+Now that we've collected the various gene lists we can select those and do enrichment in the ones of interest. 
 
-MV411 cell line results
+### FGF2 and FLT3 Ligand in MV411
 
-### FGF2 vs FLT3 Ligand in MOLM14 
+In the MV411 cell lines we evaluate the GO term enrichment using the `clusterProfiler` package along side the `MSigDB` `C2` gene lists. We use an FDR p-value correction and limit the genes searched to those in the protein universe - i.e. those that were measured in the initial dataset.
 
+
+```{r mv411,echo=FALSE}
+
+mv411<-subset(mean.diffs,CellLine=='MV411')
+prot.univ<-unique(gilt.data$Gene)
+
+```
+
+#### FGF2 treated MV411
+
+```{r,echo=FALSE}
+genes.with.values=mv411%>%ungroup()%>%dplyr::select(Gene,value=FGF2_to_parent)
+
+mv411.fgf2=computeGSEA(genes.with.values,prot.univ)
+
+clusterProfiler::dotplot(mv411.fgf2,showCategory=20)+ggplot2::ggtitle("GO Terms for MV411 FGF2")
+genes.with.values = mv411%>%ungroup()%>%dplyr::select(Gene,value=FL_to_parent)
+```
+
+#### FL treated MV411
+
+```{r,echo=FALSE}
+mv411.fl=computeGSEA(genes.with.values,prot.univ)
+
+if(nrow(summary(mv411.fl))>0){
+  clusterProfiler::dotplot(mv411.fl,showCategory=20)+ggplot2::ggtitle("GO Terms for MV411 FLT3 Ligand")
+}
+
+```
+
+The results show distinct pathways enriched in the FLT3 ligand and FGF2 treated cells.
+
+
+#### FGF2 vs FL treatment
+```{r mv411 diff,echo=FALSE}
+genes.with.values=mv411%>%mutate(FGF2_vs_FLT=FGF2_to_parent-FL_to_parent)%>%
+  ungroup()%>%dplyr::select(Gene,value=FGF2_vs_FLT)
+mv411.diff=computeGSEA(genes.with.values,prot.univ)
+
+if(nrow(summary(mv411.diff))>0){
+clusterProfiler::dotplot(mv411.diff,showCategory=20)+ggplot2::ggtitle("GO Terms for MV411 FGF2 vs FLT3 Ligase")
+}
+
+
+```
+
+### FGF2 and FLT3 Ligand in MOLM14 
+
+How do these plots compare to the MV411 cell lines? One would hope they'd be the same.
+
+```{r molm14}
+
+molm14<-subset(mean.diffs,CellLine=='MOLM14')
+prot.univ<-unique(gilt.data$Gene)
+```
+
+#### FGF2 treated MOLM14
+```{r, echo=FALSE}
+genes.with.values=molm14%>%ungroup()%>%dplyr::select(Gene,value=FGF2_to_parent)
+molm14.fgf2=computeGSEA(genes.with.values,prot.univ)
+
+if(nrow(summary(molm14.fgf2))>0){
+clusterProfiler::dotplot(molm14.fgf2,showCategory=20)+ggplot2::ggtitle("GO Terms for molm14 FGF2")
+}
+```
+
+#### FL treated MOLM14
+```{r,echo=FALSE}
+
+molm14.fl=computeGSEA(molm14%>%ungroup()%>%dplyr::select(Gene,value=FL_to_parent),prot.univ)
+
+if(nrow(summary(molm14.fl))>0){
+  clusterProfiler::dotplot(molm14.fl,showCategory=20)+ggplot2::ggtitle("GO Terms for molm14 FLT3 Ligand")
+}
+```
+
+#### FGF2 vs FL treatment
+```{r molm14 diff,echo=FALSE}
+
+```
 
 ## Now create networks from the LFC
 Now that we've evaluated the differences 
