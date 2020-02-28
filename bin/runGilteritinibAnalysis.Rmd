@@ -44,6 +44,24 @@ library(pheatmap)
 
 Now we can compute the differences between conditions using a basic difference approach (nothing fancy). We can then get the differences between treatments for each protein. 
 
+```{r raw differences,echo=FALSE}
+
+#reduce data
+data<-gilt.data%>%
+    subset(treatment%in%(c('None','Early Gilteritinib')))%>%
+    select(CellLine,Gene,value,ligand)
+
+#get mean value for each gene,cell line, ligand (is this appropriate?)
+mean.vals<-data%>%
+    group_by(CellLine,Gene,ligand)%>%
+    summarize(meanVals=mean(value,na.rm=T))%>%
+    tidyr::pivot_wider(names_from=ligand,values_from=meanVals)
+
+mean.diffs<-mean.vals%>%
+  mutate(FGF2_to_parent=FGF2-None)%>%
+  mutate(FL_to_parent=FL-None)
+
+
 ### FGF2 vs FLT3 Ligand in MV411
 
 MV411 cell line results
