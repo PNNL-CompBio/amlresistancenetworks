@@ -49,19 +49,56 @@ Now we can compute the differences between conditions using a basic difference a
 #reduce data
 data<-gilt.data%>%
     subset(treatment%in%(c('None','Early Gilteritinib')))%>%
-    select(CellLine,Gene,value,ligand)
+    dplyr::select(CellLine,Gene,value,ligand)%>%
+  subset(!is.na(value))
 
-#get mean value for each gene,cell line, ligand (is this appropriate?)
-mean.vals<-data%>%
+#get significance and then mean difference for each gene,cell line, ligan
+
+reps<-data%>%
     group_by(CellLine,Gene,ligand)%>%
-    summarize(meanVals=mean(value,na.rm=T))%>%
-    tidyr::pivot_wider(names_from=ligand,values_from=meanVals)
+  mutate(reps=length(value))%>%
+  subset(reps>1)%>%
+  ungroup()
 
-mean.diffs<-mean.vals%>%
-  mutate(FGF2_to_parent=FGF2-None)%>%
-  mutate(FL_to_parent=FL-None)
+#compute the significance for FL-modulaetd changes in both cell lines
 
-DT::datatable(mean.diffs)
+fl.vals=reps%>%
+    group_by(CellLine,Gene)%>%
+    subset(ligand%in%c('None','FL'))%>%
+    mutate(ligand=as.factor(ligand))%>%
+    mutate(conds=n_distinct(ligand))%>%
+    subset(conds>1)
+
+fl.signif=fl.vals%>%
+  group_modify(~infer::t_test(.,value~ligand,order=c("FL","None")),keep=TRUE)%>%
+  dplyr::select(c(CellLine,Gene,FL_pval='p_value'))%>%
+  ungroup()%>%
+  group_by(CellLine)%>%
+  mutate(FL_adj=p.adjust(FL_pval))%>%
+  ungroup()
+
+##now compute the significance for FGF2 treated cells
+
+fgf.vals=reps%>%
+    group_by(CellLine,Gene)%>%
+    subset(ligand%in%c('None','FGF2'))%>%
+    mutate(ligand=as.factor(ligand))%>%
+    mutate(conds=n_distinct(ligand))%>%
+    subset(conds>1)
+
+fgf.signif=fgf.vals%>%
+    group_modify(~infer::t_test(.,value~ligand,order=c("FGF2","None")),keep=TRUE)%>%
+  dplyr::select(c(CellLine,Gene,FGF2_pval='p_value'))%>%
+    ungroup()%>%
+  group_by(CellLine)%>%
+  mutate(FGF2_adj=p.adjust(FGF2_pval))%>%
+  ungroup()
+
+mean.diffs<-data%>%group_by(CellLine,Gene,ligand)%>%
+  summarize(meanVal=mean(value))%>%
+  tidyr::pivot_wider(-c(CellLine,Gene),names_from=ligand,values_from = value)
+  mutate(FGF2_to_parent=FGF2-None,FL_to_parent=FL-None)
+
 ```
 
 Now that we've collected the various gene lists we can select those and do enrichment in the ones of interest. 
@@ -71,7 +108,7 @@ Now that we've collected the various gene lists we can select those and do enric
 In the MV411 cell lines we evaluate the GO term enrichment using the `clusterProfiler` package along side the `MSigDB` `C2` gene lists. We use an FDR p-value correction and limit the genes searched to those in the protein universe - i.e. those that were measured in the initial dataset.
 
 
-```{r mv411,echo=FALSE}
+```{r mv411,echo=FALSE,results='hide'}
 
 mv411<-subset(mean.diffs,CellLine=='MV411')
 prot.univ<-unique(gilt.data$Gene)
@@ -80,7 +117,7 @@ prot.univ<-unique(gilt.data$Gene)
 
 #### FGF2 treated MV411
 
-```{r,echo=FALSE}
+```{r,echo=F, warning=FALSE,results='hide'}
 genes.with.values=mv411%>%ungroup()%>%dplyr::select(Gene,value=FGF2_to_parent)
 
 mv411.fgf2=computeGSEA(genes.with.values,prot.univ)
@@ -91,10 +128,10 @@ genes.with.values = mv411%>%ungroup()%>%dplyr::select(Gene,value=FL_to_parent)
 
 #### FL treated MV411
 
-```{r,echo=FALSE}
+```{r,, echo=FALSE, warning=FALSE,results='hide'}
 mv411.fl=computeGSEA(genes.with.values,prot.univ)
 
-if(nrow(summary(mv411.fl))>0){
+if(nrow(as.data.frame(mv411.fl))>0){
   clusterProfiler::dotplot(mv411.fl,showCategory=20)+ggplot2::ggtitle("GO Terms for MV411 FLT3 Ligand")
 }
 
@@ -104,12 +141,14 @@ The results show distinct pathways enriched in the FLT3 ligand and FGF2 treated 
 
 
 #### FGF2 vs FL treatment
-```{r mv411 diff,echo=FALSE}
+Here we look at FGF2 vs FL3 ligand.
+ 
+```{r mv411 diff, echo=T,warning=FALSE,results='hide'}
 genes.with.values=mv411%>%mutate(FGF2_vs_FLT=FGF2_to_parent-FL_to_parent)%>%
   ungroup()%>%dplyr::select(Gene,value=FGF2_vs_FLT)
 mv411.diff=computeGSEA(genes.with.values,prot.univ)
 
-if(nrow(summary(mv411.diff))>0){
+if(nrow(as.data.frame(mv411.diff))>0){
 clusterProfiler::dotplot(mv411.diff,showCategory=20)+ggplot2::ggtitle("GO Terms for MV411 FGF2 vs FLT3 Ligase")
 }
 
@@ -120,34 +159,44 @@ clusterProfiler::dotplot(mv411.diff,showCategory=20)+ggplot2::ggtitle("GO Terms 
 
 How do these plots compare to the MV411 cell lines? One would hope they'd be the same.
 
-```{r molm14}
+```{r molm14, echo=T,warning=FALSE,results='hide'}
 
 molm14<-subset(mean.diffs,CellLine=='MOLM14')
 prot.univ<-unique(gilt.data$Gene)
 ```
 
 #### FGF2 treated MOLM14
-```{r, echo=FALSE}
+The plot below shows the GO terms enriched between FGF2-treated cells and parental MOLM14 cells.
+
+```{r, echo=T,warning=FALSE,results='hide'}
 genes.with.values=molm14%>%ungroup()%>%dplyr::select(Gene,value=FGF2_to_parent)
 molm14.fgf2=computeGSEA(genes.with.values,prot.univ)
 
-if(nrow(summary(molm14.fgf2))>0){
+if(nrow(as.data.frame(molm14.fgf2))>0){
 clusterProfiler::dotplot(molm14.fgf2,showCategory=20)+ggplot2::ggtitle("GO Terms for molm14 FGF2")
 }
 ```
 
 #### FL treated MOLM14
-```{r,echo=FALSE}
+
+The plot below shows the GO terms enriched between FLT3 Ligand-treated cells and parental MOLM14 cells.
+
+```{r,echo=FALSE,warning=FALSE,results='hide'}
 
 molm14.fl=computeGSEA(molm14%>%ungroup()%>%dplyr::select(Gene,value=FL_to_parent),prot.univ)
 
-if(nrow(summary(molm14.fl))>0){
+if(nrow(as.data.frame(molm14.fl))>0){
   clusterProfiler::dotplot(molm14.fl,showCategory=20)+ggplot2::ggtitle("GO Terms for molm14 FLT3 Ligand")
 }
 ```
 
 #### FGF2 vs FL treatment
-```{r molm14 diff,echo=FALSE}
+
+Here we look at the difference between FGF2 and FL ligand in both cell lines.
+```{r molm14 diff,echo=FALSE,warning=FALSE,results='hide'}
+genes.with.values=molm14%>%mutate(FGF2_vs_FLT=FGF2_to_parent-FL_to_parent)%>%
+  ungroup()%>%dplyr::select(Gene,value=FGF2_vs_FLT)
+molm14.diff=computeGSEA(genes.with.values,prot.univ)
 
 ```
 

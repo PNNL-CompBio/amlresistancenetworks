@@ -48,7 +48,8 @@ computeGSEA<-function(genes.with.values,prot.univ){
     require(org.Hs.eg.db)
   genes.with.values<-genes.with.values%>%
       rename(Gene="SYMBOL")%>%
-    left_join(AnnotationDbi::select(org.Hs.eg.db,keys=keys(org.Hs.eg.db,'ENTREZID'),columns=c("ENTREZID","SYMBOL"),by='SYMBOL'))
+    left_join(AnnotationDbi::select(org.Hs.eg.db,keys=keys(org.Hs.eg.db,'ENTREZID'),
+                                    columns=c("ENTREZID","SYMBOL"),by='SYMBOL'))
   
     genes.with.values<-genes.with.values%>%arrange(desc(value))
     
@@ -62,7 +63,10 @@ computeGSEA<-function(genes.with.values,prot.univ){
                dplyr::select(gs_name,entrez_gene)
   #  t2n =msigdbr::msigdbr(species="Homo sapiens",category="C2")%>%dplyr::select(gs_id,gs_name)
   
-  gr=clusterProfiler::GSEA(genelist[!is.na(genelist)],TERM2GENE = t2g,pAdjustMethod = 'fdr')
+  gr<-clusterProfiler::GSEA(genelist[!is.na(genelist)],TERM2GENE = t2g,pAdjustMethod = 'fdr')
+  if(nrow(as.data.frame(gr))==0){
+    gr<-clusterProfiler::GSEA(genelist[!is.na(genelist)],TERM2GENE = t2g,pAdjustMethod = 'fdr',pvalueCutoff = 0.1)
+  }
     return(gr)
   }
 
