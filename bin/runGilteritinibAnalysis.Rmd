@@ -10,7 +10,7 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
 library(amlresistancenetworks)
 require(dplyr)
 ```
@@ -19,7 +19,8 @@ require(dplyr)
 
 This package has formatted the Gilteritnib-treated AML cells into a tidied data frame so they can be easily processed. Here is a summary of the samples collected so that we can better analyze them.
 
-Conditions:
+_Samples collected_
+
 ```{r Load Data}
 gilt.data<-readRDS(system.file('gilteritinibData.Rds',package='amlresistancenetworks'))
 
@@ -30,12 +31,13 @@ samps<-gilt.data%>%
 DT::datatable(samps)
 ```
 
-## Compute fold changes for conditions of interest
+## Protein expression
 
+Here we collect the relative expression of each protein across different conditions.
 
-Here is the meat of the challenge - compute significant LFCs for each condition.
+### All Sample Expression
 
-```{r LFC heatmap, echo=FALSE, include=FALSE, warning=FALSE}
+```{r LFC heatmap, echo=FALSE, include=FALSE, warning=FALSE,fig.width=10}
 
 library(pheatmap)
 
@@ -43,7 +45,7 @@ library(pheatmap)
 full.mat<-gilt.data%>%
     subset(!is.na(value))%>%
     subset(!is.na(Gene))%>%
-    select(value,`Sample ID`,Gene)%>%
+    dplyr::select(value,`Sample ID`,Gene)%>%
     tidyr::pivot_wider(names_from='Sample ID',values_from='value',values_fn=list(value=mean))%>%
     tibble::column_to_rownames("Gene")%>%
     as.matrix()
@@ -56,7 +58,7 @@ vars=apply(full.mat,1,var,na.rm=T)
 most.var=names(sort(vars,decreasing=T)[1:50])
 
 full.samps=gilt.data%>%
-    select(c(`Sample ID`,CellLine,ligand,treatment))%>%
+    dplyr::select(c(`Sample ID`,CellLine,ligand,treatment))%>%
     distinct()%>%tibble::column_to_rownames("Sample ID")
 
 pheatmap(full.mat[most.var,],cellwidth=10,cellheight=10,annotation_col = full.samps, clustering_method = 'ward.D2',file='mostVarProts.png')
@@ -65,10 +67,10 @@ pheatmap(full.mat[most.var,],cellwidth=10,cellheight=10,annotation_col = full.sa
 ```
 While there are general patterns between treatment effects and ligands, there are still spurious clusterings brought about by noise making it difficult to draw strong conclustions from the proteins driving these changes.
 
-## Compute differences between ligand treatments
+### Mean condition expression 
 
 Now we can compute the means of the values so that we can see the driving effects. 
-```{r mean value heatmap,cho=FALSE, include=FALSE, warning=FALSE}
+```{r mean value heatmap,cho=FALSE, include=FALSE, warning=FALSE,fig.width=10}
 
 mean.vals<-gilt.data%>%
   dplyr::select(CellLine,Gene,treatment,ligand,value)%>%
@@ -76,14 +78,17 @@ mean.vals<-gilt.data%>%
   subset(!is.na(value))%>%
   subset(!is.na(Gene))%>%
   summarize(meanVal=mean(value,na.rm=TRUE))%>%
-  rowwise()%>%mutate(condition=paste(c(CellLine,treatment,ligand),collapse='_'))
+  rowwise()%>%
+  mutate(condition=paste(c(CellLine,treatment,ligand),collapse='_'))%>%
+  ungroup()
 
 samps=mean.vals%>%
-  select(condition,CellLine,treatment,ligand)%>%
+  dplyr::select(condition,CellLine,treatment,ligand)%>%
   distinct()%>%
   tibble::column_to_rownames('condition')
 
-mat<-mean.vals%>%select(condition,Gene,meanVal)%>%
+mat<-mean.vals%>%
+  dplyr::select(condition,Gene,meanVal)%>%
   tidyr::pivot_wider(names_from=condition,values_from=meanVal,values_fn=list(meanVal=mean))%>%
   tibble::column_to_rownames('Gene')%>%
   as.matrix()
@@ -97,149 +102,222 @@ pheatmap(mat[most.var,],cellwidth=10,cellheight=10,annotation_col = samps, clust
 
 For the purposes of this study, we are interested in determining _which_ proteins are driving changes in drug response, not necessarily how similar/different they are. For this we compute the mean differences between protein activity for specific conditions of interest.
 
+## Differential expression
 
-```{r raw differences,echo=FALSE, include=FALSE, warning=FALSE}
+We compute a number of differential expression calculations. For each differential expression calculation we do the following:
+* Identify the number of differentially expressed proteins
+* Identify any enriched/depleted pathways via GSEA
 
-#reduce data
-mean.diffs<-computeFoldChangePvals(gilt.data)
+```{r raw differences,echo=FALSE, include=FALSE, warning=FALSE,fig.width=10}
+
+#rcalculate differences and p-values
+
+early.data<-gilt.data%>%
+    subset(treatment%in%(c('None','Early Gilteritinib')))%>%
+    dplyr::select(Gene,Sample,CellLine,ligand,value)%>%
+    rename(treatment='ligand')
+
+total.mean.diffs<-amlresistancenetworks::computeFoldChangePvals(early.data,control='None',conditions=c("FL","FGF2"))
+molm.mean.diffs<-amlresistancenetworks::computeFoldChangePvals(subset(early.data, CellLine=='MOLM14'),
+                                                          control='None',
+                                                          conditions=c("FL","FGF2"))
+mv411.mean.diffs<-amlresistancenetworks::computeFoldChangePvals(subset(early.data, CellLine=='MV411'),
+                                                          control='None',
+                                                          conditions=c("FL","FGF2"))
+
+mean.diffs<-rbind(mutate(total.mean.diffs,CellLine='Both'),
+                  mutate(molm.mean.diffs,CellLine='MOLM14'),
+                  mutate(mv411.mean.diffs,CellLine='MV411'))
+
+#count the proteins at our significance threshold
+prot.counts=mean.diffs%>%
+    subset(p_adj<0.05)%>%
+    group_by(Condition,CellLine)%>%
+    summarize(`ProteinsDiffEx`=n_distinct(Gene))
+
+
+prots=total.mean.diffs%>%
+    subset(p_adj<0.05)%>%ungroup()%>%
+  dplyr::select(Gene)
+
+pheatmap(full.mat[intersect(rownames(full.mat),as.character(prots$Gene)),],cellwidth=10,cellheight=10,annotation_col = full.samps, clustering_method = 'ward.D2',file='diffExProts.png')
+
+DT::datatable(prot.counts)
+
 
 ```
-
-Now that we've collected the various gene lists we can select those and do enrichment in the ones of interest. 
-```{r topgenes,warning=FALSE,echo=FALSE,results='hide'}
-fl.counts=mean.diffs%>%
-    subset(FL_adj<0.05)%>%
-    group_by(CellLine)%>%
-    summarize(`FL proteinsDiffEx`=n())
-
-fgf.counts=mean.diffs%>%
-    subset(FGF2_adj<0.05)%>%
-    group_by(CellLine)%>%
-    summarize(`FGF2 proteinsDiffEx`=n())
-
-tot.counts<-fgf.counts%>%left_join(fl.counts,by='CellLine')
-DT::datatable(tot.counts)
-
-prots.fl=mean.diffs%>%
-    subset(FL_adj<0.05)%>%ungroup()%>%
-  select(Gene)
-
-prots.fgf=mean.diffs%>%
-    subset(FGF2_adj<0.05)%>%ungroup()%>%
-  select(Gene)
+Now we can see that the differential proteins seem to cluster beter, and could provide interesting biomarkers.
 
 
-pheatmap(full.mat[union(prots.fl$Gene,prots.fgf$Gene),],cellwidth=10,cellheight=10,annotation_col = full.samps, clustering_method = 'ward.D2',file='diffExProts.png')
 
-```
+### FGF2 treatment in both cell lines
 
-### FGF2 and FLT3 Ligand in MV411
-
-In the MV411 cell lines we evaluate the GO term enrichment using the `clusterProfiler` package along side the `MSigDB` `C2` gene lists. We use an FDR p-value correction and limit the genes searched to those in the protein universe - i.e. those that were measured in the initial dataset.
+In both cell lines we evaluate the GO term enrichment using the `clusterProfiler` package along side the `MSigDB` `C2` gene lists. We use an FDR p-value correction and limit the genes searched to those in the protein universe - i.e. those that were measured in the initial dataset.
 
 
-```{r mv411,echo=FALSE,warning=FALSE,results='hide'}
+```{r gene lists,echo=FALSE,warning=FALSE}
 
+#first we break down the gene lists
 mv411<-subset(mean.diffs,CellLine=='MV411')
+molm14<-subset(mean.diffs,CellLine=='MOLM14')
+tots<-subset(mean.diffs,CellLine=='Both')
+
 prot.univ<-unique(gilt.data$Gene)
 
 ```
 
-#### FGF2 treated MV411
+#### FGF2 treated MV411, MOLM14 and both
 
-```{r,echo=FALSE, warning=FALSE,results='hide'}
-genes.with.values=mv411%>%ungroup()%>%dplyr::select(Gene,value=FGF2_to_parent)
+FGF2-treate cells show up-regulation of a handful of pathways including immune-related pathways.
+
+```{r,echo=FALSE, warning=FALSE,fig.width=10}
+genes.with.values=mv411%>%
+    ungroup()%>%
+    subset(Condition=='FGF2')%>%
+    dplyr::select(Gene,value=condition_to_control)
 
 mv411.fgf2=computeGSEA(genes.with.values,prot.univ)
 
-clusterProfiler::barplot(mv411.fgf2,showCategory=20)+ggplot2::ggtitle("GO Terms for MV411 FGF2")
-genes.with.values = mv411%>%ungroup()%>%dplyr::select(Gene,value=FL_to_parent)
-```
+enrichplot::ridgeplot(mv411.fgf2)+ggplot2::ggtitle("GO Terms for MV411 FGF2")
+  ggplot2::ggsave('MV411_FGF2_GO.png',width=16,height=8)
 
-#### FL treated MV411
+genes.with.values=molm14%>%
+    ungroup()%>%
+    subset(Condition=='FGF2')%>%
+    dplyr::select(Gene,value=condition_to_control)
 
-```{r,echo=FALSE, warning=FALSE,results='hide'}
-mv411.fl=computeGSEA(genes.with.values,prot.univ)
-
-if(nrow(as.data.frame(mv411.fl))>0){
-  clusterProfiler::barplot(mv411.fl,showCategory=20)+ggplot2::ggtitle("GO Terms for MV411 FLT3 Ligand")
-  ggplot2::ggsave('MV411_FL_GO.png')
-}
-
-```
-
-The results show distinct pathways enriched in the FLT3 ligand and FGF2 treated cells.
-
-
-#### FGF2 vs FL treatment
-Here we look at FGF2 vs FL3 ligand.
- 
-```{r mv411 diff, echo=FALSE,warning=FALSE,results='hide'}
-genes.with.values=mv411%>%mutate(FGF2_vs_FLT=FGF2_to_parent-FL_to_parent)%>%
-  ungroup()%>%dplyr::select(Gene,value=FGF2_vs_FLT)
-mv411.diff=computeGSEA(genes.with.values,prot.univ)
-
-if(nrow(as.data.frame(mv411.diff))>0){
-clusterProfiler::barplot(mv411.diff,showCategory=20)+ggplot2::ggtitle("GO Terms for MV411 FGF2 vs FLT3 Ligase")
-    ggplot2::ggsave('MV411_FL_vs_FGF2_GO.png')
-
-}
-
-
-```
-
-### FGF2 and FLT3 Ligand in MOLM14 
-
-How do these plots compare to the MV411 cell lines? One would hope they'd be the same.
-
-```{r molm14, echo=T,warning=FALSE,results='hide'}
-
-molm14<-subset(mean.diffs,CellLine=='MOLM14')
-prot.univ<-unique(gilt.data$Gene)
-```
-
-#### FGF2 treated MOLM14
-The plot below shows the GO terms enriched between FGF2-treated cells and parental MOLM14 cells.
-
-```{r, echo=T,warning=FALSE,results='hide'}
-genes.with.values=molm14%>%ungroup()%>%dplyr::select(Gene,value=FGF2_to_parent)
 molm14.fgf2=computeGSEA(genes.with.values,prot.univ)
 
-if(nrow(as.data.frame(molm14.fgf2))>0){
-clusterProfiler::barplot(molm14.fgf2,showCategory=20)+ggplot2::ggtitle("GO Terms for molm14 FGF2")
-    ggplot2::ggsave('MOLM14_FGF2_GO.png')
+enrichplot::ridgeplot(molm14.fgf2)+ggplot2::ggtitle("GO Terms for MOLM14 FGF2")
+  ggplot2::ggsave('molm14_FGF2_GO.png',width=16,height=8)
 
-}
+genes.with.values=tots%>%
+    ungroup()%>%
+    subset(Condition=='FGF2')%>%
+    dplyr::select(Gene,value=condition_to_control)
+
+tot.fgf2=computeGSEA(genes.with.values,prot.univ)
+
+enrichplot::ridgeplot(tot.fgf2)+ggplot2::ggtitle("GO Terms for Combined FGF2")
+  ggplot2::ggsave('total_FGF2_GO.png',width=16,height=8)
+
+  DT::datatable(subset(mean.diffs,p_adj<0.05))
+
 ```
 
-#### FL treated MOLM14
 
-The plot below shows the GO terms enriched between FLT3 Ligand-treated cells and parental MOLM14 cells.
 
-```{r,echo=FALSE,warning=FALSE,results='hide'}
 
-molm14.fl=computeGSEA(molm14%>%ungroup()%>%dplyr::select(Gene,value=FL_to_parent),prot.univ)
+### FL treatment in both cell lines
+
+Now let's measure the impact of FLT3 ligand in both cell lines. It seems to up-regulate similar pathwaays
+
+
+```{r,echo=FALSE, warning=FALSE,fig.width=10}
+
+genes.with.values=mv411%>%
+    ungroup()%>%
+    subset(Condition=='FL')%>%
+    dplyr::select(Gene,value=condition_to_control)
+
+mv411.fl=computeGSEA(genes.with.values,prot.univ)
+
+
+if(nrow(as.data.frame(mv411.fl))>0){
+  enrichplot::ridgeplot(mv411.fl,showCategory=20)+ggplot2::ggtitle("GO Terms for MV411 FLT3 Ligand")
+  ggplot2::ggsave('MV411_FL_GO.png',width=16,height=8)
+}
+
+
+genes.with.values=molm14%>%
+    ungroup()%>%
+    subset(Condition=='FL')%>%
+    dplyr::select(Gene,value=condition_to_control)
+
+molm14.fl=computeGSEA(genes.with.values,prot.univ)
 
 if(nrow(as.data.frame(molm14.fl))>0){
-  clusterProfiler::barplot(molm14.fl,showCategory=20)+ggplot2::ggtitle("GO Terms for molm14 FLT3 Ligand")
-    ggplot2::ggsave('MOLM14_FL_GO.png')
-
-}
-```
-
-#### FGF2 vs FL treatment
-
-Here we look at the difference between FGF2 and FL ligand in both cell lines.
-```{r molm14 diff,echo=FALSE,warning=FALSE,results='hide'}
-genes.with.values=molm14%>%mutate(FGF2_vs_FLT=FGF2_to_parent-FL_to_parent)%>%
-  ungroup()%>%dplyr::select(Gene,value=FGF2_vs_FLT)
-molm14.diff=computeGSEA(genes.with.values,prot.univ)
-if(nrow(as.data.frame(molm14.diff))>0){
-clusterProfiler::barplot(mv411.diff,showCategory=20)+ggplot2::ggtitle("GO Terms for MOLM14 FGF2 vs FLT3 Ligase")
-    ggplot2::ggsave('MOLM14_FL_vs_FGF2_GO.png')
-
+  enrichplot::ridgeplot(molm14.fl,showCategory=20)+ggplot2::ggtitle("GO Terms for MOLM14 FLT3 Ligand")
+  ggplot2::ggsave('MOLM14_FL_GO.png',width=16,height=8)
 }
 
+
+
+genes.with.values=tots%>%
+    ungroup()%>%
+    subset(Condition=='FL')%>%
+    dplyr::select(Gene,value=condition_to_control)
+
+tot.fl=computeGSEA(genes.with.values,prot.univ)
+
+if(nrow(as.data.frame(tot.fl))>0){
+  enrichplot::ridgeplot(tot.fl,showCategory=20)+ggplot2::ggtitle("GO Terms for both cells FLT3 Ligand")
+  ggplot2::ggsave('total_FL_GO.png',width=16,height=8)
+}
+
+
 ```
 
+We have similar pathways enriched.
 
+### FGF2 vs FL treatment
+
+So our primary question is realy to identify what is similar and different between the two ligand treatments. For that we originally just take the difference of differences between the two. Those proteins that are highly similar in FC or different in FC will show up at alternate ends of the list and can therefore be compared.
+
+ 
+```{r diff, echo=FALSE,warning=FALSE,fig.width=10}
+
+mean.diffs<-amlresistancenetworks::computeFoldChangePvals(early.data,
+                                                          control='FL',
+                                                          conditions=c("FGF2"))
+
+mv411.diffs<-amlresistancenetworks::computeFoldChangePvals(subset(early.data, CellLine=='MV411'),
+                                                          control='FL',
+                                                          conditions=c("FGF2"))
+
+molm14.diffs<-amlresistancenetworks::computeFoldChangePvals(subset(early.data,CellLine=='MOLM14'),
+                                                          control='FL',
+                                                          conditions=c("FGF2"))
+
+tot.diff<-mean.diffs%>%dplyr::select(Gene,value=condition_to_control)
+  
+
+combined.diff=computeGSEA(tot.diff,prot.univ)
+
+if(nrow(as.data.frame(combined.diff))>0){
+  enrichplot::ridgeplot(combined.diff,showCategory=20)+ggplot2::ggtitle("GO Terms for all FGF2 vs FLT3 Ligase")
+    ggplot2::ggsave('bothCells_FL_vs_FGF2_GO.png',width=16,height=8)
+
+}
+
+DT::datatable(subset(mean.diffs,p_adj<0.05))
+
+##now compute for MV411
+tot.diff<-mv411.diffs%>%dplyr::select(Gene,value=condition_to_control)
+  
+
+combined.diff=computeGSEA(tot.diff,prot.univ)
+
+if(nrow(as.data.frame(combined.diff))>0){
+  enrichplot::ridgeplot(combined.diff,showCategory=20)+ggplot2::ggtitle("GO Terms for MV411 FGF2 vs FLT3 Ligase")
+    ggplot2::ggsave('MV411_FL_vs_FGF2_GO.png',width=16,height=8)
+
+}
+
+DT::datatable(subset(mv411.diffs,p_adj<0.05))
+
+##now compute for MOLM
+tot.diff<-molm14.diffs%>%dplyr::select(Gene,value=condition_to_control)
+  
+
+combined.diff=computeGSEA(tot.diff,prot.univ)
+
+if(nrow(as.data.frame(combined.diff))>0){
+  enrichplot::ridgeplot(combined.diff,showCategory=20)+ggplot2::ggtitle("GO Terms for MOLM FGF2 vs FLT3 Ligase")
+    ggplot2::ggsave('MOLM_FL_vs_FGF2_GO.png',width=16,height=8)
+
+}
+DT::datatable(subset(molm14.diffs,p_adj<0.05))
+
+
+```
