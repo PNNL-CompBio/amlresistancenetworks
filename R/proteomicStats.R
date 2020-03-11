@@ -15,9 +15,11 @@ computeProteinNetwork<-function(terms,nrand=100){
   
   
   subnet <- PCSF_rand(ppi, terms, n=nrand, r=0.3,w = 4, b = 50, mu = 0.0005)
+  #now add back in values from terminals
   
   subnet  
 }
+
 
 
 #' compute differences between gene lists
@@ -112,7 +114,7 @@ computeFoldChangePvals<-function(g.data,
 #' @param genes.with.values of genes and difference values
 #' @param prot.univ the space of all proteins we are considering
 #' @return gSEA output type stuff
-computeGSEA<-function(genes.with.values,prot.univ){
+computeGSEA<-function(genes.with.values,prot.univ,prefix){
 
     require(org.Hs.eg.db)
   genes.with.values<-genes.with.values%>%
@@ -136,6 +138,12 @@ computeGSEA<-function(genes.with.values,prot.univ){
   if(nrow(as.data.frame(gr))==0){
     gr<-clusterProfiler::GSEA(genelist[!is.na(genelist)],TERM2GENE = t2g,pAdjustMethod = 'fdr',pvalueCutoff = 0.1)
   }
+  
+  
+  enrichplot::ridgeplot(gr)+ggplot2::ggtitle(paste0("GO Terms for ",prefix))
+  ggplot2::ggsave(paste0(prefix,'_GO.png'),width=16,height=8)
+  
+  ge
     return(gr)
   }
 
