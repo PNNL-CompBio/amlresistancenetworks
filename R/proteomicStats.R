@@ -4,19 +4,24 @@
 #' @import PCSF
 #' @export
 #' 
-computeProteinNetwork<-function(terms,nrand=100){
+computeProteinNetwork<-function(sig.vals,all.vals,nrand=100){
   require(PCSF)
-  
+
   data("STRING")
   
   ppi <- construct_interactome(STRING)
   
- names(terms)<-vals$Gene
   
+  terms<-sig.vals$value
+ names(terms)<-sig.vals$Gene
+  print(paste('Building subnetwork with',length(terms),'terminals'))
   
-  subnet <- PCSF_rand(ppi, terms, n=nrand, r=0.3,w = 4, b = 50, mu = 0.0005)
-  #now add back in values from terminals
+  subnet <- PCSF_rand(ppi,abs(terms), n=nrand, r=0.3,w = 4, b = 50, mu = 0.0005)
+  #now add back in values from terminals as attributes
   
+  lfcs<-all.vals$value[match(names(V(subnet)),all.vals$Gene)]
+  lfcs[is.na(lfcs)]<-0.0
+  subnet<-igraph::set.vertex.attribute(subnet,'logFoldChange',index=V(subnet),value=lfcs)
   subnet  
 }
 
@@ -108,7 +113,7 @@ computeFoldChangePvals<-function(g.data,
 
 #' compute gene set enrichment
 #' @export
-#' @importFrom clusterProfiler GSEA
+#' @import clusterProfiler
 #' @importFrom msigdbr msigdbr
 #' @import org.Hs.eg.db
 #' @param genes.with.values of genes and difference values
@@ -117,33 +122,20 @@ computeFoldChangePvals<-function(g.data,
 computeGSEA<-function(genes.with.values,prot.univ,prefix){
 
     require(org.Hs.eg.db)
-  genes.with.values<-genes.with.values%>%
-      rename(SYMBOL='Gene')%>%
-    left_join(AnnotationDbi::select(org.Hs.eg.db,keys=keys(org.Hs.eg.db,'ENTREZID'),
-                                    columns=c("ENTREZID","SYMBOL"),by='SYMBOL'))
-  
     genes.with.values<-genes.with.values%>%arrange(desc(value))
     
   genelist=genes.with.values$value
- # names(genelist)=genes.with.values$SYMBOL
-   names(genelist)=genes.with.values$ENTREZID
+   names(genelist)=genes.with.values$Gene
   
- # t2g= msigdbr::msigdbr(species="Homo sapiens",category="C2")%>%dplyr::select(gs_id,human_gene_symbol)
-    t2g= msigdbr::msigdbr(species="Homo sapiens",category="C5")%>%
-      subset(human_gene_symbol%in%prot.univ)%>%
-               dplyr::select(gs_name,entrez_gene)
-  #  t2n =msigdbr::msigdbr(species="Homo sapiens",category="C2")%>%dplyr::select(gs_id,gs_name)
-  
-  gr<-clusterProfiler::GSEA(genelist[!is.na(genelist)],TERM2GENE = t2g,pAdjustMethod = 'fdr')
+  gr<-clusterProfiler::gseGO(genelist[!is.na(genelist)],ont="BP",keyType="SYMBOL",OrgDb=org.Hs.eg.db,pAdjustMethod = 'BH')#,eps=1e-10)
   if(nrow(as.data.frame(gr))==0){
-    gr<-clusterProfiler::GSEA(genelist[!is.na(genelist)],TERM2GENE = t2g,pAdjustMethod = 'fdr',pvalueCutoff = 0.1)
+    gr<-clusterProfiler::gseGO(genelist[!is.na(genelist)],ont="BP",keyType="SYMBOL",OrgDb=org.Hs.eg.db,pAdjustMethod = 'BH',pvalueCutoff = 0.1)#,eps=1e-10)
   }
   
+  enrichplot::ridgeplot(gr,showCategory = 50,fill='pvalue')+ggplot2::ggtitle(paste0("GO Terms for ",prefix))
+  ggplot2::ggsave(paste0(prefix,'_GO.png'),width=16,height=16)
   
-  enrichplot::ridgeplot(gr)+ggplot2::ggtitle(paste0("GO Terms for ",prefix))
-  ggplot2::ggsave(paste0(prefix,'_GO.png'),width=16,height=8)
   
-  ge
-    return(gr)
+  return(gr)
   }
 
