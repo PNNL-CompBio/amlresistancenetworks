@@ -4,7 +4,7 @@
 \alias{computeGSEA}
 \title{compute gene set enrichment}
 \usage{
-computeGSEA(genes.with.values, prot.univ)
+computeGSEA(genes.with.values, prot.univ, prefix)
 }
 \arguments{
 \item{genes.with.values}{of genes and difference values}

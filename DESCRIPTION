@@ -1,9 +1,10 @@
 Package: amlresistancenetworks
 Title: Calculates networks that lead to AML resistance to drugs
 Version: 0.1
-Authors: 
-Description: 
+Author: Sara Gosline
+Maintainer: Sara Gosline <sara.gosline@pnnl.gov>
+Description: A small package that experiments with getting AML resistance networks
 Depends:
-License:
+License: MIT
 LazyData: true
-RoxygenNote: 7.0.2
+RoxygenNote: 7.1.0

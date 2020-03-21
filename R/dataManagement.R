@@ -2,6 +2,7 @@
 
 #' reads in metadata from excel spreadsheet and tidies it
 #' @require readxl
+#' @require dplyr
 #' 
 
 readAndTidyMetadata<-function(){
@@ -15,15 +16,17 @@ readAndTidyMetadata<-function(){
       dplyr::select(Sample,cellLine,treatment,flask,ligand)
   
   #update cell line
-  cl<-subset(metadata,cellLine=='10M')%>%select(Sample,treatment)%>%mutate(cellLine=stringr::str_replace(treatment,'parental ',''))%>%select(Sample,cellLine)%>%mutate(treatment='None',ligand='None')
+  cl<-subset(metadata,cellLine=='10M')%>%dplyr::select(Sample,treatment)%>%mutate(cellLine=stringr::str_replace(treatment,'parental ',''))%>%
+      dplyr::select(Sample,cellLine)%>%mutate(treatment='None',ligand='None')
  
-  lig.dat<-metadata%>%subset(!is.na(ligand))%>%select(c(flask,cellLine,ligand))
+  lig.dat<-metadata%>%subset(!is.na(ligand))%>%
+    dplyr::select(c(flask,cellLine,ligand))
   
   fin=metadata%>%
     subset(cellLine!='10M')%>%
     dplyr::select(cellLine,treatment,flask,Sample)%>%
     left_join(lig.dat,by=c('flask','cellLine'))%>%
-    select(-flask)%>%
+    dplyr::select(-flask)%>%
     rbind(cl)
   
   
@@ -36,18 +39,44 @@ readAndTidyMetadata<-function(){
 
 #' reads in metadata from excel spreadsheet and tidies it
 #' @require readxl
+#' @require dplyr
+#' @require tidyr
 #' 
 
 readAndTidyQuizMetadata<-function(){
-  metadata<-readxl::read_xlsx('../../Projects/CPTAC/quizartLabelingMetadata.xlsx',skip=3)
+  metadata<-readxl::read_xlsx('../../Projects/CPTAC/ex12_data/quizartLabelingMetadata.xlsx',skip=3)
   
   res<-metadata%>%
-      rowwise()%>%
-      mutate(SampleTemp=paste(Plex,`Sample #`,sep='.'))%>%
-      mutate(Sample=stringr::str_replace(SampleTemp,'Sample ',''))%>%
+      dplyr::rowwise()%>%
+    dplyr::mutate(SampleTemp=paste(Plex,`Sample #`,sep='.'))%>%
+    dplyr::mutate(Sample=stringr::str_replace(SampleTemp,'Sample ',''))%>%
       dplyr::select(Sample,`Sample Name`,Ligand)
   
-  fin<-res%>%separate(`Sample Name`,into=c(CellLine,Flask),by=',')
+  fin<-res%>%
+    tidyr::separate(col=`Sample Name`,into=c('tmpCellLine','Flask'),sep=', ')%>%
+    dplyr::mutate(treatment='None')
+  
+  
+  pfin<-subset(fin,is.na(Flask))%>%
+    dplyr::select(Sample,treatment)%>%
+    dplyr::mutate(cellLine='MOLM14',Ligand='None')
+  
+  lig<-fin%>%
+    dplyr::select(Flask,tmpLigand='Ligand')%>%distinct()%>%
+    subset(!is.na(tmpLigand))%>%
+    rowwise()%>%
+    mutate(Ligand=stringr::str_replace(tmpLigand,'FLT3 ligand','FLT3'))%>%
+    dplyr::select(Flask,Ligand)
+
+
+  tnfin<-subset(fin,!is.na(Flask))%>%
+      dplyr::select(Sample,Flask)%>%
+      mutate(cellLine='MOLM14')%>%
+      left_join(lig,by='Flask')%>%
+    dplyr::select(Sample,treatment,cellLine,treatment='Ligand')
+  
+  fin<-rbind(tnfin,pfin)
+  
   return(fin)
   
 }
@@ -56,12 +85,14 @@ readAndTidyQuizMetadata<-function(){
 #' joins with metadata
 #' saves tidied data and returns
 #' @export
+#' @require dplyr
 #
 readAndTidyProtMeasures<-function(){
   metadata<-readAndTidyMetadata()
-  dat<-read.table('../../ex12_data/ptrc_ex12_global_median_centered_with_genes.txt',sep='\t',header=T)
+  dat<-read.table('../../projects/CPTAC/ex12_data/ptrc_ex12_global_median_centered_with_genes.txt',sep='\t',header=T)
   library(tidyr)
-  gilteritinib.data<-tidyr::pivot_longer(dat,-c(Protein,Gene),"Sample")%>%dplyr::left_join(metadata,by='Sample')
+  gilteritinib.data<-tidyr::pivot_longer(dat,-c(Protein,Gene),"Sample")%>%
+      dplyr::left_join(metadata,by='Sample')
 saveRDS(gilteritinib.data,file='inst/gilteritinibData.Rds')
   return(gilteritinib.data)
 
@@ -73,14 +104,76 @@ saveRDS(gilteritinib.data,file='inst/gilteritinibData.Rds')
 #' joins with metadata
 #' saves tidied data and returns
 #' @export
+#' @require dplyr
+#' @require tidyr
 #
 readAndTidyQuizProtMeasures<-function(){
   metadata<-readAndTidyQuizMetadata()
-  dat<-read.table('../../Projects/CPTAC/ptrc_exp12_global_round2_with_genes.txt',sep='\t',header=T)
+  dat<-read.table('../../Projects/CPTAC/ex12_data/ptrc_exp12_global_round2_with_genes.txt',sep='\t',header=T)
   library(tidyr)
-  quiz.data<-tidyr::pivot_longer(dat,-c(Entry_name,Gene),"Sample")%>%dplyr::left_join(metadata,by='Sample')
-  saveRDS(gilteritinib.data,file='inst/quizartinibData.Rds')
-  return(gilteritinib.data)
+  quiz.data<-tidyr::pivot_longer(dat,-c(Entry_name,Gene),"Sample")%>%
+      dplyr::left_join(metadata,by='Sample')
+  saveRDS(quiz.data,file='inst/quizartinibData.Rds')
+  return(quiz.data)
   
 }
 
+
+
+#' reads and tidies experiment 11 metadata
+#' @require dplyr
+#' @require readxl
+#'
+readAndTidySensMetadata<-function(){
+  samp.names<-readxl::read_xlsx('../../Projects/CPTAC/ex11_data/Agarwal_PNNL_CPs_Final list 012919.xlsx')%>%
+    dplyr::select(c(`Specimen ID`,Barcode))%>%
+    dplyr::rename(`AML sample`='Specimen ID')%>%
+    distinct()
+  
+  metadata<-readxl::read_xlsx('../../Projects/CPTAC/ex11_data/PNNL_031120.xlsx',sheet=2,skip=1)%>%
+    subset(!is.na(`AML sample`))%>%
+    subset(`AML sample`!='AML sample')
+  
+  clin.data<-metadata%>%
+    tidyr::pivot_longer(cols=c(Sex,`ELN Risk`,`Disease status`,`FLT3-ITD`,NPM1,comment),names_to='Clinical Variable',values_to='Clinical Value')%>%
+    dplyr::select(Age,`Clinical Variable`,`Clinical Value`,`AML sample`)%>%
+    distinct()
+  ic50<-metadata%>%
+    tidyr::pivot_longer(cols=c(2,3,4),names_to='IC50 Condition',values_to='Value')%>%
+    dplyr::select(`AML sample`,`IC50 Condition`,Value)%>%
+    tidyr::separate(`IC50 Condition`,into=c("Condition","Metric"),sep=' ')%>%
+    distinct()
+  auc<-metadata%>%
+    tidyr::pivot_longer(cols=c(5,6,7),names_to='AUC Condition',values_to='Value')%>%
+    dplyr::select(`AML sample`,`AUC Condition`,Value)%>%
+    tidyr::separate(`AUC Condition`,into=c("Condition","Metric"),sep=' ')%>%
+    distinct()
+  
+  pd.ic50<-metadata%>%
+    tidyr::pivot_longer(cols=c(8,9,10),names_to='IC50 Condition',values_to='Value')%>%
+    dplyr::select(`AML sample`,`IC50 Condition`,Value)%>%
+    tidyr::separate(`IC50 Condition`,into=c("Condition","Metric"),sep=' ')%>%
+    distinct()
+  pd.auc<-metadata%>%
+    tidyr::pivot_longer(cols=c(11,12,13),names_to='AUC Condition',values_to='Value')%>%
+    dplyr::select(`AML sample`,`AUC Condition`,Value)%>%
+    tidyr::separate(`AUC Condition`,into=c("Condition","Metric"),sep=' ')%>%
+    distinct()
+  
+  
+  full.metadata<-rbind(auc,ic50,pd.ic50,pd.auc)%>%
+    left_join(clin.data,by='AML sample')%>%
+    left_join(samp.names)
+    
+  return(full.metadata)
+}
+
+#' reads and tidies bulk proteomic data for experiment 11
+#' @require dplyr
+#' @require tidyr
+#' @export
+#' 
+readAndTidySensProtMeasure<-function(){
+  metadata<-readAndtidySensMetadata()
+  dat<-read.table('../../Projects/CPTAC/ex11_data/ptrc_ex11_kurtz_2plex_global_d2_with_genes.txt',sep='\t',header=T)
+}

@@ -4,7 +4,11 @@
 \alias{computeFoldChangePvals}
 \title{Reads in data frame and computes fold change}
 \usage{
-computeFoldChangePvals(g.data, control = "None", conditions = c("FL", "FGF2"))
+computeFoldChangePvals(
+  g.data,
+  control = "None",
+  conditions = c("FLT3", "FGF2")
+)
 }
 \arguments{
 \item{data.frame}{}

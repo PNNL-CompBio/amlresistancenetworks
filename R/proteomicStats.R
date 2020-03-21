@@ -62,23 +62,24 @@ computeNetworkDifferences<-function(network1,network2){
 #' 
 computeFoldChangePvals<-function(g.data,
                                  control='None',
-                                 conditions=c("FL","FGF2")){
+                                 conditions=c("FLT3","FGF2")){
   
   data<-g.data%>%
-    dplyr::select(CellLine,Gene,value,treatment)%>%
+    dplyr::select(cellLine,Gene,value,treatment)%>%
     subset(!is.na(value))%>%
     subset(!is.na(Gene))
   
   
   #remove those data that have only 1 replicate  
   reps<-data%>%
-    group_by(CellLine,Gene,treatment)%>%
+    group_by(cellLine,Gene,treatment)%>%
     dplyr::mutate(reps=length(value))%>%
     subset(reps>1)%>%
     ungroup()        
   
   ##this function iterates through every ligand of interest and compares it to 'None'
   lig.signif<-purrr::map_df(conditions,function(lig){
+    print(lig)
     #compute the significance for FL-modulaetd changes in both cell lines
     reps%>%
       subset(treatment%in%c(control,lig))%>% #get only those valuese that are 'nOne' or the name of the ligand
@@ -88,7 +89,7 @@ computeFoldChangePvals<-function(g.data,
       dplyr::group_modify(~infer::t_test(.,value~treatment,order=c(lig,control)),keep=TRUE)%>% #calculate p-value
       dplyr::select(c(Gene,p_value))%>%  #select the valuese of interest for us
       ungroup()%>%
-    #  dplyr::group_by(CellLine)%>% #regroup so that we can correct the p-values
+    #  dplyr::group_by(cellLine)%>% #regroup so that we can correct the p-values
       dplyr::mutate(p_adj=p.adjust(p_value),Condition=lig,Control=control)%>% #adjust
       ungroup()
   })
@@ -116,24 +117,41 @@ computeFoldChangePvals<-function(g.data,
 #' @import clusterProfiler
 #' @importFrom msigdbr msigdbr
 #' @import org.Hs.eg.db
+#' @import AnnotationDbi
 #' @param genes.with.values of genes and difference values
 #' @param prot.univ the space of all proteins we are considering
 #' @return gSEA output type stuff
 computeGSEA<-function(genes.with.values,prot.univ,prefix){
 
     require(org.Hs.eg.db)
-    genes.with.values<-genes.with.values%>%arrange(desc(value))
+    mapping<-as.data.frame(org.Hs.egALIAS2EG)%>%
+        dplyr::rename(Gene='alias_symbol')
+    
+    genes.with.values<-genes.with.values%>%
+      dplyr::left_join(mapping,by='Gene')%>%
+      arrange(desc(value))
     
   genelist=genes.with.values$value
-   names(genelist)=genes.with.values$Gene
+   names(genelist)=genes.with.values$gene_id
   
-  gr<-clusterProfiler::gseGO(genelist[!is.na(genelist)],ont="BP",keyType="SYMBOL",OrgDb=org.Hs.eg.db,pAdjustMethod = 'BH')#,eps=1e-10)
-  if(nrow(as.data.frame(gr))==0){
-    gr<-clusterProfiler::gseGO(genelist[!is.na(genelist)],ont="BP",keyType="SYMBOL",OrgDb=org.Hs.eg.db,pAdjustMethod = 'BH',pvalueCutoff = 0.1)#,eps=1e-10)
-  }
+  # symbs<-names(genelist)[!is.na(genelist)]
+  # xx <- as.list(org.Hs.egALIAS2EG)
+  # ents<-unlist(sapply(intersect(names(xx),symbs), function(x) xx[[x]]))
+  # print(ents)
+   
+  #gr<-clusterProfiler::gseGO(genelist[!is.na(genelist)],ont="BP",keyType="SYMBOL",
+   #                          OrgDb=org.Hs.eg.db,pAdjustMethod = 'BH')#,eps=1e-10)
+   gr<-clusterProfiler::gseKEGG(genelist[!is.na(genelist)],organism='hsa',keyType="kegg",
+                             #OrgDb=org.Hs.eg.db,
+                             pAdjustMethod = 'BH')#,eps=1e-10)
+   
+ # if(nrow(as.data.frame(gr))==0){
+#    gr<-clusterProfiler::gseGO(genelist[!is.na(genelist)],ont="BP",keyType="SYMBOL",
+  #                             OrgDb=org.Hs.eg.db,pAdjustMethod = 'BH',pvalueCutoff = 0.1)#,eps=1e-10)
+#  }
   
-  enrichplot::ridgeplot(gr,showCategory = 50,fill='pvalue')+ggplot2::ggtitle(paste0("GO Terms for ",prefix))
-  ggplot2::ggsave(paste0(prefix,'_GO.png'),width=16,height=16)
+  enrichplot::ridgeplot(gr,showCategory = 50,fill='pvalue')+ggplot2::ggtitle(paste0("KEGG Terms for ",prefix))
+  ggplot2::ggsave(paste0(prefix,'_KEGG.pdf'),width=10,height=10)
   
   
   return(gr)
