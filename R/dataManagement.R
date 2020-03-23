@@ -6,7 +6,7 @@
 #' 
 
 readAndTidyMetadata<-function(){
-  metadata<-readxl::read_xlsx('../../Projects/CPTAC/LabelingMetadata_exp12.xlsx')
+  metadata<-readxl::read_xlsx('../../Projects/CPTAC/ex12_data/LabelingMetadata_exp12.xlsx')
  
   #update sample
   metadata$Sample<-sapply(metadata$`Sample ID`,function(x) paste('Sample',x,sep='_'))
@@ -73,7 +73,7 @@ readAndTidyQuizMetadata<-function(){
       dplyr::select(Sample,Flask)%>%
       mutate(cellLine='MOLM14')%>%
       left_join(lig,by='Flask')%>%
-    dplyr::select(Sample,treatment,cellLine,treatment='Ligand')
+    dplyr::select(Sample,cellLine,treatment='Ligand')%>%mutate(treatment='Quizartinib')
   
   fin<-rbind(tnfin,pfin)
   
@@ -130,39 +130,39 @@ readAndTidySensMetadata<-function(){
     dplyr::rename(`AML sample`='Specimen ID')%>%
     distinct()
   
-  metadata<-readxl::read_xlsx('../../Projects/CPTAC/ex11_data/PNNL_031120.xlsx',sheet=2,skip=1)%>%
+  metadata<-readxl::read_xlsx('../../Projects/CPTAC/ex11_data/Agarwal_PNNL_CPs_Final list 012919_mod032020.xlsx',sheet=1,skip=1)%>%
     subset(!is.na(`AML sample`))%>%
     subset(`AML sample`!='AML sample')
   
-  clin.data<-metadata%>%
-    tidyr::pivot_longer(cols=c(Sex,`ELN Risk`,`Disease status`,`FLT3-ITD`,NPM1,comment),names_to='Clinical Variable',values_to='Clinical Value')%>%
-    dplyr::select(Age,`Clinical Variable`,`Clinical Value`,`AML sample`)%>%
-    distinct()
+ # clin.data<-metadata%>%
+#    tidyr::pivot_longer(cols=c(Sex,`ELN Risk`,`Disease status`,`FLT3-ITD`,NPM1,comment),names_to='Clinical Variable',values_to='Clinical Value')%>%
+#    dplyr::select(Age,`Clinical Variable`,`Clinical Value`,`AML sample`)%>%
+#    distinct()
   ic50<-metadata%>%
-    tidyr::pivot_longer(cols=c(2,3,4),names_to='IC50 Condition',values_to='Value')%>%
+    tidyr::pivot_longer(cols=c(4,5,6),names_to='IC50 Condition',values_to='Value')%>%
     dplyr::select(`AML sample`,`IC50 Condition`,Value)%>%
-    tidyr::separate(`IC50 Condition`,into=c("Condition","Metric"),sep=' ')%>%
+    tidyr::separate(`IC50 Condition`,into=c("Metric","Condition"),sep=' ')%>%
     distinct()
   auc<-metadata%>%
-    tidyr::pivot_longer(cols=c(5,6,7),names_to='AUC Condition',values_to='Value')%>%
+    tidyr::pivot_longer(cols=c(7,8,9),names_to='AUC Condition',values_to='Value')%>%
     dplyr::select(`AML sample`,`AUC Condition`,Value)%>%
-    tidyr::separate(`AUC Condition`,into=c("Condition","Metric"),sep=' ')%>%
+    tidyr::separate(`AUC Condition`,into=c("Metric","Condition"),sep=' ')%>%
     distinct()
+  # 
+  # pd.ic50<-metadata%>%
+  #   tidyr::pivot_longer(cols=c(8,9,10),names_to='IC50 Condition',values_to='Value')%>%
+  #   dplyr::select(`AML sample`,`IC50 Condition`,Value)%>%
+  #   tidyr::separate(`IC50 Condition`,into=c("Condition","Metric"),sep=' ')%>%
+  #   distinct()
+  # pd.auc<-metadata%>%
+  #   tidyr::pivot_longer(cols=c(11,12,13),names_to='AUC Condition',values_to='Value')%>%
+  #   dplyr::select(`AML sample`,`AUC Condition`,Value)%>%
+  #   tidyr::separate(`AUC Condition`,into=c("Condition","Metric"),sep=' ')%>%
+  #   distinct()
+  # 
   
-  pd.ic50<-metadata%>%
-    tidyr::pivot_longer(cols=c(8,9,10),names_to='IC50 Condition',values_to='Value')%>%
-    dplyr::select(`AML sample`,`IC50 Condition`,Value)%>%
-    tidyr::separate(`IC50 Condition`,into=c("Condition","Metric"),sep=' ')%>%
-    distinct()
-  pd.auc<-metadata%>%
-    tidyr::pivot_longer(cols=c(11,12,13),names_to='AUC Condition',values_to='Value')%>%
-    dplyr::select(`AML sample`,`AUC Condition`,Value)%>%
-    tidyr::separate(`AUC Condition`,into=c("Condition","Metric"),sep=' ')%>%
-    distinct()
-  
-  
-  full.metadata<-rbind(auc,ic50,pd.ic50,pd.auc)%>%
-    left_join(clin.data,by='AML sample')%>%
+  full.metadata<-rbind(auc,ic50)%>%
+    #left_join(clin.data,by='AML sample')%>%
     left_join(samp.names)
     
   return(full.metadata)
@@ -174,6 +174,15 @@ readAndTidySensMetadata<-function(){
 #' @export
 #' 
 readAndTidySensProtMeasure<-function(){
-  metadata<-readAndtidySensMetadata()
-  dat<-read.table('../../Projects/CPTAC/ex11_data/ptrc_ex11_kurtz_2plex_global_d2_with_genes.txt',sep='\t',header=T)
+  metadata<-readAndTidySensMetadata()
+  dat<-read.table('../../Projects/CPTAC/ex11_data/ptrc_ex11_kurtz_2plex_global_d2_with_genes.txt',sep='\t',header=T)%>%
+    tidyr::pivot_longer(cols=c(3:ncol(dat)),names_to='Sample', values_to='LogFoldChange')%>%
+    mutate(Barcode=as.numeric(stringr::str_replace(Sample,"X","")))%>%
+    dplyr::select(Barcode,Gene, LogFoldChange)%>%
+    dplyr::left_join(metadata,by='Barcode')
+  
+  drugSensData<-dat
+  saveRDS(drugSensData,file='inst/gilteritinibSensitivityData.Rds')
+  
+  dat
 }

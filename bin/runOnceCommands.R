@@ -5,4 +5,6 @@ library(amlresistancenetworks)
 ##only run this once
 readAndTidyProtMeasures()
 
-readAndTidyQuizProtMeasures()
+#readAndTidyQuizProtMeasures()
+
+readAndTidySensProtMeasure()
