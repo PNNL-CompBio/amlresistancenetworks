@@ -1,7 +1,5 @@
 ##drug sensitivity statistics
 
-
-' 
 #' Get correlated proteins
 #' Computes protein correlations with dose response metric, either AUC or IC50
 #' returns list of drugs, proteins and correlation values
