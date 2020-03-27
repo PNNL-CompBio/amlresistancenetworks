@@ -2,9 +2,9 @@
 % Please edit documentation in R/proteomicStats.R
 \name{computeGSEA}
 \alias{computeGSEA}
-\title{compute gene set enrichment}
+\title{compute gene set enrichment - osama's code wrapped in package.}
 \usage{
-computeGSEA(genes.with.values, prot.univ, prefix)
+computeGSEA(genes.with.values, prefix, gsea_FDR = 0.05)
 }
 \arguments{
 \item{genes.with.values}{of genes and difference values}
@@ -13,7 +13,11 @@ computeGSEA(genes.with.values, prot.univ, prefix)
 }
 \value{
 gSEA output type stuff
+* GSEA using gene ontology biological process gene sets
 }
 \description{
-compute gene set enrichment
+compute gene set enrichment - osama's code wrapped in package.
+}
+\author{
+Osama
 }
