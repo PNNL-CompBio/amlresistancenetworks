@@ -58,15 +58,15 @@ dn=FALSE #no networks for one run
 #quiz.data<-readRDS()
 
 #molm14
-m.vs.parental<-plotDataByCondition(gilt.data,control='None',condition=c('Early Gilteritinib','Late Gilteritinib'),cellLine='MOLM14',doNetwork=dn)
+#m.vs.parental<-plotDataByCondition(gilt.data,control='None',condition=c('Early Gilteritinib','Late Gilteritinib'),cellLine='MOLM14',doNetwork=dn)
 
-m.late.early<-plotDataByCondition(gilt.data,condition='Late Gilteritinib',control='Early Gilteritinib',cellLine='MOLM14',doNetwork=dn)
+#m.late.early<-plotDataByCondition(gilt.data,condition='Late Gilteritinib',control='Early Gilteritinib',cellLine='MOLM14',doNetwork=dn)
 
 
 #mv411
-v.vs.parental<-plotDataByCondition(gilt.data,control='None',condition=c('Early Gilteritinib','Late Gilteritinib'),cellLine='MV411',doNetwork=dn)
+#v.vs.parental<-plotDataByCondition(gilt.data,control='None',condition=c('Early Gilteritinib','Late Gilteritinib'),cellLine='MV411',doNetwork=dn)
 
-v.late.early<-plotDataByCondition(gilt.data,condition='Late Gilteritinib',control='Early Gilteritinib',cellLine='MV411',doNetwork=dn)
+#v.late.early<-plotDataByCondition(gilt.data,condition='Late Gilteritinib',control='Early Gilteritinib',cellLine='MV411',doNetwork=dn)
 
 
 sapply(c("FGF2","FLT3"),function(lig){

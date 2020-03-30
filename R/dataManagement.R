@@ -100,6 +100,25 @@ saveRDS(gilteritinib.data,file='inst/gilteritinibData.Rds')
 
 
 
+#' reads and tidies phosphoprotein measurements
+#' joins with metadata
+#' saves tidied data and returns
+#' @export
+#' @require dplyr
+#
+readAndTidyPhosphoProtMeasures<-function(){
+  metadata<-readAndTidyMetadata()
+  dat<-read.table('../../projects/CPTAC/ex12_data/ptrc_ex12_phospho_median_centered_stoich_with_sites.txt',sep='\t',header=T)
+  library(tidyr)
+  gilt.phospho.data<-dat%>%
+    tidyr::pivot_longer(-c(Protein,Gene,site,Peptide),"Sample")%>%
+    dplyr::left_join(metadata,by='Sample')
+
+    saveRDS(gilt.phospho.data,file='inst/giltPhosphoData.Rds')
+  return(gilt.phospho.data)
+  
+}
+
 #' reads and tidies protein measurements from quizartinib treatment
 #' joins with metadata
 #' saves tidied data and returns
@@ -175,14 +194,13 @@ readAndTidySensMetadata<-function(){
 #' 
 readAndTidySensProtMeasure<-function(){
   metadata<-readAndTidySensMetadata()
-  dat<-read.table('../../Projects/CPTAC/ex11_data/ptrc_ex11_kurtz_2plex_global_d2_with_genes.txt',sep='\t',header=T)%>%
-    tidyr::pivot_longer(cols=c(3:ncol(dat)),names_to='Sample', values_to='LogFoldChange')%>%
-    mutate(Barcode=as.numeric(stringr::str_replace(Sample,"X","")))%>%
+  dat<-read.table('../../Projects/CPTAC/ex11_data/ptrc_ex11_kurtz_2plex_global_d2_with_genes.txt',sep='\t',header=T)
+    
+  drugSensData<-dat%>%tidyr::pivot_longer(cols=c(3:ncol(dat)),names_to='Sample', values_to='LogFoldChange')%>%
+    dplyr::mutate(Barcode=as.numeric(stringr::str_replace(Sample,"X","")))%>%
     dplyr::select(Barcode,Gene, LogFoldChange)%>%
     dplyr::left_join(metadata,by='Barcode')
   
-  drugSensData<-dat
   saveRDS(drugSensData,file='inst/gilteritinibSensitivityData.Rds')
-  
-  dat
+  return(drugSensData)
 }

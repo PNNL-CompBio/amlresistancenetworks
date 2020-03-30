@@ -5,7 +5,7 @@ gilt.pdat<-readRDS(system.file('giltPhosphoData.Rds',package='amlresistancenetwo
 
 
 library(KSEAapp)
-
+library(dplyr)
 
 #'this is our main analysis function  
 #'it computes differential expression betwee control and various conditions
@@ -39,8 +39,8 @@ plotPhosphoByCondition<-function(data,control='None',condition=c('Early Gilterit
                                                  prefix=paste(prefix,cellLine,gsub(' ','',control),'vs',gsub(' ','',cond),sep='_'))
     
     if(doNetworks){
-      lig.network<-computeProteinNetwork(sig.vals=subset(diff.res,p_adj<0.05),
-                                         all.vals=diff.res,nrand=1000)
+      lig.network<-computeProteinNetwork(sig.vals=subset(diff.res,p_adj<0.005)%>%subset(abs(value)>1),
+                                         all.vals=diff.res,nrand=1000,beta=.5)
       RCy3::createNetworkFromIgraph(lig.network,title=paste(prefix,cellLine,
                                                             gsub(' ','',control),'vs',gsub(' ','',cond),sep='_'))
     }
@@ -51,6 +51,7 @@ plotPhosphoByCondition<-function(data,control='None',condition=c('Early Gilterit
 }
 
 
+dn=TRUE
 #molm14
 m.vs.parental<-plotPhosphoByCondition(gilt.pdat,control='None',condition=c('Early Gilteritinib','Late Gilteritinib'),cellLine='MOLM14',doNetwork=dn)
 
@@ -61,3 +62,16 @@ m.late.early<-plotPhosphoByCondition(gilt.pdat,condition='Late Gilteritinib',con
 v.vs.parental<-plotPhosphoByCondition(gilt.pdat,control='None',condition=c('Early Gilteritinib','Late Gilteritinib'),cellLine='MV411',doNetwork=dn)
 
 v.late.early<-plotPhosphoByCondition(gilt.pdat,condition='Late Gilteritinib',control='Early Gilteritinib',cellLine='MV411',doNetwork=dn)
+
+dn=FALSE
+
+
+sapply(c("FGF2","FLT3"),function(lig){
+  m.early.net<-plotPhosphoByCondition(subset(gilt.pdat,ligand%in%c('None',lig)),
+                                   control='None',
+                                   condition='Early Gilteritinib',
+                                   cellLine='MOLM14',doNetwork=dn,prefix=lig)
+  v.early.net<-plotPhosphoByCondition(subset(gilt.pdat,ligand%in%c('None',lig)),
+                                   control='None',condition='Early Gilteritinib',
+                                   cellLine='MV411',doNetwork=dn,prefix=lig)
+})

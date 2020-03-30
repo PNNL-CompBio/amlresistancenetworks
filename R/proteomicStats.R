@@ -1,10 +1,20 @@
 ##proteomic stats
 
 
+#' takes multiple lists of proteins and creates networks
+#' then merges them to find a single community
+#' @import multinet
+#' @param protLists lists of proteins by condition
+#' @return shared graph
+createCommunityGraph<-function(protLists,nrand,beta){
+  
+}
+
+
 #' @import PCSF
 #' @export
 #' 
-computeProteinNetwork<-function(sig.vals,all.vals,nrand=100){
+computeProteinNetwork<-function(sig.vals,all.vals,nrand=100,beta=50){
   require(PCSF)
 
   data("STRING")
@@ -16,7 +26,7 @@ computeProteinNetwork<-function(sig.vals,all.vals,nrand=100){
  names(terms)<-sig.vals$Gene
   print(paste('Building subnetwork with',length(terms),'terminals'))
   
-  subnet <- PCSF_rand(ppi,abs(terms), n=nrand, r=0.3,w = 4, b = 50, mu = 0.0005)
+  subnet <- PCSF_rand(ppi,abs(terms), n=nrand, r=0.3,w = 4, b = beta, mu = 0.0005)
   #now add back in values from terminals as attributes
   
   lfcs<-all.vals$value[match(names(V(subnet)),all.vals$Gene)]
@@ -26,26 +36,38 @@ computeProteinNetwork<-function(sig.vals,all.vals,nrand=100){
 }
 
 
-
-#' compute differences between gene lists
-#' @export
-#' @param protein FC data frame
-#' @return genes with distance values
-computeFCDistances<-function(proteins.with.lfc){
-  
+#'
+#'limmaTwoFactorDEAnalysis
+#'uses Osama's code to compute de from limma
+#'@author Osama
+#'@import limma
+#'@param data matrix
+#'@param group1 ids
+#'@param group2 ids
+limmaTwoFactorDEAnalysis <- function(dat, sampleIDs.group1, sampleIDs.group2) {
+  # Conduct DE expression analysis using limma from the expression matrix dat (group2 vs group1, group1 is reference)
+  #
+  # Args:
+  #   dat: Expression data matrix, rows are genes, columns are samples
+  #   sampleIDs.group1: Vector with ids of samples in reference group (eg. normal samples)
+  #   sampleIDs.group2: Vector with ids of samples in interest group (eg. tumor samples) 
+  #
+  # Returns:
+  #   limma Differential Expression results.
+  #
+  #http://www.biostat.jhsph.edu/~kkammers/software/CVproteomics/R_guide.html
+  #http://genomicsclass.github.io/book/pages/using_limma.html
+  #https://wiki.bits.vib.be/index.php/Tutorial:_Testing_for_differential_expression_I
+  library(limma)
+  fac <- factor(rep(c(2,1), c(length(sampleIDs.group2), length(sampleIDs.group1))))
+  design <- model.matrix(~fac)
+  fit <- lmFit(dat[,c(sampleIDs.group2, sampleIDs.group1)], design)
+  fit <- eBayes(fit)
+  print(topTable(fit, coef=2))
+  res <- topTable(fit, coef=2, number=Inf, sort.by="none")
+  res <- data.frame(featureID=rownames(res), res, stringsAsFactors = F)
+  return(res)
 }
-
-
-#' compute differences between networks
-#' @export
-#' @param network 1
-#' @param network 2
-#' @return genes and list of distance values
-computeNetworkDifferences<-function(network1,network2){
-  
-}
-
-
 
 
 #' Reads in data frame and computes fold change
@@ -65,7 +87,7 @@ computeFoldChangePvals<-function(g.data,
                                  conditions=c("FLT3","FGF2")){
   
   data<-g.data%>%
-    dplyr::select(cellLine,Gene,value,treatment)%>%
+    dplyr::select(cellLine,Gene,value,treatment,Sample)%>%
     subset(!is.na(value))%>%
     subset(!is.na(Gene))
   
@@ -77,52 +99,172 @@ computeFoldChangePvals<-function(g.data,
     subset(reps>1)%>%
     ungroup()        
   
-  ##this function iterates through every ligand of interest and compares it to 'None'
-  lig.signif<-purrr::map_df(conditions,function(lig){
+  
+  lig.datasets<-purrr::map_df(conditions,function(lig){
     print(lig)
-    #compute the significance for FL-modulaetd changes in both cell lines
-    reps%>%
+    g1<-subset(reps,treatment==control)%>%select(Sample)%>%distinct()
+    g2<-subset(reps,treatment==lig)%>%select(Sample)%>%distinct()
+    matp=reps%>%
       subset(treatment%in%c(control,lig))%>% #get only those valuese that are 'nOne' or the name of the ligand
-      dplyr::group_by(Gene)%>% #group by cell line and gene to get per-gene values
-      dplyr::mutate(treatment=as.factor(treatment))%>% #change to factor for t-test
-      dplyr::mutate(conds=n_distinct(treatment))%>% subset(conds>1)%>% #only get those for which there are sufficient reps
-      dplyr::group_modify(~infer::t_test(.,value~treatment,order=c(lig,control)),keep=TRUE)%>% #calculate p-value
-      dplyr::select(c(Gene,p_value))%>%  #select the valuese of interest for us
-      ungroup()%>%
-    #  dplyr::group_by(cellLine)%>% #regroup so that we can correct the p-values
-      dplyr::mutate(p_adj=p.adjust(p_value),Condition=lig,Control=control)%>% #adjust
-      ungroup()
-  })
-  
-  lig.fc<-purrr::map_df(conditions,function(lig){
-    reps%>%
-      subset(treatment%in%c(control,lig))%>% #get only those valuese that are 'nOne' or the name of the ligand
-      dplyr::mutate(treatment=stringr::str_replace(treatment,lig,'condition'))%>% #rename so we can spread
-      dplyr::mutate(treatment=stringr::str_replace(treatment,control,'conVal'))%>% #rename so we can spread
-      ungroup()%>%dplyr::group_by(Gene,treatment)%>%
-      dplyr::summarize(meanVal=mean(value))%>% #calculate mean across cell line/gene/treatment
-      tidyr::pivot_wider(names_from=treatment,values_from = meanVal)%>% #spread to compute difference
-      dplyr::mutate(condition_to_control=condition-conVal,Condition=lig,Control=control)%>% #compute difference
-      dplyr::select(Gene,Condition,Control,condition_to_control)
-  })
-  lig.datasets<-
-    lig.signif%>%full_join(lig.fc,by=c('Gene','Condition','Control'))
-  
+      dplyr::select(Gene,Sample,value)%>%distinct()%>%
+      tidyr::pivot_wider(values_from=value,names_from=Sample,values_fn=list(value=mean))%>%
+      tibble::column_to_rownames("Gene")
+    limmaTwoFactorDEAnalysis(matp,unlist(g1),unlist(g2))%>%
+      dplyr::mutate(Condition=lig,Control=control)%>%
+      dplyr::select(Gene=featureID,Condition,Control,condition_to_control=logFC,p_val=P.Value,p_adj=adj.P.Val)
+    })
+ 
   return(lig.datasets) 
 }
 
 
-#' compute gene set enrichment
+#' compute gene set enrichment - osama's code wrapped in package.
 #' @export
-#' @import clusterProfiler
-#' @importFrom msigdbr msigdbr
-#' @import org.Hs.eg.db
-#' @import AnnotationDbi
+#' @import WebGestaltR
+#' @import ggplot2
+#' @author Osama 
 #' @param genes.with.values of genes and difference values
 #' @param prot.univ the space of all proteins we are considering
 #' @return gSEA output type stuff
-computeGSEA<-function(genes.with.values,prot.univ,prefix){
+computeGSEA<-function(genes.with.values,prefix,gsea_FDR=0.01){
 
+  library(WebGestaltR)
+  library(ggplot2)
+  inputdfforWebGestaltR <- genes.with.values%>%
+      dplyr::rename(genes='Gene',scores='value')%>%
+      dplyr::arrange(scores)
+  
+  
+  #' * GSEA using gene ontology biological process gene sets
+  
+  go.bp.res.WebGestaltR <- WebGestaltR(enrichMethod = "GSEA", 
+                                       organism="hsapiens", 
+                                       enrichDatabase="geneontology_Biological_Process", 
+                                       interestGene=inputdfforWebGestaltR, 
+                                       interestGeneType="genesymbol", 
+                                       collapseMethod="mean", perNum = 1000,
+                                       fdrThr = gsea_FDR, nThreads = 2, isOutput = F)
+  write.table(go.bp.res.WebGestaltR, paste0("proteomics_", prefix, "_gseaGO_result.txt"), sep="\t", row.names=FALSE, quote = F)
+  
+  top_gseaGO <- go.bp.res.WebGestaltR %>% 
+    filter(FDR < gsea_FDR) %>% 
+    dplyr::rename(pathway = description, NES = normalizedEnrichmentScore) %>% 
+    arrange(desc(NES)) %>% 
+    dplyr::mutate(status = case_when(NES > 0 ~ "Up",
+                              NES < 0 ~ "Down"),
+           status = factor(status, levels = c("Up", "Down"))) %>% 
+   #group_by(status) %>% 
+    top_n(40, wt = NES) %>% 
+    ungroup() %>% 
+    ggplot2::ggplot(aes(x=reorder(pathway, NES), y=NES)) +
+    geom_bar(stat='identity', aes(fill=status)) +
+    scale_fill_manual(values = c("Up" = "darkred", "Down" = "dodgerblue4")) +
+    coord_flip() +
+    theme_minimal() +
+    theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 18),
+          axis.title.x = element_text(size=16),
+          axis.title.y = element_blank(), 
+          axis.text.x = element_text(size = 14),
+          axis.text.y=element_text(size = 14),
+          axis.line.y = element_blank(),
+          axis.ticks.y = element_blank(),
+          legend.position = "none") +
+    labs(title = "", y="NES") +#for some reason labs still works with orientation before cord flip so set y
+    ggtitle(paste('Up-regulated',prefix))
+  ggsave(paste0("upRegProts_", prefix,"_gseaGO_plot.pdf"), top_gseaGO, height = 8.5, width = 11, units = "in")
+
+  bot_gseaGO <- go.bp.res.WebGestaltR %>% 
+    filter(FDR < gsea_FDR) %>% 
+    dplyr::rename(pathway = description, NES = normalizedEnrichmentScore) %>% 
+    arrange(NES) %>% 
+    dplyr::mutate(status = case_when(NES > 0 ~ "Up",
+                                     NES < 0 ~ "Down"),
+                  status = factor(status, levels = c("Up", "Down"))) %>% 
+    #group_by(status) %>% 
+    top_n(40, wt = rev(NES)) %>% 
+    ungroup() %>% 
+    ggplot2::ggplot(aes(x=reorder(pathway, rev(NES)), y=NES)) +
+    geom_bar(stat='identity', aes(fill=status)) +
+    scale_fill_manual(values = c("Up" = "darkred", "Down" = "dodgerblue4")) +
+    coord_flip() +
+    theme_minimal() +
+    theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 18),
+          axis.title.x = element_text(size=16),
+          axis.title.y = element_blank(), 
+          axis.text.x = element_text(size = 14),
+          axis.text.y=element_text(size = 14),
+          axis.line.y = element_blank(),
+          axis.ticks.y = element_blank(),
+          legend.position = "none") +
+    labs(title = "", y="NES") +#for some reason labs still works with orientation before cord flip so set y
+    ggtitle(paste('Down-regulated',prefix))
+  ggsave(paste0("downRegProts_", prefix,"_gseaGO_plot.pdf"), bot_gseaGO, height = 8.5, width = 11, units = "in")
+  
+ return(go.bp.res.WebGestaltR) 
+}
+
+
+
+#' compute kinase substrate enrichment - osama's code wrapped in package.
+#' @export
+#' @import KSEAapp
+#' @import readr
+#' @import dplyr
+#' @author Osama 
+#' @param genes.with.values of genes and difference values
+#' @param prot.univ the space of all proteins we are considering
+#' @return KSEA output type stuff
+computeKSEA<-function(genes.with.values,ksea_FDR=0.05,prefix=''){
+  library(KSEAapp)
+  
+  inputdfforKSEA <- data.frame(Protein=rep("NULL", nrow(genes.with.values)), 
+                               Gene=genes.with.values$Gene,
+                               Peptide=rep("NULL", nrow(genes.with.values)),
+                               Residue.Both=genes.with.values$residue,
+                               p=genes.with.values$p_adj,
+                               FC=2^(genes.with.values$value), stringsAsFactors = F)
+  
+  #read kinase substrate database stored in data folder
+  KSDB <- read.csv(system.file('PSP&NetworKIN_Kinase_Substrate_Dataset_July2016.csv',package='amlresistancenetworks'),stringsAsFactors = FALSE)
+  
+  #' * KSEA using not only the known substrates in PSP but also the predicted substrates in NetworKIN
+  res<-KSEA.Complete(KSDB, inputdfforKSEA, NetworKIN=FALSE, NetworKIN.cutoff=5, m.cutoff=5, p.cutoff=ksea_FDR)
+   file.remove("KSEA Bar Plot.tiff")
+  file.remove("Kinase-Substrate Links.csv")
+  #make own plot of KSEA results
+  res_ksea <- readr::read_csv("KSEA Kinase Scores.csv")
+  
+  plot_KSEA <- res_ksea %>% 
+    #mutate(p.value = p.adjust(p.value)) %>% 
+    filter(m >= 5) %>% 
+    arrange(desc(z.score)) %>% 
+    mutate(status = case_when(z.score > 0 & p.value <= ksea_FDR ~ "Up",
+                              z.score < 0 & p.value <= ksea_FDR ~ "Down",
+                              TRUE ~ "Not significant")) %>% 
+    filter(status != "Not significant") %>%
+    ggplot(aes(x=reorder(Kinase.Gene, z.score), y=z.score)) +
+    geom_bar(stat='identity', aes(fill=status)) +
+    scale_fill_manual(values = c("Down" = "blue", "Up" = "red", "Not significant" = "black")) +
+    coord_flip() +
+    theme(legend.position="none", 
+          axis.title.x = element_text(size=16),
+          axis.title.y = element_blank(), 
+          axis.text.x = element_text(size = 14),
+          axis.text.y=element_text(size = 14),
+          axis.line.y = element_blank(),
+          axis.ticks.y = element_blank()) +
+    labs(y="Kinase z-score") #for some reason labs still works with orientation before cord flip so set y 
+  file.remove("KSEA Kinase Scores.csv")
+  ggsave(paste0(prefix,"fig_KSEA.pdf"), plot_KSEA, height = 8.5, width = 11, units = "in")
+  
+  return(res_ksea)
+}
+
+
+
+#' Old plot using clusterProfiler
+#' 
+plotOldGSEA<-function(genes.with.values,prot.univ,prefix){
     require(org.Hs.eg.db)
     mapping<-as.data.frame(org.Hs.egALIAS2EG)%>%
         dplyr::rename(Gene='alias_symbol')
