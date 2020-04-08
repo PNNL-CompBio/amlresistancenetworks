@@ -11,10 +11,31 @@ createCommunityGraph<-function(protLists,nrand,beta){
 }
 
 
+#'
+#'plot single protein
+#'@import dplyr
+#'@import ggplot2
+#'@export
+#'@param gene
+#'@param df tidied data fraome
+#'@param prefix
+plotSingleProtein<-function(gene,df,prefix=''){
+    subset(df,Gene==gene)%>%
+    ggplot2::ggplot(aes(x=treatment,y=value))+
+      ggplot2::geom_jitter(aes(col=ligand),position=position_dodge(0.8)) +
+      ggplot2::geom_boxplot(aes(fill=ligand,alpha=0.5),outlier.shape=NA,position=position_dodge(0.8))+
+      ggplot2::facet_grid(~cellLine)+
+      ggplot2::ggtitle(paste(gene,'Expression',prefix))
+    ggsave(paste0(prefix,gene,'Expression.png'))
+  
+}
+
+
+
 #' @import PCSF
 #' @export
 #' 
-computeProteinNetwork<-function(sig.vals,all.vals,nrand=100,beta=50){
+computeProteinNetwork<-function(sig.vals,all.vals,phos.vals=NULL,nrand=100,beta=1000/nrow(sig.vals)){
   require(PCSF)
 
   data("STRING")
@@ -32,6 +53,13 @@ computeProteinNetwork<-function(sig.vals,all.vals,nrand=100,beta=50){
   lfcs<-all.vals$value[match(names(V(subnet)),all.vals$Gene)]
   lfcs[is.na(lfcs)]<-0.0
   subnet<-igraph::set.vertex.attribute(subnet,'logFoldChange',index=V(subnet),value=lfcs)
+  
+  if(!is.null(phos.vals)){
+    lpc<-phos.vals$value[match(names(V(subnet)),all.vals$Gene)]
+    lpc[is.na(lpc)]<-0.0
+    subnet<-igraph::set.vertex.attribute(subnet,'phosphoLogFoldChange',index=V(subnet),value=lpc)
+    
+  }
   subnet  
 }
 
@@ -85,6 +113,8 @@ limmaTwoFactorDEAnalysis <- function(dat, sampleIDs.group1, sampleIDs.group2) {
 computeFoldChangePvals<-function(g.data,
                                  control='None',
                                  conditions=c("FLT3","FGF2")){
+  
+  print(unique(g.data$cellLine))
   
   data<-g.data%>%
     dplyr::select(cellLine,Gene,value,treatment,Sample)%>%
@@ -153,8 +183,8 @@ computeGSEA<-function(genes.with.values,prefix,gsea_FDR=0.01){
     dplyr::mutate(status = case_when(NES > 0 ~ "Up",
                               NES < 0 ~ "Down"),
            status = factor(status, levels = c("Up", "Down"))) %>% 
-   #group_by(status) %>% 
-    top_n(40, wt = NES) %>% 
+   #\group_by(status) %>% 
+    top_n(30, wt = NES) %>% 
     ungroup() %>% 
     ggplot2::ggplot(aes(x=reorder(pathway, NES), y=NES)) +
     geom_bar(stat='identity', aes(fill=status)) +
@@ -173,6 +203,35 @@ computeGSEA<-function(genes.with.values,prefix,gsea_FDR=0.01){
     ggtitle(paste('Up-regulated',prefix))
   ggsave(paste0("upRegProts_", prefix,"_gseaGO_plot.pdf"), top_gseaGO, height = 8.5, width = 11, units = "in")
 
+  
+  all_gseaGO <- go.bp.res.WebGestaltR %>% 
+    filter(FDR < gsea_FDR) %>% 
+    dplyr::rename(pathway = description, NES = normalizedEnrichmentScore) %>% 
+    arrange(NES) %>% 
+    dplyr::mutate(status = case_when(NES > 0 ~ "Up",
+                                     NES < 0 ~ "Down"),
+                  status = factor(status, levels = c("Up", "Down"))) %>% 
+    group_by(status) %>% 
+    top_n(20, wt = abs(NES)) %>% 
+    ungroup() %>% 
+    ggplot2::ggplot(aes(x=reorder(pathway, NES), y=NES)) +
+    geom_bar(stat='identity', aes(fill=status)) +
+    scale_fill_manual(values = c("Up" = "darkred", "Down" = "dodgerblue4")) +
+    coord_flip() +
+    theme_minimal() +
+    theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 18),
+          axis.title.x = element_text(size=16),
+          axis.title.y = element_blank(), 
+          axis.text.x = element_text(size = 14),
+          axis.text.y=element_text(size = 14),
+          axis.line.y = element_blank(),
+          axis.ticks.y = element_blank(),
+          legend.position = "none") +
+    labs(title = "", y="NES") +#for some reason labs still works with orientation before cord flip so set y
+    ggtitle(paste('All',prefix))
+  ggsave(paste0("allRegProts_", prefix,"_gseaGO_plot.pdf"), all_gseaGO, height = 8.5, width = 11, units = "in")
+  
+  
   bot_gseaGO <- go.bp.res.WebGestaltR %>% 
     filter(FDR < gsea_FDR) %>% 
     dplyr::rename(pathway = description, NES = normalizedEnrichmentScore) %>% 
@@ -281,11 +340,11 @@ plotOldGSEA<-function(genes.with.values,prot.univ,prefix){
   # ents<-unlist(sapply(intersect(names(xx),symbs), function(x) xx[[x]]))
   # print(ents)
    
-  #gr<-clusterProfiler::gseGO(genelist[!is.na(genelist)],ont="BP",keyType="SYMBOL",
-   #                          OrgDb=org.Hs.eg.db,pAdjustMethod = 'BH')#,eps=1e-10)
-   gr<-clusterProfiler::gseKEGG(genelist[!is.na(genelist)],organism='hsa',keyType="kegg",
+  gr<-clusterProfiler::gseGO(genelist[!is.na(genelist)],ont="BP",keyType="SYMBOL",
+                             OrgDb=org.Hs.eg.db,pAdjustMethod = 'BH')#,eps=1e-10)
+#gr<-clusterProfiler::gseKEGG(genelist[!is.na(genelist)],organism='hsa',keyType="kegg",
                              #OrgDb=org.Hs.eg.db,
-                             pAdjustMethod = 'BH')#,eps=1e-10)
+#                           pAdjustMethod = 'BH')#,eps=1e-10)
    
  # if(nrow(as.data.frame(gr))==0){
 #    gr<-clusterProfiler::gseGO(genelist[!is.na(genelist)],ont="BP",keyType="SYMBOL",

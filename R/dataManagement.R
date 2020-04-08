@@ -167,24 +167,29 @@ readAndTidySensMetadata<-function(){
     dplyr::select(`AML sample`,`AUC Condition`,Value)%>%
     tidyr::separate(`AUC Condition`,into=c("Metric","Condition"),sep=' ')%>%
     distinct()
-  # 
-  # pd.ic50<-metadata%>%
-  #   tidyr::pivot_longer(cols=c(8,9,10),names_to='IC50 Condition',values_to='Value')%>%
-  #   dplyr::select(`AML sample`,`IC50 Condition`,Value)%>%
-  #   tidyr::separate(`IC50 Condition`,into=c("Condition","Metric"),sep=' ')%>%
-  #   distinct()
-  # pd.auc<-metadata%>%
-  #   tidyr::pivot_longer(cols=c(11,12,13),names_to='AUC Condition',values_to='Value')%>%
-  #   dplyr::select(`AML sample`,`AUC Condition`,Value)%>%
-  #   tidyr::separate(`AUC Condition`,into=c("Condition","Metric"),sep=' ')%>%
-  #   distinct()
-  # 
-  
+
   full.metadata<-rbind(auc,ic50)%>%
     #left_join(clin.data,by='AML sample')%>%
     left_join(samp.names)
     
   return(full.metadata)
+}
+
+#' reads and tidies phosphototeomic data for experimnet 11
+#' @require dplyr
+#' @require tidyr
+#' @export
+readAndTidySensPhosMeasures<-function(){
+  metadata<-readAndTidySensMetadata()
+  dat<-read.table('../../Projects/CPTAC/ex11_data/ptrc_ex11_kurtz_2plex_phospho_d2_stoich_with_sites.txt',sep='\t',header=T)
+  gilt.sens.pdata<-dat%>%
+    tidyr::pivot_longer(-c(Entry,Gene,site,Peptide,ids),"Sample")%>%
+    dplyr::mutate(Barcode=as.numeric(stringr::str_replace(Sample,"X","")))%>%
+    dplyr::left_join(metadata,by='Barcode')
+  
+  saveRDS(gilt.sens.pdata,file='inst/giltPhosphoSensData')
+  return(gilt.sens.pdata)
+  
 }
 
 #' reads and tidies bulk proteomic data for experiment 11

@@ -20,13 +20,13 @@ plotPhosphoByCondition<-function(data,control='None',condition=c('Early Gilterit
     dplyr::mutate(residue=stringr::str_replace(residue,"^;", ""))%>%
     dplyr::mutate(residue=stringr::str_replace_all(residue,"([sty])", ""))
     
-    
+  total.mean.diffs<-data%>%
+    dplyr::filter(cellLine==!!cellLine)%>%
+    dplyr::select(Gene=site,treatment,Sample,value,cellLine)%>%
+    amlresistancenetworks::computeFoldChangePvals(.,control,condition)%>%
+    dplyr::rename(site=Gene)%>%left_join(gene.to.site)
   
-  total.mean.diffs<-data%>%dplyr::select(Gene=site,treatment,Sample,value,cellLine)%>%
-      subset(cellLine==cellLine)%>%
-      amlresistancenetworks::computeFoldChangePvals(.,control,condition)%>%
-      dplyr::rename(site=Gene)%>%left_join(gene.to.site)
-  
+  print(head(total.mean.diffs))  
   
   ##first plot FGF2
   genes.with.values=purrr::map_df(condition,function(cond){
@@ -34,7 +34,6 @@ plotPhosphoByCondition<-function(data,control='None',condition=c('Early Gilterit
       ungroup()%>%
       subset(Condition==cond)%>%
       dplyr::select(Gene,value=condition_to_control,p_adj,Condition,residue,Peptide)
-    
     total.lig=amlresistancenetworks::computeKSEA(diff.res,
                                                  prefix=paste(prefix,cellLine,gsub(' ','',control),'vs',gsub(' ','',cond),sep='_'))
     
@@ -51,7 +50,11 @@ plotPhosphoByCondition<-function(data,control='None',condition=c('Early Gilterit
 }
 
 
-dn=TRUE
+#amlresistancenetworks::plotSingleProtein(gene='CPT1A',gilt.pdat,'phosphorylation')
+#amlresistancenetworks::plotSingleProtein(gene='CUL5',gilt.pdat,'phosphorylation')
+
+
+dn=FALSE
 #molm14
 m.vs.parental<-plotPhosphoByCondition(gilt.pdat,control='None',condition=c('Early Gilteritinib','Late Gilteritinib'),cellLine='MOLM14',doNetwork=dn)
 
@@ -69,9 +72,9 @@ dn=FALSE
 sapply(c("FGF2","FLT3"),function(lig){
   m.early.net<-plotPhosphoByCondition(subset(gilt.pdat,ligand%in%c('None',lig)),
                                    control='None',
-                                   condition='Early Gilteritinib',
+                                   condition=c('Early Gilteritinib','Late Gilteritinib'),
                                    cellLine='MOLM14',doNetwork=dn,prefix=lig)
   v.early.net<-plotPhosphoByCondition(subset(gilt.pdat,ligand%in%c('None',lig)),
-                                   control='None',condition='Early Gilteritinib',
+                                   control='None',condition=c('Early Gilteritinib','Late Gilteritinib'),
                                    cellLine='MV411',doNetwork=dn,prefix=lig)
 })
