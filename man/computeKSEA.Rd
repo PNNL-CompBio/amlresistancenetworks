@@ -4,7 +4,7 @@
 \alias{computeKSEA}
 \title{compute kinase substrate enrichment - osama's code wrapped in package.}
 \usage{
-computeKSEA(genes.with.values)
+computeKSEA(genes.with.values, ksea_FDR = 0.05, prefix = "")
 }
 \arguments{
 \item{genes.with.values}{of genes and difference values}
@@ -13,6 +13,7 @@ computeKSEA(genes.with.values)
 }
 \value{
 KSEA output type stuff
+* KSEA using not only the known substrates in PSP but also the predicted substrates in NetworKIN
 }
 \description{
 compute kinase substrate enrichment - osama's code wrapped in package.

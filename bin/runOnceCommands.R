@@ -10,3 +10,5 @@ readAndTidyPhosphoProtMeasures()
 #readAndTidyQuizProtMeasures()
 
 readAndTidySensProtMeasure()
+
+readAndTidySensPhosMeasures()

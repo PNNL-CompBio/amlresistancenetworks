@@ -4,7 +4,7 @@
 \alias{computeGSEA}
 \title{compute gene set enrichment - osama's code wrapped in package.}
 \usage{
-computeGSEA(genes.with.values, prefix, gsea_FDR = 0.05)
+computeGSEA(genes.with.values, prefix, gsea_FDR = 0.01)
 }
 \arguments{
 \item{genes.with.values}{of genes and difference values}
