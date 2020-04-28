@@ -12,3 +12,7 @@ readAndTidyPhosphoProtMeasures()
 readAndTidySensProtMeasure()
 
 readAndTidySensPhosMeasures()
+
+getPatientPhosphoBaselines()
+
+getPatientBaselines()

@@ -8,10 +8,6 @@ library(dplyr)
 sens.data<-readRDS(system.file('gilteritinibSensitivityData.Rds',package='amlresistancenetworks'))
 prot.univ<-unique(sens.data$Gene)
 
-
-#
-
-
 toBin<-function(y){
   sapply(y,function(x){
   if(is.na(x)){

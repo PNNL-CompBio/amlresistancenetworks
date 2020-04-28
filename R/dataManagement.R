@@ -209,3 +209,54 @@ readAndTidySensProtMeasure<-function(){
   saveRDS(drugSensData,file='inst/gilteritinibSensitivityData.Rds')
   return(drugSensData)
 }
+
+#'
+getPatientMetadata<-function(){
+#  samp.names<-readxl::read_xlsx('../../Projects/CPTAC/exp_3/PNNL_Mass spec_Pt samples 229nM sorafenib_10.10.18.xlsx')%>%
+#    dplyr::select(c(`Specimen ID`,Barcode))%>%
+#    dplyr::rename(`AML sample`='Specimen ID')%>%
+#    distinct()
+  patient.data<-readxl::read_xlsx('../../Projects/CPTAC/exp_3/SeaGen derivatives version 3 kdr[2].xlsx',sheet='metadata')
+  colnames(patient.data)<-c('Sample','Mutation','Other mutation','Sensitive','Resistant')
+  pdat<-patient.data%>%
+    tidyr::pivot_longer(c(Sensitive,Resistant),names_to='Status',values_drop_na=TRUE,values_to='Drug')%>%
+    tidyr::pivot_longer(c(Mutation,`Other mutation`),names_to='meh',values_drop_na=TRUE,values_to='Mutated')%>%
+    dplyr::select(-meh)%>%
+    tidyr::separate_rows('Drug',sep=', ')%>%
+    tidyr::separate_rows('Mutated',sep=', ')%>%
+    tidyr::separate_rows('Mutated',sep=',')%>%
+    subset(Drug!='Not tested')%>%
+    subset(Mutated!='none recorded')
+  pdat
+  
+}
+
+#' @export
+getPatientBaselines<-function(){
+  library(dplyr)
+  metadata<-getPatientMetadata()
+  dat<-read.table('../../Projects/CPTAC/exp_3/PTRC_baseline_global_std_ref_with_genes.txt',sep='\t',header=T)
+  patientProtSamples<-dat%>%tidyr::pivot_longer(cols=c(5:ncol(dat)),names_to='Sample', values_to='LogFoldChange')%>%
+    dplyr::mutate(specId=stringr::str_replace(Sample,"X",""))%>%
+    dplyr::mutate(Sample=stringr::str_replace(specId,stringr::fixed("."),"-"))%>%
+    dplyr::select(Sample,Gene, LogFoldChange)%>%
+    left_join(metadata)
+  saveRDS(patientProtSamples,file='inst/patientProtSampleData.Rds')
+  return(patientProtSamples)
+}
+
+
+#' @export
+getPatientPhosphoBaselines<-function(){
+  library(dplyr)
+  metadata<-getPatientMetadata()
+  dat<-read.table('../../Projects/CPTAC/exp_3/PTRC_baseline_phospho_std_ref_with_sites_stoich.txt',sep='\t',header=T)
+  patientPhosphoSamples<-dat%>%
+    tidyr::pivot_longer(-c(Entry,Gene,site,Peptide,ids,Entry_name),"Sample",values_to='LogFoldChange')%>%
+    dplyr::mutate(specId=stringr::str_replace(Sample,"X",""))%>%
+    dplyr::mutate(Sample=stringr::str_replace(specId,stringr::fixed("."),"-"))%>%
+    dplyr::select(Sample,Gene, site,Peptide,LogFoldChange)%>%
+    left_join(metadata)
+  saveRDS(patientPhosphoSamples,file='inst/patientPhosphoSampleData.Rds')
+  return(patientPhosphoSamples)
+}
