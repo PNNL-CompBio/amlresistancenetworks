@@ -151,4 +151,7 @@ getCorrelatedProteins<-function(data,metric="AUC"){
 #' @return dataFrame
 #' @require dplyr
 #' @export 
-getCoClusteredProteins(timeCourseData){}
+getCoClusteredProteins<-function(timeCourseData){
+  
+  
+}

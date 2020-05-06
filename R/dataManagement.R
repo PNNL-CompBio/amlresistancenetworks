@@ -260,3 +260,41 @@ getPatientPhosphoBaselines<-function(){
   saveRDS(patientPhosphoSamples,file='inst/patientPhosphoSampleData.Rds')
   return(patientPhosphoSamples)
 }
+
+getTimeCourseMetadata<-function(){
+  samp.data<-readxl::read_xlsx('../../Projects/CPTAC/exp_2/Pilot2_treated cell_TMT labels.xlsx')%>%
+    dplyr::select(Sample=`Tube name`,cellLine=`Cell line`,treatment=`Treated with`,timePoint=`Time point`)
+  return(samp.data)
+}
+#'@export
+getTimeCourseData<-function(){
+  library(dplyr)
+  metadata<-getTimeCourseMetadata()
+  dat<-read.csv2('../../Projects/CPTAC/exp_2/PTRC_pilot2_global_with_genes.txt',
+                  sep='\t',header=T)
+  timeCourseData<-dat%>%tidyr::pivot_longer(cols=c(4:ncol(dat)),names_to='sample', values_to='LogFoldChange')%>%
+    #dplyr::mutate(specId=stringr::str_replace(sample,".","-"))%>%
+    dplyr::mutate(Sample=stringr::str_replace(sample,stringr::fixed("."),"-"))%>%
+    dplyr::select(Sample,Gene, LogFoldChange)%>%
+    left_join(metadata)
+  
+  saveRDS(timeCourseData,file='inst/timeCourseData.Rds')
+  return(timeCourseData)
+  
+}
+
+#' @export
+getTimeCoursePhosphoData<-function(){
+  library(dplyr)
+  metadata<-getTimeCourseMetadata()
+  timeCoursePhospho<-read.csv2('../../Projects/CPTAC/exp_2/PTRC_pilot2_phospho_stoich_with_sites.txt',
+                 sep='\t',header=T)%>%
+    tidyr::pivot_longer(-c(Entry,Gene,site,Peptide,ids,Entry.name,Protein),"Sample",values_to='LogFoldChange')%>%
+    dplyr::mutate(specId=stringr::str_replace(Sample,"X",""))%>%
+    dplyr::mutate(Sample=stringr::str_replace(specId,stringr::fixed("."),"-"))%>%
+    dplyr::select(Sample,Gene, site,Peptide,LogFoldChange)%>%
+    left_join(metadata)
+  saveRDS(timeCoursePhospho,file='inst/timeCoursePhosphoData.Rds')
+  
+  
+}
