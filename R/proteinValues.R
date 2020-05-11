@@ -82,7 +82,6 @@ computeFoldChangePvals<-function(g.data,
     subset(!is.na(value))%>%
     subset(!is.na(Gene))
   
-  
   #remove those data that have only 1 replicate  
   reps<-data%>%
     group_by(cellLine,Gene,treatment)%>%
@@ -90,11 +89,10 @@ computeFoldChangePvals<-function(g.data,
     subset(reps>1)%>%
     ungroup()        
   
-  
   lig.datasets<-purrr::map_df(conditions,function(lig){
     print(lig)
-    g1<-subset(reps,treatment%in%control)%>%select(Sample)%>%distinct()
-    g2<-subset(reps,treatment==lig)%>%select(Sample)%>%distinct()
+    g1<-subset(reps,treatment%in%control)%>%dplyr::select(Sample)%>%distinct()
+    g2<-subset(reps,treatment==lig)%>%dplyr::select(Sample)%>%distinct()
     matp=reps%>%
       subset(treatment%in%c(control,lig))%>% #get only those valuese that are 'nOne' or the name of the ligand
       dplyr::select(Gene,Sample,value)%>%distinct()%>%
@@ -150,8 +148,42 @@ getCorrelatedProteins<-function(data,metric="AUC"){
 #' @param timeCourseData
 #' @return dataFrame
 #' @require dplyr
+#' @require amap
 #' @export 
-getCoClusteredProteins<-function(timeCourseData){
+getCoClusteredProteins<-function(prot.data){
   
+  library(amap)
+  # print(cellLine,treatment)
+  cellLine=unique(prot.data$cellLine)
+  treatment=unique(prot.data$treatment)
+  # print(head(prot.data))
+  mat<-prot.data%>%
+    dplyr::select(-c(cellLine,treatment))%>%
+    mutate(hours=if_else(timePoint=='16 hr',16,if_else(timePoint=='3 hr',3,.5)))%>%
+    mutate(val=as.numeric(as.character(LogFoldChange)))%>%
+    dplyr::select(-c(LogFoldChange,timePoint))%>%
+    tidyr::pivot_wider(values_from=val,names_from='hours',values_fn=list(val=mean))
   
+  mv<-which(apply(mat,1,function(x) any(is.na(x))))
+  if(length(mv)>0)
+    mat<-mat[-mv,]
+  # wss <-purrr::map_dbl(3:20, ~{Kmeans(dplyr::select(mat,-Gene),.,nstart=5,iter.max=30,method='pearson')$tot.withinss})
+  # ggplot(data.frame(k=3:20,wss=wss))+geom_point(aes(x=k,y=wss))
+  # ggsave(paste0(treatment,'_treated_',cellLine,'_cellsClusters.png'))
+  #let's choose k =10
+  clusters = Kmeans(dplyr::select(mat,-Gene),centers=10,nstart=20,iter.max=30,method='pearson')
+  centers <- tibble::rownames_to_column(as.data.frame(clusters$centers), "cluster")%>%
+    tidyr::pivot_longer(2:4,names_to='timepoint',values_to='logRatio')
+  
+  # ggplot(centers)+geom_path(aes(x=as.numeric(timepoint),y=logRatio,col=cluster,group=cluster))
+  mat$cluster = clusters$cluster 
+  
+  res<-mat%>%tidyr::pivot_longer(2:4,values_to='logRatio',names_to='time')
+  
+  ggplot(res,aes(x=as.numeric(time),y=logRatio,col=as.factor(cluster),group=Gene))+
+    geom_path()+facet_grid(.~cluster)+
+    ggtitle(paste(treatment,'treated',cellLine,'cells'))
+  ggsave(paste0(treatment,'_treated_',cellLine,'cells.png'))
+  
+  return(res)
 }

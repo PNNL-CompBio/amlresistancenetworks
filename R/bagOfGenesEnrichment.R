@@ -173,7 +173,9 @@ computeKSEA<-function(genes.with.values,ksea_FDR=0.05,prefix=''){
 
 
 #' Old plot using clusterProfiler
-#' 
+#' @export 
+#' @require org.Hs.eg.db
+#' @import clusterProfiler
 plotOldGSEA<-function(genes.with.values,prot.univ,prefix){
   require(org.Hs.eg.db)
   mapping<-as.data.frame(org.Hs.egALIAS2EG)%>%
@@ -209,3 +211,23 @@ plotOldGSEA<-function(genes.with.values,prot.univ,prefix){
   return(gr)
 }
 
+#'Runs regular bag of
+#'@export 
+#'@require org.Hs.eg.db
+#'@import clusterProfiler
+doRegularGo<-function(genes,bg=NULL){
+  require(org.Hs.eg.db)
+  #genes<-unique(as.character(genes.df$Gene))
+  mapping<-as.data.frame(org.Hs.egALIAS2EG)%>%
+    dplyr::rename(Gene='alias_symbol')
+  
+  eg<-subset(mapping,Gene%in%genes)
+  
+  res<-clusterProfiler::enrichGO(eg$gene_id,'org.Hs.eg.db',keyType='ENTREZID',ont='BP')
+    #sprint(res)
+  ret=as.data.frame(res)%>%
+    dplyr::select(ID,Description,pvalue,p.adjust)
+  return(ret)
+  
+  
+}
