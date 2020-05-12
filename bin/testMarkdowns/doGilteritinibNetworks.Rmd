@@ -1,0 +1,92 @@
+---
+title: "Gilteritinib Differential Network Analysis"
+date: "`r Sys.Date()`"
+output:
+  html_document: 
+    code_folding: hide
+    toc: yes
+    toc_float: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(amlresistancenetworks)
+require(dplyr)
+```
+
+
+
+## Get Data
+
+```{r Load Data, echo=FALSE, message=FALSE, warning=FALSE}
+gilt.data<-readRDS(system.file('gilteritinibData.Rds',package='amlresistancenetworks'))
+
+
+#rcalculate differences and p-values
+
+early.data<-gilt.data%>%
+    subset(treatment%in%(c('None','Early Gilteritinib')))%>%
+    dplyr::select(Gene,Sample,CellLine,ligand,value)%>%
+    rename(ligand='treatment')
+
+total.mean.diffs<-amlresistancenetworks::computeFoldChangePvals(early.data,control='None',conditions=c("FL","FGF2"))%>%
+  subset(p_adj<0.05)
+
+late.data<-gilt.data%>%
+    subset(treatment%in%(c('None','Late Gilteritinib')))%>%
+    subset(ligand=='None')%>%
+    dplyr::select(Gene,Sample,CellLine,treatment,value)
+
+
+
+late.diffs<-amlresistancenetworks::computeFoldChangePvals(late.data,control='None',conditions=c("Late Gilteritinib"))%>%subset(p_adj<0.05)
+
+
+```
+
+
+## Computing networks from diffex proteins
+
+This part runs the network
+```{r full network, echo=FALSE, waarning=FALSE}
+## Not run: 
+library("PCSF")
+data("STRING")
+
+ppi <- construct_interactome(STRING)
+
+vals<-total.mean.diffs%>%
+    subset(Condition=='FL')%>%
+    dplyr::select(condition_to_control,Gene)
+
+terms<-vals$condition_to_control
+names(terms)<-vals$Gene
+
+
+fl.subnet <- PCSF_rand(ppi, terms, n=1000, r=0.3,w = 4, b = 50, mu = 0.0005)
+
+vals<-total.mean.diffs%>%
+    subset(Condition=='FGF2')%>%
+    dplyr::select(condition_to_control,Gene)
+
+terms<-vals$condition_to_control
+names(terms)<-vals$Gene
+
+
+fgf2.subnet <- PCSF_rand(ppi, terms, n=1000,r=0.3,w = 4, b = 50, mu = 0.0005)
+
+
+vals<-late.diffs%>%
+  #  subset(Condition=='FGF2')%>%
+    dplyr::select(condition_to_control,Gene)
+
+terms<-vals$condition_to_control
+names(terms)<-vals$Gene
+
+late.subnet <- PCSF_rand(ppi, terms, n=1000,r=0.3,w = 4, b = 50, mu = 0.0005)
+#
+## End(Not run)
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

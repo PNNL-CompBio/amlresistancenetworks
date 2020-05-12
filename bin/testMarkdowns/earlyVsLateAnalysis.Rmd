@@ -1,0 +1,118 @@
+---
+title: "Early vs Late Gilteritinib"
+author: "Sara Gosline"
+date: "3/9/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(dplyr)
+require(amlresistancenetworks)
+```
+
+
+## Get Data
+
+This package has formatted the Gilteritnib-treated AML cells into a tidied data frame so they can be easily processed. Here is a summary of the samples collected so that we can better analyze them.
+
+_Samples collected_
+
+```{r Load Data}
+gilt.data<-readRDS(system.file('gilteritinibData.Rds',package='amlresistancenetworks'))
+prot.univ<-unique(gilt.data$Gene)
+
+#view as table
+samps<-gilt.data%>%
+  dplyr::select(c(Sample,ligand,CellLine,treatment))%>%distinct()
+
+DT::datatable(samps)
+```
+
+### Compute differential expression between early and late
+
+Here we compare early to late treatments
+```{r,echo=FALSE, include=FALSE, warning=FALSE,fig.width=10}
+
+late.data<-gilt.data%>%
+    subset(treatment%in%(c('None','Late Gilteritinib')))%>%
+    subset(ligand=='None')%>%
+    dplyr::select(Gene,Sample,CellLine,treatment,value)
+
+
+
+late.diffs<-amlresistancenetworks::computeFoldChangePvals(late.data,control='None',conditions=c("Late Gilteritinib"))
+
+molm.late.diffs<-amlresistancenetworks::computeFoldChangePvals(subset(late.data,CellLine=='MOLM14'),control='None',conditions=c("Late Gilteritinib"))
+mv411.late.diffs<-amlresistancenetworks::computeFoldChangePvals(subset(late.data,CellLine=='MV411'),control='None',conditions=c("Late Gilteritinib"))
+
+
+mean.diffs<-rbind(mutate(late.diffs,CellLine='Both'),
+                  mutate(molm.late.diffs,CellLine='MOLM14'),
+                  mutate(mv411.late.diffs,CellLine='MV411'))
+#count the proteins at our significance threshold
+prot.counts=mean.diffs%>%
+    subset(p_adj<0.05)%>%
+    group_by(Condition,CellLine)%>%
+    summarize(`ProteinsDiffEx`=n_distinct(Gene))
+
+DT::datatable(prot.counts)
+
+```
+
+### GSEA enrichment of early vs. late
+
+```{r,echo=FALSE, include=FALSE, warning=FALSE,fig.width=10}
+
+tot.diff<-late.diffs%>%dplyr::select(Gene,value=condition_to_control)
+  
+DT::datatable(subset(late.diffs,p_adj<0.05))
+
+
+combined.diff=computeGSEA(tot.diff,prot.univ)
+
+if(nrow(as.data.frame(combined.diff))>0){
+  enrichplot::ridgeplot(combined.diff,showCategory=25)+ggplot2::ggtitle("GO Terms for all early vs late")
+    ggplot2::ggsave('bothCells_early_vs_late_GO.png',width=16,height=8)
+
+}
+
+
+
+```
+Now separate out by cell types to make sure that the effects are the same.
+
+### GSEA enrichment of MV411 cells only
+
+```{r,echo=FALSE, include=FALSE, warning=FALSE,fig.width=10}
+genes.with.values=mv411.late.diffs%>%
+    ungroup()%>%
+    dplyr::select(Gene,value=condition_to_control)
+
+DT::datatable(subset(mv411.late.diffs,p_adj<0.05))
+
+mv411.late=computeGSEA(genes.with.values,prot.univ)
+
+enrichplot::ridgeplot(mv411.late,showCategory=25)+ggplot2::ggtitle("GO Terms for MV411 Early vs Late")
+ggplot2::ggsave('MV411_early_late_GO.png',width=16,height=8)
+  
+  
+
+
+```
+### GSEA enrichment of MOLM cells only
+
+```{r,echo=FALSE, include=FALSE, warning=FALSE,fig.width=10}
+genes.with.values=molm.late.diffs%>%
+    ungroup()%>%
+    dplyr::select(Gene,value=condition_to_control)
+
+molm.late=computeGSEA(genes.with.values,prot.univ)
+
+enrichplot::ridgeplot(molm.late,showCategory=25)+ggplot2::ggtitle("GO Terms for MOLM Early vs Late")
+  ggplot2::ggsave('Molm14_early_late_GO.png',width=16,height=8)
+
+DT::datatable(subset(molm.late.diffs,p_adj<0.05))
+  
+```
+
