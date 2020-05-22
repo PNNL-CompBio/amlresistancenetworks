@@ -2,10 +2,10 @@
 % Please edit documentation in R/bagOfGenesEnrichment.R
 \name{doRegularGo}
 \alias{doRegularGo}
-\title{Runs regular bag of genes enrichment}
+\title{Runs regular bag of}
 \usage{
 doRegularGo(genes, bg = NULL)
 }
 \description{
-Runs regular bag of genes enrichment
+Runs regular bag of
 }

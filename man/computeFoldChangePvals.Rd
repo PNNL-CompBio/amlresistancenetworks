@@ -7,10 +7,13 @@
 computeFoldChangePvals(
   g.data,
   control = c("None"),
-  conditions = c("FLT3", "FGF2")
+  conditions = c("FLT3", "FGF2"),
+  doManual = FALSE
 )
 }
 \arguments{
+\item{doManual}{binary set to calculate fc manual}
+
 \item{data.frame}{}
 }
 \value{
