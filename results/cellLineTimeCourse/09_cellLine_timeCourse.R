@@ -19,9 +19,6 @@ phosSample=readRDS(system.file('timeCoursePhosphoData.Rds',package='amlresistanc
   updateControls()
 
 
-doDiffEx<-function(prot.data,cellLine,control,treatment){
-  
-}
 
 clusterProtsAcrossTreatments<-function(prot.data){
   ##group data by treatment, cell line
@@ -47,7 +44,37 @@ doEnrichmentOfClusters<-function(allClusts){
   
 }
 
+createUpDownTable<-function(diffexRes,lfcThresh=1.0,prefix=''){
+  
+  
+  summ<-diffexRes%>%
+    dplyr::select(-c(Control,p_val,p_adj))%>%
+    #subset(abs(condition_to_control)>1)
+    mutate(direction=if_else(condition_to_control>lfcThresh,'Up',if_else(condition_to_control< (-1*lfcThresh),'Down','No Change')))
+  
+  ##fix the factors
+  summ$direction<-factor(summ$direction,levels=c("Down","No Change","Up"))
+  summ$Condition<-factor(summ$Condition,levels=c('30 min','3 hr','16 hr'))
+  
+  lps<-lapply(unique(diffexRes$cellLine),function(cl){
+    rs=subset(summ,cellLine==cl)
+    changing<-subset(rs,direction%in%c("Up","Down"))%>%dplyr::select(Gene)
 
+    goterms <- doRegularGo(unique(changing$Gene),prefix)
+    write.csv(goterms,file=paste0('results/cellLineTimeCourse/',prefix,cl,'changingGenes.csv'))
+      p<-rs%>%subset(Gene%in%changing$Gene)%>%
+        ggplot(aes(x=Condition,stratum=direction,alluvium=Gene,fill=direction,label=Condition))+
+        geom_flow(stat='alluvium',lode.guidance='frontback')+
+        geom_stratum()+
+        ggtitle(paste("Changing",prefix,"proteins in",cl))+
+        theme_minimal()+
+        viridis::scale_fill_viridis(3,discrete=T)
+    
+    })
+   
+   cowplot::plot_grid(plotlist=lps,nrow=2)
+  
+  }
 doClust=FALSE
 if(doClust){
   allClusts<-clusterProtsAcrossTreatments(protSample)
@@ -57,24 +84,48 @@ if(doClust){
   
   ##which terms are unique to a specific cluster
   clustSum%>%ggplot()+geom_histogram(aes(x=nClusts,fill=treatment),position='dodge')
-library(ggaluvial)
+
   ##not really impressed by these, let's try something else. 
 }
 
-
+library(ggalluvial)
 doDiffEx=TRUE
 if(doDiffEx){
   #lets try this!
   cellLines=c('CMK','HL60','K562','MOLM')
   dres<-protSample%>%    
     subset(!is.na(treatment))%>%
-    rename(treatment='drug')%>%
-    rename(timePoint='treatment')%>%
-    rename(LogFoldChange='value')%>%
+    subset(Gene!="")%>%
+    dplyr::rename(drug='treatment')%>%
+    dplyr::rename(treatment='timePoint')%>%
+    dplyr::rename(value='LogFoldChange')%>%
     mutate(Gene=as.character(Gene))
   
   cl.res=cellLines%>%
-    purrr::map_df(~computeFoldChangePvals(subset(dres,cellLine==.x),control='0 hr',
-                                                  conditions=c("30 min","3 hr","16 hr")))
+    purrr::map_df(~ amlresistancenetworks::computeFoldChangePvals(subset(dres,cellLine==.x),control='0 hr',
+                                                  conditions=c("30 min","3 hr","16 hr"),
+                                                  doManual=TRUE)%>%
+                    mutate(cellLine=.x))
+  
+  plots<-createUpDownTable(cl.res)
+  ggsave('results/cellLineTimeCourse/changingProtsInCellLines.png')
+  
+  pres<-phosSample%>%
+    subset(!is.na(treatment))%>%
+    subset(Gene!="")%>%
+    dplyr::rename(drug='treatment')%>%
+    dplyr::rename(treatment='timePoint')%>%
+    dplyr::rename(value='LogFoldChange')%>%
+    mutate(Gene=as.character(Gene))
+  
+  pl.res=cellLines%>%
+    purrr::map_df(~ amlresistancenetworks::computeFoldChangePvals(subset(pres,cellLine==.x),control='0 hr',
+                                                                  conditions=c("30 min","3 hr","16 hr"),
+                                                                  doManual=TRUE)%>%
+                    mutate(cellLine=.x))
+  
+  plots<-createUpDownTable(pl.res,prefix='phoshpo')
+  ggsave('results/cellLineTimeCourse/changingPhosphoProtsInCellLines.png')
+  
                                      
 }
