@@ -19,4 +19,7 @@ readAndTidySensPhosMeasures()
 
 #this data is for the patient data
 getPatientPhosphoBaselines()
-getPatientBaselines()
+#getPatientBaselines()
+#new patient sampling
+getPatientMetadata()
+getPatientMolecularData()

@@ -58,13 +58,38 @@ limmaTwoFactorDEAnalysis <- function(dat, sampleIDs.group1, sampleIDs.group2) {
   return(res)
 }
 
+#' compute manual lfc
+#' @export
+#' @param data matrix
+#' @param group1 ids
+#' @param group2 ids
+#' @return data frame with fold change, p-value
+manualDEAnalysis<-function(data,group1,group2){
+  
+  if(length(group1)==1)
+    control=data[,group1]
+  else
+    control=rowMeans(data[,group1])
+  if(length(group2)==1)
+    condition=data[,group2]
+  else
+    condition=rowMeans(data[,group2])
+  res = data.frame(featureID=rownames(data),logFC=condition - control)
+  res$absFc = abs(res$logFC)
+  res<-subset(res,!is.na(logFC))
+  res$P.Value = 1.0-(rank(res$absFc)/nrow(res))
+  res$adj.P.Val = p.adjust(res$P.Value)
+  return(res)
+}
+
 
 #' Reads in data frame and computes fold change
 #' 
 #' @export
 #' @param data.frame 
-#' @param treatmentCond
-#' @param ligands
+#' @param control
+#' @param doManual binary set to calculate fc manual
+#' @param conditions
 #' @return tidied data frame with p-values and fold change
 #' @import dplyr
 #' @import stringr
@@ -73,7 +98,8 @@ limmaTwoFactorDEAnalysis <- function(dat, sampleIDs.group1, sampleIDs.group2) {
 #' 
 computeFoldChangePvals<-function(g.data,
                                  control=c('None'),
-                                 conditions=c("FLT3","FGF2")){
+                                 conditions=c("FLT3","FGF2"),
+                                 doManual=FALSE){
   
   print(unique(g.data$cellLine))
   
@@ -83,11 +109,19 @@ computeFoldChangePvals<-function(g.data,
     subset(!is.na(Gene))
   
   #remove those data that have only 1 replicate  
-  reps<-data%>%
-    group_by(cellLine,Gene,treatment)%>%
-    dplyr::mutate(reps=length(value))%>%
-    subset(reps>1)%>%
-    ungroup()        
+  if(doManual)
+    reps=data
+  else
+    reps<-data%>%
+      group_by(cellLine,Gene,treatment)%>%
+      dplyr::mutate(reps=length(value))%>%
+      subset(reps>1)%>%
+      ungroup()        
+  
+  if(doManual)
+    myfun=manualDEAnalysis
+  else
+    myfun=limmaTwoFactorDEAnalysis
   
   lig.datasets<-purrr::map_df(conditions,function(lig){
     print(lig)
@@ -98,7 +132,7 @@ computeFoldChangePvals<-function(g.data,
       dplyr::select(Gene,Sample,value)%>%distinct()%>%
       tidyr::pivot_wider(values_from=value,names_from=Sample,values_fn=list(value=mean))%>%
       tibble::column_to_rownames("Gene")
-    limmaTwoFactorDEAnalysis(matp,unlist(g1),unlist(g2))%>%
+     myfun(matp,unlist(g1),unlist(g2))%>%
       dplyr::mutate(Condition=lig,Control=paste(control,collapse=','))%>%
       dplyr::select(Gene=featureID,Condition,Control,condition_to_control=logFC,p_val=P.Value,p_adj=adj.P.Val)
     })

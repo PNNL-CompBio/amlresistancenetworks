@@ -6,7 +6,7 @@
 Designed to evaluate time-course data
 Gets groups of proteins that are clustered across time points in a condition of interest}
 \usage{
-getCoClusteredProteins(timeCourseData)
+getCoClusteredProteins(prot.data)
 }
 \value{
 dataFrame

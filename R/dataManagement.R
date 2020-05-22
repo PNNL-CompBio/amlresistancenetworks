@@ -210,38 +210,99 @@ readAndTidySensProtMeasure<-function(){
   return(drugSensData)
 }
 
-#'
-getPatientMetadata<-function(){
-#  samp.names<-readxl::read_xlsx('../../Projects/CPTAC/exp_3/PNNL_Mass spec_Pt samples 229nM sorafenib_10.10.18.xlsx')%>%
-#    dplyr::select(c(`Specimen ID`,Barcode))%>%
-#    dplyr::rename(`AML sample`='Specimen ID')%>%
-#    distinct()
-  patient.data<-readxl::read_xlsx('../../Projects/CPTAC/exp_3/SeaGen derivatives version 3 kdr[2].xlsx',sheet='metadata')
-  colnames(patient.data)<-c('Sample','Mutation','Other mutation','Sensitive','Resistant')
-  pdat<-patient.data%>%
-    tidyr::pivot_longer(c(Sensitive,Resistant),names_to='Status',values_drop_na=TRUE,values_to='Drug')%>%
-    tidyr::pivot_longer(c(Mutation,`Other mutation`),names_to='meh',values_drop_na=TRUE,values_to='Mutated')%>%
-    dplyr::select(-meh)%>%
-    tidyr::separate_rows('Drug',sep=', ')%>%
-    tidyr::separate_rows('Mutated',sep=', ')%>%
-    tidyr::separate_rows('Mutated',sep=',')%>%
-    subset(Drug!='Not tested')%>%
-    subset(Mutated!='none recorded')
-  pdat
+##################################BEATAML PATIENT samPles
+#
+
+exp.3.megafile='../../Projects/CPTAC/exp_3/Exp#3 Full Data Summary May 20-2020.xlsx'
+getPatientTranscript<-function(patientlist){
+  library(dplyr)
+  library(readxl)
+  #we dont need the RPKM because we have the CPM
+  #patient.rpkm<-readxl::read_xlsx(exp.3.megafile,sheet='BeatAML S8 Gene Counts RPKM')%>%
+  #  tidyr::pivot_longer(-c(Gene,Symbol),names_to='patient',values_to='counts')%>%
+  #  mutate(countMetric='RPKM')
+  patient.cpm<-readxl::read_xlsx(exp.3.megafile,sheet='Table S9-Gene Counts CPM')%>%
+    tidyr::pivot_longer(-c(Gene,Symbol),names_to='patient',values_to='transcriptCounts')%>%
+    mutate(countMetric='CPM')%>%
+    select(-Gene)%>%
+    rename(Gene='Symbol',`AML sample`='patient')
+  
+  subset(patient.cpm, `AML sample`%in%patientlist)
   
 }
 
+getPatientVariants<-function(patientlist){
+  library(dplyr)
+  library(readxl)
+  gene.var<-readxl::read_xlsx(exp.3.megafile,sheet='Table S7-Variants for Analysis')%>%
+    subset(labId%in%patientlist)%>%
+    select(labId,t_vaf,symbol)%>%
+    #tidyr::pivot_longer(c(t_vaf,n_vaf),names_to='Metric',values_to='Value')%>%
+    rename(`AML sample`='labId',`Tumor VAF`='t_vaf',Gene='symbol')
+  return(gene.var)
+}
+
+getPatientDrugResponses<-function(patientlist){
+  library(dplyr)
+  library(readxl)
+  dose.response<-readxl::read_xlsx(exp.3.megafile,sheet='BeatAML S10 Drug Responses')%>%
+    tidyr::pivot_longer(c(ic50,auc),names_to='Metric',values_to='Value')%>%
+    dplyr::rename(`AML sample`='lab_id',Condition='inhibitor')
+  
+  other.data<-readAndTidySensMetadata()%>%
+    dplyr::select(-Barcode)
+  
+  comb.response<-rbind(dose.response,other.data)
+  return(subset(comb.response,`AML sample`%in%patientlist))
+  
+}
+#' getPatientMetadata
 #' @export
+#' @require dplyr
+#' @require readxl
+getPatientMetadata<-function(){
+  require(dplyr)
+  patients<-readxl::read_xlsx(exp.3.megafile,sheet='Sample Summary')%>%
+    dplyr::select('Specimen ID')%>%distinct()
+  
+  drugs<-getPatientDrugResponses(unlist(patients))
+ patData<-readxl::read_xlsx(exp.3.megafile,sheet='Clinical Summary')%>%
+   subset(labId%in%unlist(patients))%>%
+   select(`AML sample`='labId',gender,ageAtDiagnosis, priorMalignancyType,
+          vitalStatus,overallSurvival,causeOfDeath)%>%distinct()%>%left_join(drugs)
+ 
+ saveRDS(patData,file='inst/patientDrugAndClinical.Rds')
+ return(patData)
+
+}
+
+# get all molecular data for patient baselines
+#'@export
+getPatientMolecularData<-function(){
+  patients<-readxl::read_xlsx(exp.3.megafile,sheet='Sample Summary')%>%
+    dplyr::select('Specimen ID')%>%distinct()
+  
+  rna<-getPatientTranscript(unlist(patients))
+  variants<-getPatientVariants(unlist(patients))
+  prots<-getPatientBaselines()
+  patientMolelcularData<-rna%>%left_join(variants,by=c('AML sample','Gene'))%>%
+    left_join(prots,by=c('AML sample','Gene'))
+  
+  saveRDS(patientMolecularData,file='inst/patientMolecularData.Rds')
+  return(patientMolelcularData)
+}
+
+#' get proteomic data for beataml samples
 getPatientBaselines<-function(){
   library(dplyr)
-  metadata<-getPatientMetadata()
+#  metadata<-getPatientMetadata()
   dat<-read.table('../../Projects/CPTAC/exp_3/PTRC_baseline_global_std_ref_with_genes.txt',sep='\t',header=T)
   patientProtSamples<-dat%>%tidyr::pivot_longer(cols=c(5:ncol(dat)),names_to='Sample', values_to='LogFoldChange')%>%
     dplyr::mutate(specId=stringr::str_replace(Sample,"X",""))%>%
     dplyr::mutate(Sample=stringr::str_replace(specId,stringr::fixed("."),"-"))%>%
-    dplyr::select(Sample,Gene, LogFoldChange)%>%
-    left_join(metadata)
-  saveRDS(patientProtSamples,file='inst/patientProtSampleData.Rds')
+    dplyr::select(`AML sample`='Sample',Gene, LogFoldChange)
+  
+  #saveRDS(patientProtSamples,file='inst/patientProtSampleData.Rds')
   return(patientProtSamples)
 }
 
@@ -249,14 +310,14 @@ getPatientBaselines<-function(){
 #' @export
 getPatientPhosphoBaselines<-function(){
   library(dplyr)
-  metadata<-getPatientMetadata()
+ # metadata<-getPatientMetadata()
   dat<-read.table('../../Projects/CPTAC/exp_3/PTRC_baseline_phospho_std_ref_with_sites_stoich.txt',sep='\t',header=T)
   patientPhosphoSamples<-dat%>%
     tidyr::pivot_longer(-c(Entry,Gene,site,Peptide,ids,Entry_name),"Sample",values_to='LogFoldChange')%>%
     dplyr::mutate(specId=stringr::str_replace(Sample,"X",""))%>%
     dplyr::mutate(Sample=stringr::str_replace(specId,stringr::fixed("."),"-"))%>%
-    dplyr::select(Sample,Gene, site,Peptide,LogFoldChange)%>%
-    left_join(metadata)
+    dplyr::select(Sample,Gene, site,Peptide,LogFoldChange)
+
   saveRDS(patientPhosphoSamples,file='inst/patientPhosphoSampleData.Rds')
   return(patientPhosphoSamples)
 }
@@ -295,6 +356,5 @@ getTimeCoursePhosphoData<-function(){
     dplyr::select(Sample,Gene, site,Peptide,LogFoldChange)%>%
     left_join(metadata)
   saveRDS(timeCoursePhospho,file='inst/timeCoursePhosphoData.Rds')
-  
-  
 }
+
