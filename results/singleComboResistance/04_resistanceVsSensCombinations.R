@@ -54,6 +54,27 @@ assignSensResSamps<-function(sens.data,metric='AUC',t.sens=0.25,t.res=0.75){
 }
 
 
+
+#' assignByVal
+#' @param sens.data sensitivity data
+#' @param metric such as AUc
+#' @param sens threshold
+#' @param res threshold
+assignByVal<-function(sens.data,metric='AUC',r.val=100,s.val=100){
+  
+  res.samps<-sens.data%>%
+    subset(Metric=='AUC')%>%
+    dplyr::select(`AML sample`,Condition,Value)%>%
+    distinct()%>%
+    group_by(Condition)%>%
+    mutate(Status=assign(Value,s.val,r.val))%>%
+    #dplyr::group_modify(~ assignByQuant(.x$Value,sens,res))
+    select(`AML sample`,Condition,Status)
+  #   print(res.samps)
+  res.samps
+}
+
+
 ##' volcanoPlot
 volcanoPlot<-function(result,title=""){
   library(ggplot2)
@@ -84,6 +105,30 @@ sens.data%>%
 #  geom_hline(yintercept = 50,linetype='dashed')+
   ggtitle('IC50 values by sample')
 
+
+computeDiffExByVal<-function(sens.data,sens.val,res.val){
+  samps<-assignByVal(sens.data,'AUC',sens.val,res.val)
+  
+  new.df<-sens.data%>%
+    subset(Metric=='AUC')%>%
+    select('AML sample',Gene,value="LogFoldChange")%>%
+    distinct()%>%
+    left_join(samps)
+  
+  ##compute fol change and p-values for each drug
+  result<-purrr::map_df(unique(new.df$Condition), function(cond){
+    # print(cond)
+    new.df%>%subset(Condition==cond)%>%
+      rename(cellLine='Condition',treatment='Status',Sample='AML sample')%>%
+      group_by(cellLine)%>%
+      computeFoldChangePvals(control='Sensitive',conditions =c("Resistant"))%>%
+      mutate(Drug=cond)
+  })
+  
+  table(result%>%group_by(Drug)%>%subset(p_adj<0.1)%>%summarize(sigProts=n()))
+  
+  result
+}
 
 computeDiffExByThresh<-function(sens.data,sens.val,res.val){
   samps<-assignSensResSamps(sens.data,'AUC',sens.val,res.val)
@@ -134,8 +179,14 @@ computeMutInf<-function(sens.data,matric='AUC'){
 
 
 auc.cor=computeCorVals(sens.data,metric='AUC')
-ic50.cor=computeCorVals(sens.data,metric='IC50')
+write.table(auc.cor,file='results/singleComboResistance/correlationWithAUC.csv',sep=',')
 
+ic50.cor=computeCorVals(sens.data,metric='IC50')
+write.table(ic50.cor,file='results/singleComboResistance/correlationWithIC50.csv',sep=',')
+
+
+reg1=computeDiffExByVal(sens.data,sens.val=100,res.val=100)
+write.table(reg1,file='results/singleComboResistance/diffExProteinsBySensRes.csv',sep=',')
 
 ##now we can experiment with different thresholdls
 #reg2=computeDiffExByThresh(sens.data,sens=75,res=125)
