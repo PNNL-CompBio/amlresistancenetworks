@@ -187,7 +187,7 @@ readAndTidySensPhosMeasures<-function(){
     dplyr::mutate(Barcode=as.numeric(stringr::str_replace(Sample,"X","")))%>%
     dplyr::left_join(metadata,by='Barcode')
   
-  saveRDS(gilt.sens.pdata,file='inst/giltPhosphoSensData')
+  saveRDS(gilt.sens.pdata,file='inst/giltPhosphoSensData.Rds')
   return(gilt.sens.pdata)
   
 }
@@ -285,11 +285,11 @@ getPatientMolecularData<-function(){
   rna<-getPatientTranscript(unlist(patients))
   variants<-getPatientVariants(unlist(patients))
   prots<-getPatientBaselines()
-  patientMolelcularData<-rna%>%left_join(variants,by=c('AML sample','Gene'))%>%
+  patientMolecularData<-rna%>%left_join(variants,by=c('AML sample','Gene'))%>%
     left_join(prots,by=c('AML sample','Gene'))
   
   saveRDS(patientMolecularData,file='inst/patientMolecularData.Rds')
-  return(patientMolelcularData)
+  return(patientMolecularData)
 }
 
 #' get proteomic data for beataml samples
