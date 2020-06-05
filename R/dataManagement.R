@@ -3,35 +3,35 @@
 #' reads in metadata from excel spreadsheet and tidies it
 #' @require readxl
 #' @require dplyr
-#' 
+#'
 
 readAndTidyMetadata<-function(){
   metadata<-readxl::read_xlsx('../../Projects/CPTAC/ex12_data/LabelingMetadata_exp12.xlsx')
- 
+
   #update sample
   metadata$Sample<-sapply(metadata$`Sample ID`,function(x) paste('Sample',x,sep='_'))
-  
+
   metadata<-metadata%>%
       tidyr::separate(col='Sample Info',into=c('treatment','cellLine','flask','ligand'),sep=', ',fill="right")%>%
       dplyr::select(Sample,cellLine,treatment,flask,ligand)
-  
+
   #update cell line
   cl<-subset(metadata,cellLine=='10M')%>%dplyr::select(Sample,treatment)%>%mutate(cellLine=stringr::str_replace(treatment,'parental ',''))%>%
       dplyr::select(Sample,cellLine)%>%mutate(treatment='None',ligand='None')
- 
+
   lig.dat<-metadata%>%subset(!is.na(ligand))%>%
     dplyr::select(c(flask,cellLine,ligand))
-  
+
   fin=metadata%>%
     subset(cellLine!='10M')%>%
     dplyr::select(cellLine,treatment,flask,Sample)%>%
     left_join(lig.dat,by=c('flask','cellLine'))%>%
     dplyr::select(-flask)%>%
     rbind(cl)
-  
-  
+
+
   return(fin)
-  
+
 }
 
 
@@ -41,26 +41,26 @@ readAndTidyMetadata<-function(){
 #' @require readxl
 #' @require dplyr
 #' @require tidyr
-#' 
+#'
 
 readAndTidyQuizMetadata<-function(){
   metadata<-readxl::read_xlsx('../../Projects/CPTAC/ex12_data/quizartLabelingMetadata.xlsx',skip=3)
-  
+
   res<-metadata%>%
       dplyr::rowwise()%>%
     dplyr::mutate(SampleTemp=paste(Plex,`Sample #`,sep='.'))%>%
     dplyr::mutate(Sample=stringr::str_replace(SampleTemp,'Sample ',''))%>%
       dplyr::select(Sample,`Sample Name`,Ligand)
-  
+
   fin<-res%>%
     tidyr::separate(col=`Sample Name`,into=c('tmpCellLine','Flask'),sep=', ')%>%
     dplyr::mutate(treatment='None')
-  
-  
+
+
   pfin<-subset(fin,is.na(Flask))%>%
     dplyr::select(Sample,treatment)%>%
     dplyr::mutate(cellLine='MOLM14',Ligand='None')
-  
+
   lig<-fin%>%
     dplyr::select(Flask,tmpLigand='Ligand')%>%distinct()%>%
     subset(!is.na(tmpLigand))%>%
@@ -74,11 +74,11 @@ readAndTidyQuizMetadata<-function(){
       mutate(cellLine='MOLM14')%>%
       left_join(lig,by='Flask')%>%
     dplyr::select(Sample,cellLine,treatment='Ligand')%>%mutate(treatment='Quizartinib')
-  
+
   fin<-rbind(tnfin,pfin)
-  
+
   return(fin)
-  
+
 }
 
 #' reads and tidies protein measurements
@@ -116,7 +116,7 @@ readAndTidyPhosphoProtMeasures<-function(){
 
     saveRDS(gilt.phospho.data,file='inst/giltPhosphoData.Rds')
   return(gilt.phospho.data)
-  
+
 }
 
 #' reads and tidies protein measurements from quizartinib treatment
@@ -134,7 +134,7 @@ readAndTidyQuizProtMeasures<-function(){
       dplyr::left_join(metadata,by='Sample')
   saveRDS(quiz.data,file='inst/quizartinibData.Rds')
   return(quiz.data)
-  
+
 }
 
 
@@ -148,11 +148,11 @@ readAndTidySensMetadata<-function(){
     dplyr::select(c(`Specimen ID`,Barcode))%>%
     dplyr::rename(`AML sample`='Specimen ID')%>%
     distinct()
-  
+
   metadata<-readxl::read_xlsx('../../Projects/CPTAC/ex11_data/Agarwal_PNNL_CPs_Final list 012919_mod032020.xlsx',sheet=1,skip=1)%>%
     subset(!is.na(`AML sample`))%>%
     subset(`AML sample`!='AML sample')
-  
+
  # clin.data<-metadata%>%
 #    tidyr::pivot_longer(cols=c(Sex,`ELN Risk`,`Disease status`,`FLT3-ITD`,NPM1,comment),names_to='Clinical Variable',values_to='Clinical Value')%>%
 #    dplyr::select(Age,`Clinical Variable`,`Clinical Value`,`AML sample`)%>%
@@ -171,7 +171,7 @@ readAndTidySensMetadata<-function(){
   full.metadata<-rbind(auc,ic50)%>%
     #left_join(clin.data,by='AML sample')%>%
     left_join(samp.names)
-    
+
   return(full.metadata)
 }
 
@@ -186,26 +186,26 @@ readAndTidySensPhosMeasures<-function(){
     tidyr::pivot_longer(-c(Entry,Gene,site,Peptide,ids),"Sample")%>%
     dplyr::mutate(Barcode=as.numeric(stringr::str_replace(Sample,"X","")))%>%
     dplyr::left_join(metadata,by='Barcode')
-  
+
   saveRDS(gilt.sens.pdata,file='inst/giltPhosphoSensData.Rds')
   return(gilt.sens.pdata)
-  
+
 }
 
 #' reads and tidies bulk proteomic data for experiment 11
 #' @require dplyr
 #' @require tidyr
 #' @export
-#' 
+#'
 readAndTidySensProtMeasure<-function(){
   metadata<-readAndTidySensMetadata()
   dat<-read.table('../../Projects/CPTAC/ex11_data/ptrc_ex11_kurtz_2plex_global_d2_with_genes.txt',sep='\t',header=T)
-    
+
   drugSensData<-dat%>%tidyr::pivot_longer(cols=c(3:ncol(dat)),names_to='Sample', values_to='LogFoldChange')%>%
     dplyr::mutate(Barcode=as.numeric(stringr::str_replace(Sample,"X","")))%>%
     dplyr::select(Barcode,Gene, LogFoldChange)%>%
     dplyr::left_join(metadata,by='Barcode')
-  
+
   saveRDS(drugSensData,file='inst/gilteritinibSensitivityData.Rds')
   return(drugSensData)
 }
@@ -213,27 +213,31 @@ readAndTidySensProtMeasure<-function(){
 ##################################BEATAML PATIENT samPles
 #
 
-exp.3.megafile='../../Projects/CPTAC/exp_3/Exp#3 Full Data Summary May 20-2020.xlsx'
+
 getPatientTranscript<-function(patientlist){
   library(dplyr)
   library(readxl)
+  synapser::synLogin()
   #we dont need the RPKM because we have the CPM
   #patient.rpkm<-readxl::read_xlsx(exp.3.megafile,sheet='BeatAML S8 Gene Counts RPKM')%>%
   #  tidyr::pivot_longer(-c(Gene,Symbol),names_to='patient',values_to='counts')%>%
-  #  mutate(countMetric='RPKM')
+                                        #  mutate(countMetric='RPKM')
+  exp.3.megafile=synapser::synGet('syn22130786')$path
   patient.cpm<-readxl::read_xlsx(exp.3.megafile,sheet='Table S9-Gene Counts CPM')%>%
     tidyr::pivot_longer(-c(Gene,Symbol),names_to='patient',values_to='transcriptCounts')%>%
     mutate(countMetric='CPM')%>%
     select(-Gene)%>%
     rename(Gene='Symbol',`AML sample`='patient')
-  
+
   subset(patient.cpm, `AML sample`%in%patientlist)
-  
+
 }
 
 getPatientVariants<-function(patientlist){
   library(dplyr)
   library(readxl)
+  synapser::synLogin()
+  exp.3.megafile=synapser::synGet('syn22130786')$path
   gene.var<-readxl::read_xlsx(exp.3.megafile,sheet='Table S7-Variants for Analysis')%>%
     subset(labId%in%patientlist)%>%
     select(labId,t_vaf,symbol)%>%
@@ -245,33 +249,40 @@ getPatientVariants<-function(patientlist){
 getPatientDrugResponses<-function(patientlist){
   library(dplyr)
   library(readxl)
+  synapser::synLogin()
+  exp.3.megafile=synapser::synGet('syn22130786')$path
+
   dose.response<-readxl::read_xlsx(exp.3.megafile,sheet='BeatAML S10 Drug Responses')%>%
     tidyr::pivot_longer(c(ic50,auc),names_to='Metric',values_to='Value')%>%
     dplyr::rename(`AML sample`='lab_id',Condition='inhibitor')
-  
+
   other.data<-readAndTidySensMetadata()%>%
     dplyr::select(-Barcode)
-  
+
   comb.response<-rbind(dose.response,other.data)
   return(subset(comb.response,`AML sample`%in%patientlist))
-  
+
 }
 #' getPatientMetadata
 #' @export
 #' @require dplyr
 #' @require readxl
 getPatientMetadata<-function(){
-  require(dplyr)
+    require(dplyr)
+    synapser::synLogin()
+    exp.3.megafile=synapser::synGet('syn22130786')$path
+
   patients<-readxl::read_xlsx(exp.3.megafile,sheet='Sample Summary')%>%
     dplyr::select('Specimen ID')%>%distinct()
-  
+
   drugs<-getPatientDrugResponses(unlist(patients))
  patData<-readxl::read_xlsx(exp.3.megafile,sheet='Clinical Summary')%>%
    subset(labId%in%unlist(patients))%>%
    select(`AML sample`='labId',gender,ageAtDiagnosis, priorMalignancyType,
           vitalStatus,overallSurvival,causeOfDeath)%>%distinct()%>%left_join(drugs)
- 
- saveRDS(patData,file='inst/patientDrugAndClinical.Rds')
+
+    saveRDS(patData,file='inst/patientDrugAndClinical.Rds')
+    synStore(File('inst/patientDrugAndClinical.Rds',parentId='syn22130776'))
  return(patData)
 
 }
@@ -281,14 +292,15 @@ getPatientMetadata<-function(){
 getPatientMolecularData<-function(){
   patients<-readxl::read_xlsx(exp.3.megafile,sheet='Sample Summary')%>%
     dplyr::select('Specimen ID')%>%distinct()
-  
+
   rna<-getPatientTranscript(unlist(patients))
   variants<-getPatientVariants(unlist(patients))
   prots<-getPatientBaselines()
   patientMolecularData<-rna%>%left_join(variants,by=c('AML sample','Gene'))%>%
     left_join(prots,by=c('AML sample','Gene'))
-  
+
   saveRDS(patientMolecularData,file='inst/patientMolecularData.Rds')
+  synStore(File('inst/patientMolecularData.Rds',parentId='syn22130776'))
   return(patientMolecularData)
 }
 
@@ -301,13 +313,15 @@ getPatientBaselines<-function(){
     dplyr::mutate(specId=stringr::str_replace(Sample,"X",""))%>%
     dplyr::mutate(Sample=stringr::str_replace(specId,stringr::fixed("."),"-"))%>%
     dplyr::select(`AML sample`='Sample',Gene, LogFoldChange)
-  
+
   #saveRDS(patientProtSamples,file='inst/patientProtSampleData.Rds')
   return(patientProtSamples)
 }
 
 
 #' @export
+#' @require synapser
+#' @require dplyr
 getPatientPhosphoBaselines<-function(){
   library(dplyr)
  # metadata<-getPatientMetadata()
@@ -322,6 +336,8 @@ getPatientPhosphoBaselines<-function(){
   return(patientPhosphoSamples)
 }
 
+#' @require synapser
+#'
 getTimeCourseMetadata<-function(){
   samp.data<-readxl::read_xlsx('../../Projects/CPTAC/exp_2/Pilot2_treated cell_TMT labels.xlsx')%>%
     dplyr::select(Sample=`Tube name`,cellLine=`Cell line`,treatment=`Treated with`,timePoint=`Time point`)
@@ -338,10 +354,10 @@ getTimeCourseData<-function(){
     dplyr::mutate(Sample=stringr::str_replace(sample,stringr::fixed("."),"-"))%>%
     dplyr::select(Sample,Gene, LogFoldChange)%>%
     left_join(metadata)
-  
+
   saveRDS(timeCourseData,file='inst/timeCourseData.Rds')
   return(timeCourseData)
-  
+
 }
 
 #' @export
@@ -357,4 +373,3 @@ getTimeCoursePhosphoData<-function(){
     left_join(metadata)
   saveRDS(timeCoursePhospho,file='inst/timeCoursePhosphoData.Rds')
 }
-
