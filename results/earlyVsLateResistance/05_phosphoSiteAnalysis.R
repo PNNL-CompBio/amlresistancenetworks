@@ -1,7 +1,7 @@
 ##phospho site analysis
 
 library(amlresistancenetworks)
-gilt.pdat<-readRDS(system.file('giltPhosphoData.Rds',package='amlresistancenetworks'))
+gilt.pdat<-querySynapseTable('syn22156809')#readRDS(system.file('giltPhosphoData.Rds',package='amlresistancenetworks'))
 
 
 library(KSEAapp)

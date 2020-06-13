@@ -1,12 +1,17 @@
 ##load data from files into rdata files
 
+
+
+
 #' reads in metadata from excel spreadsheet and tidies it
 #' @require readxl
 #' @require dplyr
+#' @require reticulate
 #'
 
 readAndTidyMetadata<-function(){
-  metadata<-readxl::read_xlsx('../../Projects/CPTAC/ex12_data/LabelingMetadata_exp12.xlsx')
+  syn=synapseLogin()
+  metadata<-readxl::read_xlsx(syn$get('syn22136312')$path)
 
   #update sample
   metadata$Sample<-sapply(metadata$`Sample ID`,function(x) paste('Sample',x,sep='_'))
@@ -41,10 +46,10 @@ readAndTidyMetadata<-function(){
 #' @require readxl
 #' @require dplyr
 #' @require tidyr
-#'
 
 readAndTidyQuizMetadata<-function(){
-  metadata<-readxl::read_xlsx('../../Projects/CPTAC/ex12_data/quizartLabelingMetadata.xlsx',skip=3)
+  syn=synapseLogin('syn22136311')
+  metadata<-readxl::read_xlsx(synGet('')$path,skip=3)
 
   res<-metadata%>%
       dplyr::rowwise()%>%
@@ -89,14 +94,19 @@ readAndTidyQuizMetadata<-function(){
 #
 readAndTidyProtMeasures<-function(){
   metadata<-readAndTidyMetadata()
-  dat<-read.table('../../projects/CPTAC/ex12_data/ptrc_ex12_global_median_centered_with_genes.txt',sep='\t',header=T)
+  syn=synapseLogin()
+  dat<-read.table(syn$get('syn22136301')$path,sep='\t',header=T)
   library(tidyr)
   gilteritinib.data<-tidyr::pivot_longer(dat,-c(Protein,Gene),"Sample")%>%
-      dplyr::left_join(metadata,by='Sample')
-saveRDS(gilteritinib.data,file='inst/gilteritinibData.Rds')
+      dplyr::left_join(metadata,by='Sample')%>%
+    mutate(value=tidyr::replace_na(value,0))
+#    subset(!is.na(value))
+#  saveRDS(gilteritinib.data,file='inst/gilteritinibData.Rds')
+#  synapseStore('inst/gilteritinibData.Rds','syn22136298')
+  synTableStore(gilteritinib.data,'Gilteritinib Resistance Proteomics Data')
+  
   return(gilteritinib.data)
-
-    }
+}
 
 
 
@@ -108,13 +118,18 @@ saveRDS(gilteritinib.data,file='inst/gilteritinibData.Rds')
 #
 readAndTidyPhosphoProtMeasures<-function(){
   metadata<-readAndTidyMetadata()
-  dat<-read.table('../../projects/CPTAC/ex12_data/ptrc_ex12_phospho_median_centered_stoich_with_sites.txt',sep='\t',header=T)
+  syn=synapseLogin()
+  dat<-read.table(syn$get('syn22136309')$path,sep='\t',header=T)
   library(tidyr)
   gilt.phospho.data<-dat%>%
     tidyr::pivot_longer(-c(Protein,Gene,site,Peptide),"Sample")%>%
-    dplyr::left_join(metadata,by='Sample')
+    dplyr::left_join(metadata,by='Sample')%>%
+    mutate(value=tidyr::replace_na(value,0))
+   # subset(!is.na(value))
 
-    saveRDS(gilt.phospho.data,file='inst/giltPhosphoData.Rds')
+  synTableStore(gilt.phospho.data,'Gilteritinib Resistance Phosphoproteomics Data')
+ #   saveRDS(gilt.phospho.data,file='inst/giltPhosphoData.Rds')
+#  synapseStore('inst/giltPhosphoData.Rds')
   return(gilt.phospho.data)
 
 }
@@ -128,11 +143,11 @@ readAndTidyPhosphoProtMeasures<-function(){
 #
 readAndTidyQuizProtMeasures<-function(){
   metadata<-readAndTidyQuizMetadata()
-  dat<-read.table('../../Projects/CPTAC/ex12_data/ptrc_exp12_global_round2_with_genes.txt',sep='\t',header=T)
+  #dat<-read.table('../../Projects/CPTAC/ex12_data/ptrc_exp12_global_round2_with_genes.txt',sep='\t',header=T)
   library(tidyr)
   quiz.data<-tidyr::pivot_longer(dat,-c(Entry_name,Gene),"Sample")%>%
       dplyr::left_join(metadata,by='Sample')
-  saveRDS(quiz.data,file='inst/quizartinibData.Rds')
+#  saveRDS(quiz.data,file='inst/quizartinibData.Rds')
   return(quiz.data)
 
 }
@@ -144,19 +159,16 @@ readAndTidyQuizProtMeasures<-function(){
 #' @require readxl
 #'
 readAndTidySensMetadata<-function(){
-  samp.names<-readxl::read_xlsx('../../Projects/CPTAC/ex11_data/Agarwal_PNNL_CPs_Final list 012919.xlsx')%>%
+  syn=synapseLogin()
+  samp.names<-readxl::read_xlsx(syn$get('syn22130839')$path)%>%
     dplyr::select(c(`Specimen ID`,Barcode))%>%
     dplyr::rename(`AML sample`='Specimen ID')%>%
     distinct()
 
-  metadata<-readxl::read_xlsx('../../Projects/CPTAC/ex11_data/Agarwal_PNNL_CPs_Final list 012919_mod032020.xlsx',sheet=1,skip=1)%>%
+  metadata<-readxl::read_xlsx(syn$get('syn22130840')$path,skip=1)%>%
     subset(!is.na(`AML sample`))%>%
     subset(`AML sample`!='AML sample')
 
- # clin.data<-metadata%>%
-#    tidyr::pivot_longer(cols=c(Sex,`ELN Risk`,`Disease status`,`FLT3-ITD`,NPM1,comment),names_to='Clinical Variable',values_to='Clinical Value')%>%
-#    dplyr::select(Age,`Clinical Variable`,`Clinical Value`,`AML sample`)%>%
-#    distinct()
   ic50<-metadata%>%
     tidyr::pivot_longer(cols=c(4,5,6),names_to='IC50 Condition',values_to='Value')%>%
     dplyr::select(`AML sample`,`IC50 Condition`,Value)%>%
@@ -171,7 +183,6 @@ readAndTidySensMetadata<-function(){
   full.metadata<-rbind(auc,ic50)%>%
     #left_join(clin.data,by='AML sample')%>%
     left_join(samp.names)
-
   return(full.metadata)
 }
 
@@ -181,13 +192,18 @@ readAndTidySensMetadata<-function(){
 #' @export
 readAndTidySensPhosMeasures<-function(){
   metadata<-readAndTidySensMetadata()
-  dat<-read.table('../../Projects/CPTAC/ex11_data/ptrc_ex11_kurtz_2plex_phospho_d2_stoich_with_sites.txt',sep='\t',header=T)
+  syn<-synapseLogin()
+  dat<-read.table(syn$get('syn22130837')$path,sep='\t',header=T)
   gilt.sens.pdata<-dat%>%
     tidyr::pivot_longer(-c(Entry,Gene,site,Peptide,ids),"Sample")%>%
     dplyr::mutate(Barcode=as.numeric(stringr::str_replace(Sample,"X","")))%>%
-    dplyr::left_join(metadata,by='Barcode')
+    dplyr::left_join(metadata,by='Barcode')%>%
+    mutate(value=tidyr::replace_na(value,0))
+   # subset(!is.na(value))
 
-  saveRDS(gilt.sens.pdata,file='inst/giltPhosphoSensData.Rds')
+  synTableStore(gilt.sens.pdata,'Drug Combination Phosphoproteomic Data')
+#  saveRDS(gilt.sens.pdata,file='inst/giltPhosphoSensData.Rds')
+#  synapseStore('inst/giltPhoshpoSensData.Rds','syn22130848')
   return(gilt.sens.pdata)
 
 }
@@ -199,14 +215,19 @@ readAndTidySensPhosMeasures<-function(){
 #'
 readAndTidySensProtMeasure<-function(){
   metadata<-readAndTidySensMetadata()
-  dat<-read.table('../../Projects/CPTAC/ex11_data/ptrc_ex11_kurtz_2plex_global_d2_with_genes.txt',sep='\t',header=T)
+  syn<-synapseLogin()
+  dat<-read.table(syn$get('syn22130842')$path,sep='\t',header=T)
 
   drugSensData<-dat%>%tidyr::pivot_longer(cols=c(3:ncol(dat)),names_to='Sample', values_to='LogFoldChange')%>%
     dplyr::mutate(Barcode=as.numeric(stringr::str_replace(Sample,"X","")))%>%
     dplyr::select(Barcode,Gene, LogFoldChange)%>%
+    mutate(LogFoldChange=as.numeric(LogFoldChange))%>%
+    mutate(LogFoldChange=tidyr::replace_na(LogFoldChange,0))%>%
     dplyr::left_join(metadata,by='Barcode')
-
-  saveRDS(drugSensData,file='inst/gilteritinibSensitivityData.Rds')
+  synTableStore(drugSensData,'Drug Combination Proteomic Data')
+  
+  #saveRDS(drugSensData,file='inst/gilteritinibSensitivityData.Rds')
+  #synapseStore('inst/gilteritinibSensitivityData.Rds','syn22130848')
   return(drugSensData)
 }
 
@@ -217,18 +238,18 @@ readAndTidySensProtMeasure<-function(){
 getPatientTranscript<-function(patientlist){
   library(dplyr)
   library(readxl)
-  synapser::synLogin()
+  syn=synapseLogin() 
   #we dont need the RPKM because we have the CPM
   #patient.rpkm<-readxl::read_xlsx(exp.3.megafile,sheet='BeatAML S8 Gene Counts RPKM')%>%
   #  tidyr::pivot_longer(-c(Gene,Symbol),names_to='patient',values_to='counts')%>%
                                         #  mutate(countMetric='RPKM')
-  exp.3.megafile=synapser::synGet('syn22130786')$path
+  exp.3.megafile=syn$get('syn22130786')$path
   patient.cpm<-readxl::read_xlsx(exp.3.megafile,sheet='Table S9-Gene Counts CPM')%>%
     tidyr::pivot_longer(-c(Gene,Symbol),names_to='patient',values_to='transcriptCounts')%>%
     mutate(countMetric='CPM')%>%
     select(-Gene)%>%
     rename(Gene='Symbol',`AML sample`='patient')
-
+  
   subset(patient.cpm, `AML sample`%in%patientlist)
 
 }
@@ -236,8 +257,8 @@ getPatientTranscript<-function(patientlist){
 getPatientVariants<-function(patientlist){
   library(dplyr)
   library(readxl)
-  synapser::synLogin()
-  exp.3.megafile=synapser::synGet('syn22130786')$path
+  syn=synapseLogin()
+  exp.3.megafile=syn$get('syn22130786')$path
   gene.var<-readxl::read_xlsx(exp.3.megafile,sheet='Table S7-Variants for Analysis')%>%
     subset(labId%in%patientlist)%>%
     select(labId,t_vaf,symbol)%>%
@@ -249,8 +270,8 @@ getPatientVariants<-function(patientlist){
 getPatientDrugResponses<-function(patientlist){
   library(dplyr)
   library(readxl)
-  synapser::synLogin()
-  exp.3.megafile=synapser::synGet('syn22130786')$path
+  syn=synapseLogin()
+    exp.3.megafile=syn$get('syn22130786')$path
 
   dose.response<-readxl::read_xlsx(exp.3.megafile,sheet='BeatAML S10 Drug Responses')%>%
     tidyr::pivot_longer(c(ic50,auc),names_to='Metric',values_to='Value')%>%
@@ -269,8 +290,9 @@ getPatientDrugResponses<-function(patientlist){
 #' @require readxl
 getPatientMetadata<-function(){
     require(dplyr)
-    synapser::synLogin()
-    exp.3.megafile=synapser::synGet('syn22130786')$path
+#    synapser::synLogin()
+  syn<-synapseLogin()
+    exp.3.megafile=syn$get('syn22130786')$path
 
   patients<-readxl::read_xlsx(exp.3.megafile,sheet='Sample Summary')%>%
     dplyr::select('Specimen ID')%>%distinct()
@@ -279,17 +301,34 @@ getPatientMetadata<-function(){
  patData<-readxl::read_xlsx(exp.3.megafile,sheet='Clinical Summary')%>%
    subset(labId%in%unlist(patients))%>%
    select(`AML sample`='labId',gender,ageAtDiagnosis, priorMalignancyType,
-          vitalStatus,overallSurvival,causeOfDeath)%>%distinct()%>%left_join(drugs)
+          vitalStatus,overallSurvival,causeOfDeath)%>%
+          distinct()%>%
+          left_join(drugs)%>%
+   mutate(Value=tidyr::replace_na(Value,0))
+#   subset(!is.na(Value))
 
-    saveRDS(patData,file='inst/patientDrugAndClinical.Rds')
-    synStore(File('inst/patientDrugAndClinical.Rds',parentId='syn22130776'))
+ synTableStore(patData,'BeatAML Pilot Drug and Clinical Data')
+ # saveRDS(patData,file='inst/patientDrugAndClinical.Rds')
+ # synapseStore('inst/patientDrugAndClinical.Rds','syn22130776')
  return(patData)
 
+}
+
+#' store drug class for now..
+storeDrugClassInfo<-function(){
+  syn=synapseLogin()
+  beat.samps<-syn$get('syn22130788')$path
+  drug.class<-readxl::read_xlsx(beat.samps,sheet='Table S11-Drug Families')%>%
+    distinct()
+  synTableStore(drug.class,'Drug Classes')
 }
 
 # get all molecular data for patient baselines
 #'@export
 getPatientMolecularData<-function(){
+  syn=synapseLogin()
+    exp.3.megafile=syn$get('syn22130786')$path
+  
   patients<-readxl::read_xlsx(exp.3.megafile,sheet='Sample Summary')%>%
     dplyr::select('Specimen ID')%>%distinct()
 
@@ -297,79 +336,114 @@ getPatientMolecularData<-function(){
   variants<-getPatientVariants(unlist(patients))
   prots<-getPatientBaselines()
   patientMolecularData<-rna%>%left_join(variants,by=c('AML sample','Gene'))%>%
-    left_join(prots,by=c('AML sample','Gene'))
+    left_join(prots,by=c('AML sample','Gene'))%>%
+    mutate(transcriptCounts=tidyr::replace_na(transcriptCounts,0))%>%
+    mutate(`Tumor VAF`=tidyr::replace_na(`Tumor VAF`,0))%>%
+    mutate(LogFoldChange=tidyr::replace_na(LogFoldChange,0))
 
-  saveRDS(patientMolecularData,file='inst/patientMolecularData.Rds')
-  synStore(File('inst/patientMolecularData.Rds',parentId='syn22130776'))
+  synTableStore(patientMolecularData,'BeatAML Pilot Molecular Data')
+  #saveRDS(patientMolecularData,file='inst/patientMolecularData.Rds')
+  #synapseStore('inst/patientMolecularData.Rds','syn22130776')
   return(patientMolecularData)
 }
 
 #' get proteomic data for beataml samples
+#' @improt dplyr
 getPatientBaselines<-function(){
   library(dplyr)
-#  metadata<-getPatientMetadata()
-  dat<-read.table('../../Projects/CPTAC/exp_3/PTRC_baseline_global_std_ref_with_genes.txt',sep='\t',header=T)
+  syn=synapseLogin()
+  dat<-read.table(syn$get('syn22130778')$path,sep='\t',header=T)#'../../Projects/CPTAC/exp_3'/PTRC_baseline_global_std_ref_with_genes.txt,sep='\t',header=T)
   patientProtSamples<-dat%>%tidyr::pivot_longer(cols=c(5:ncol(dat)),names_to='Sample', values_to='LogFoldChange')%>%
     dplyr::mutate(specId=stringr::str_replace(Sample,"X",""))%>%
     dplyr::mutate(Sample=stringr::str_replace(specId,stringr::fixed("."),"-"))%>%
-    dplyr::select(`AML sample`='Sample',Gene, LogFoldChange)
-
+    dplyr::select(`AML sample`='Sample',Gene, LogFoldChange)%>%
+    mutate(LogFoldChange=as.numeric(LogFoldChange))%>%
+    mutate(LogFoldChange=tidyr::replace_na(LogFoldChange,0))
+    #subset(!is.na(LogFoldChange))
+  
+  synTableStore(patientProtSamples,'BeatAML Pilot Proteomics')
   #saveRDS(patientProtSamples,file='inst/patientProtSampleData.Rds')
   return(patientProtSamples)
 }
 
 
 #' @export
-#' @require synapser
-#' @require dplyr
+#' @import dplyr
 getPatientPhosphoBaselines<-function(){
-  library(dplyr)
- # metadata<-getPatientMetadata()
-  dat<-read.table('../../Projects/CPTAC/exp_3/PTRC_baseline_phospho_std_ref_with_sites_stoich.txt',sep='\t',header=T)
-  patientPhosphoSamples<-dat%>%
-    tidyr::pivot_longer(-c(Entry,Gene,site,Peptide,ids,Entry_name),"Sample",values_to='LogFoldChange')%>%
-    dplyr::mutate(specId=stringr::str_replace(Sample,"X",""))%>%
-    dplyr::mutate(Sample=stringr::str_replace(specId,stringr::fixed("."),"-"))%>%
-    dplyr::select(Sample,Gene, site,Peptide,LogFoldChange)
+    library(dplyr)
+                                        # metadata<-getPatientMetadata()
+                                        #  dat<-read.table('../../Projects/CPTAC/exp_3/PTRC_baseline_phospho_std_ref_with_sites_stoich.txt',sep='\t',header=T)
+    syn<-synapseLogin()                                      #  metadata<-getPatientMetadata()
 
-  saveRDS(patientPhosphoSamples,file='inst/patientPhosphoSampleData.Rds')
-  return(patientPhosphoSamples)
+    dat<-read.table(syn$get('syn22130779')$path,sep='\t',header=T)#'../../Projects/CPTAC/exp_3'/PTRC_baseline_global_std_ref_with_genes.txt,sep='\t',header=T)
+
+    patientPhosphoSamples<-dat%>%
+        tidyr::pivot_longer(-c(Entry,Gene,site,Peptide,ids,Entry_name),"Sample",values_to='LogFoldChange')%>%
+        dplyr::mutate(specId=stringr::str_replace(Sample,"X",""))%>%
+        dplyr::mutate(Sample=stringr::str_replace(specId,stringr::fixed("."),"-"))%>%
+        dplyr::select(Sample,Gene, site,Peptide,LogFoldChange)%>%
+      mutate(LogFoldChange=as.numeric(LogFoldChange))%>%
+      mutate(LogFoldChange=tidyr::replace_na(LogFoldChange,0))
+    
+
+    synTableStore(patientPhosphoSamples,'BeatAML Pilot Phosphoproteomics')
+    #saveRDS(patientPhosphoSamples,file='inst/patientPhosphoSampleData.Rds')
+    #synStore(File('inst/patientPhosphoSampleData.Rds',parentId='syn22130776'))
+
+    return(patientPhosphoSamples)
 }
 
-#' @require synapser
+#' @import readxl
 #'
 getTimeCourseMetadata<-function(){
-  samp.data<-readxl::read_xlsx('../../Projects/CPTAC/exp_2/Pilot2_treated cell_TMT labels.xlsx')%>%
-    dplyr::select(Sample=`Tube name`,cellLine=`Cell line`,treatment=`Treated with`,timePoint=`Time point`)
-  return(samp.data)
+  syn<-synapseLogin()                                      #  metadata<-getPatientMetadata()
+  
+    samp.data<-readxl::read_xlsx(syn$get('syn22130821')$path)%>%
+        dplyr::select(Sample='Tube name',cellLine='Cell line',treatment='Treated with',
+                      timePoint='Time point')
+    return(samp.data)
 }
-#'@export
+
+#' getTimecourseData
+#' @require dplyr
+#' @export
 getTimeCourseData<-function(){
-  library(dplyr)
-  metadata<-getTimeCourseMetadata()
-  dat<-read.csv2('../../Projects/CPTAC/exp_2/PTRC_pilot2_global_with_genes.txt',
-                  sep='\t',header=T)
-  timeCourseData<-dat%>%tidyr::pivot_longer(cols=c(4:ncol(dat)),names_to='sample', values_to='LogFoldChange')%>%
+    library(dplyr)
+    syn=synapseLogin()
+    metadata<-getTimeCourseMetadata()
+    dat<-read.csv2(syn$get("syn22130819")$path,
+                   sep='\t',header=T)
+    timeCourseData<-dat%>%tidyr::pivot_longer(cols=c(4:ncol(dat)),names_to='sample', values_to='LogFoldChange')%>%
     #dplyr::mutate(specId=stringr::str_replace(sample,".","-"))%>%
     dplyr::mutate(Sample=stringr::str_replace(sample,stringr::fixed("."),"-"))%>%
     dplyr::select(Sample,Gene, LogFoldChange)%>%
-    left_join(metadata)
-
-  saveRDS(timeCourseData,file='inst/timeCourseData.Rds')
-  return(timeCourseData)
+    left_join(metadata)%>%
+      mutate(LogFoldChange=as.numeric(LogFoldChange))%>%
+      subset(!is.na(LogFoldChange))
+  synTableStore(timeCourseData,'Cell Line Time Course Proteomics')
+#  saveRDS(timeCourseData,file='inst/timeCourseData.Rds')
+#  return(timeCourseData)
 
 }
 
 #' @export
+#' @import dplyr
 getTimeCoursePhosphoData<-function(){
   library(dplyr)
+  syn<-synapseLogin()
   metadata<-getTimeCourseMetadata()
-  timeCoursePhospho<-read.csv2('../../Projects/CPTAC/exp_2/PTRC_pilot2_phospho_stoich_with_sites.txt',
+  timeCoursePhospho<-read.csv2(syn$get('syn22130820')$path,
                  sep='\t',header=T)%>%
     tidyr::pivot_longer(-c(Entry,Gene,site,Peptide,ids,Entry.name,Protein),"Sample",values_to='LogFoldChange')%>%
     dplyr::mutate(specId=stringr::str_replace(Sample,"X",""))%>%
     dplyr::mutate(Sample=stringr::str_replace(specId,stringr::fixed("."),"-"))%>%
     dplyr::select(Sample,Gene, site,Peptide,LogFoldChange)%>%
+    mutate(LogFoldChange=as.numeric(LogFoldChange))%>%
+    mutate(LogFoldChange=tidyr::replace_na(LogFoldChange,0))%>%
     left_join(metadata)
-  saveRDS(timeCoursePhospho,file='inst/timeCoursePhosphoData.Rds')
+  
+   # subset(!is.na(LogFoldChange))
+  synTableStore(timeCoursePhospho,'Cell Line Time Course Phosphoproteomics')
+  
+#  saveRDS(timeCoursePhospho,file='inst/timeCoursePhosphoData.Rds')
 }

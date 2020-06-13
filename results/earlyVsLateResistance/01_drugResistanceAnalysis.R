@@ -5,7 +5,8 @@ library(amlresistancenetworks)
 library(dplyr)
 
 ##first run gilteritinib data
-gilt.data<-readRDS(system.file('gilteritinibData.Rds',package='amlresistancenetworks'))
+gilt.data<-querySynapseTable('syn22156807')
+#  readRDS(system.file('gilteritinibData.Rds',package='amlresistancenetworks'))
 prot.univ<-unique(gilt.data$Gene)
 
 
