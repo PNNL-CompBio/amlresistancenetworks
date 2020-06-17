@@ -12,6 +12,7 @@
 
 condaenv="C:\\Users\\gosl241\\OneDrive - PNNL\\Documents\\GitHub\\amlresistancenetworks\\renv\\python\\r-reticulate\\"
 
+#' Logs into Synapse using local information
 #' @import reticulate
 #' @return Synapse login python entity
 #' @export
@@ -29,11 +30,11 @@ synapseLogin<-function(){
 #' @export
 synapseStore<-function(path,parentId){
   library(reticulate)
-  reticulate::use_condaenv('r-reticulate')
+  reticulate::use_condaenv(condaenv)
   
   synapse=reticulate::import('synapseclient')
   sync=synapse$login()
-  sync$store(synapse$File(path,parentId=parent))
+  sync$store(synapse$File(path,parentId=parentId))
 }
 
 

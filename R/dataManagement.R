@@ -273,7 +273,7 @@ getPatientDrugResponses<-function(patientlist){
   syn=synapseLogin()
     exp.3.megafile=syn$get('syn22130786')$path
 
-  dose.response<-readxl::read_xlsx(exp.3.megafile,sheet='BeatAML S10 Drug Responses')%>%
+  dose.response<-readxl::read_xlsx(exp.3.megafile,sheet='Table S10-Drug Responses')%>%
     tidyr::pivot_longer(c(ic50,auc),names_to='Metric',values_to='Value')%>%
     dplyr::rename(`AML sample`='lab_id',Condition='inhibitor')
 
@@ -286,8 +286,8 @@ getPatientDrugResponses<-function(patientlist){
 }
 #' getPatientMetadata
 #' @export
-#' @require dplyr
-#' @require readxl
+#' @import dplyr
+#' @import readxl
 getPatientMetadata<-function(){
     require(dplyr)
 #    synapser::synLogin()
@@ -315,6 +315,7 @@ getPatientMetadata<-function(){
 }
 
 #' store drug class for now..
+#' @import dplyr
 storeDrugClassInfo<-function(){
   syn=synapseLogin()
   beat.samps<-syn$get('syn22130788')$path
@@ -361,9 +362,26 @@ getPatientBaselines<-function(){
     mutate(LogFoldChange=tidyr::replace_na(LogFoldChange,0))
     #subset(!is.na(LogFoldChange))
   
-  synTableStore(patientProtSamples,'BeatAML Pilot Proteomics')
+  #this data is stored elsewhere
+  metadata<-readAndTidySensMetadata()%>%
+    dplyr::select(`AML sample`,Barcode)%>%
+    distinct()%>%
+    mutate(Barcode=as.character(Barcode))
+  
+  dat2<-read.table(syn$get('syn22130842')$path,sep='\t',header=T)
+  secondData<-dat2%>%
+    tidyr::pivot_longer(cols=c(3:ncol(dat2)),names_to='Sample', values_to='LogFoldChange')%>%
+    dplyr::mutate(specId=stringr::str_replace(Sample,"X",""))%>%
+    dplyr::mutate(Sample=stringr::str_replace(specId,stringr::fixed("."),"-"))%>%
+    dplyr::select(Barcode='Sample',Gene, LogFoldChange)%>%
+    mutate(LogFoldChange=as.numeric(LogFoldChange))%>%
+    mutate(LogFoldChange=tidyr::replace_na(LogFoldChange,0))%>%
+    left_join(metadata)%>%
+    select(-Barcode)
+  
+ # synTableStore(patientProtSamples,'BeatAML Pilot Proteomics')
   #saveRDS(patientProtSamples,file='inst/patientProtSampleData.Rds')
-  return(patientProtSamples)
+  return(rbind(patientProtSamples,secondData))
 }
 
 

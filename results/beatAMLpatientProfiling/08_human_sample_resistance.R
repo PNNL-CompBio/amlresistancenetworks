@@ -4,106 +4,109 @@ library(amlresistancenetworks)
 library(dplyr)
 library(ggplot2)
 # this is the sensitivity data
-pat.data<-querySynapseTable('syn22156868')#readRDS(system.file('patientMolecularData.Rds',package='amlresistancenetworks'))
+pat.data<-querySynapseTable('syn22168781')#readRDS(system.file('patientMolecularData.Rds',package='amlresistancenetworks'))
 pat.phos<-querySynapseTable("syn22156830")#readRDS(system.file('patientPhosphoSampleData.Rds',package='amlresistancenetworks'))
-pat.drugClin<-querySynapseTable("syn22156866")#readRDS(system.file('patientDrugAndClinical.Rds', package='amlresistancenetworks'))
-drug.class<-querySynapseTable("syn22156956")%>%rename(Condition='inhibitor')
-pat.drugClin<-querySynapseTable("syn22156866")%>%
+#   pat.drugClin<-querySynapseTable("syn22156866")
+    #readRDS(system.file('patientDrugAndClinical.Rds', package='amlresistancenetworks'))
+drug.class<-querySynapseTable("syn22156956")%>%
+  rename(Condition='inhibitor')%>%
+  mutate(Condition=unlist(Condition))%>%
+  mutate(family=unlist(family))
+
+pat.drugClin<-querySynapseTable("syn22168720")%>%
   mutate(Condition=unlist(Condition))%>%
   left_join(drug.class,by='Condition')
 
 
-#' working on this function still
-drugMolRegression<-function(clin.data,mol.data,mol.feature){
-  tdat<-mol.data%>%select(Gene,`AML sample`,Mol=mol.feature)%>%
-    subset(!is.na(Mol))%>%left_join(clin.data,by='AML sample')
-  
-  dcors<-tdat%>%select(Gene,Mol,Condition,AUC)%>%
-    distinct()%>%
-    group_by(Gene,Condition)%>%
-    purrr::pmap_df(lm(x=Mol,y=AUC))
-  
-  
-}
 
-#' how do we visualize the correlations of each drug/gene pair?
-#' @param cor.res
-#' @param cor.thresh 
-plotCorrelationsByDrug<-function(cor.res,cor.thresh){
-  ##for each drug class - what is the distribution of correlations broken down by data type
+#'plotAll patients
+#'summarize dataset
+#'@param auc.data - AUC data and clinical
+#'@param mol.data -molelcular data
+#'@import pheatmap
+#'@import dplyr
+plotAllPatients<-function(auc.data,pat.data){
+  library(gridExtra)
+  numDrugs=auc.data%>%
+      group_by(`AML sample`)%>%
+      summarize(numDrugs=n_distinct(Condition))
+  pat.df<-pat.data%>%
+      group_by(`AML sample`)%>%
+      summarize(RNA=any(mRNALevels!=0),mutations=any(geneMutations!=0),proteins=any(proteinLevels!=0))%>%
+      left_join(numDrugs)
+  pdf('patientSummaryTab.pdf')
+  grid.table(pat.df)
+  dev.off()
+  #ggsave("PatientSummaryTab.pdf")
 
-  do.p<-function(dat,cor.thresh){
-    print(head(dat))
-    fam=dat$family[1]
-    #fam=dat%>%dplyr::select(family)%>%unlist()
-    #fam=fam[1]
-    fname=paste0(fam,'_correlations.png')
-    p1<-ggplot(dat,aes(y=Condition,x=drugCor))+
-      geom_density_ridges_gradient(aes(fill=feature,alpha=0.5))+
-      scale_fill_viridis_d()+ggtitle(paste('Correlation with',fam))
-    ##for each drug, how many genes have a corelation over threshold
-    p2<-subset(dat,abs(drugCor)>cor.thresh)%>%
-      ungroup()%>%
-      group_by(Condition,feature,family)%>%
-      summarize(CorVals=n_distinct(Gene))%>%ggplot(aes(x=Condition,y=CorVals,fill=feature))+
-        geom_bar(stat='identity',position='dodge')+
-      scale_fill_viridis_d()+ggtitle(paste("Correlation >",cor.thresh))
-    
-    cowplot::plot_grid(p1,p2,nrow=2) 
-    
-    ggsave(fname)
-    return(fname)
-  }
-  
-  famplots<-all.cors%>%split(all.cors$family)%>%purrr::map(do.p,cor.thresh)                                                  
-  
-  lapply(famplots,synapseStore,'syn22130776')
-  
 }
 
 
-computeDiffExByDrug<-function(sens.data){
-  #samps<-assignSensResSamps(sens.data,'AUC',sens.val,res.val)
-
-  result<-sens.data%>%
-    dplyr::select('Sample',Gene,cellLine='Drug',value="LogFoldChange",treatment='Status')%>%
-    distinct()%>%
-    subset(!is.na(cellLine))%>%
-    group_by(cellLine)%>%
-    group_modify(~ computeFoldChangePvals(.x,control=NA,conditions =c("Sensitive","Resistant")),keep=TRUE)%>%
-    rename(Drug='cellLine')
-    
-  
-  table(result%>%group_by(Drug)%>%subset(p_adj<0.1)%>%summarize(sigProts=n()))
-  
-  result
-}
+print("Fixing mispelling")
+pat.drugClin$Condition<-sapply(pat.drugClin$Condition,function(x){
+  ifelse(x=='Vargetef','Vargatef',x)})
 
 
-computeAUCCorVals<-function(clin.data,mol.data,mol.feature){
-  tdat<-mol.data%>%select(Gene,`AML sample`,Mol=mol.feature)%>%
-    subset(!is.na(Mol))%>%left_join(clin.data,by='AML sample')
-  
-  dcors<-tdat%>%select(Gene,Mol,Condition,AUC,family)%>%
-      distinct()%>%
-      group_by(Gene,Condition)%>%
-      mutate(numSamps=n(),drugCor=cor(Mol,AUC))%>%
-      select(Gene,Condition,numSamps,drugCor)%>%distinct()%>%
-      arrange(desc(drugCor))%>%subset(numSamps>10)%>%
-    mutate(feature=mol.feature)
-  
-  ggplot(dcors,aes(x=drugCor))+geom_histogram(aes(fill=Condition))
+print("Reformating AUC data")
+clin.dat<-pat.drugClin%>%
+  mutate(family=unlist(family))%>%
+  select(`AML sample`,gender,ageAtDiagnosis,vitalStatus,overallSurvival,family,Condition)%>%
+  distinct()
 
-      
-  return(dcors)
-  
-}
 auc.dat<- subset(pat.drugClin,Metric%in%c('auc','AUC'))%>%
-  select(`AML sample`,gender,ageAtDiagnosis,vitalStatus,overallSurvival,family,Condition,AUC='Value')%>%
-  mutate(Condition=unlist(Condition))
+  dplyr::select(`AML sample`,Condition,AUC='Value')%>%
+  distinct()%>%
+  mutate(Condition=unlist(Condition))%>%
+  group_by(Condition)%>%
+  mutate(medAUC=median(AUC))%>%
+  mutate(percAUC=100*AUC/medAUC)%>%
+  ungroup()%>%
+  left_join(clin.dat)
 
-all.cors<-purrr::map_df(list(mRNA='transcriptCounts',
-                           protein='LogFoldChange',
-                           gene='Tumor VAF'),~ computeAUCCorVals(auc.dat,pat.data,.x))
 
-plotCorrelationsByDrug(all.cors,cor.thresh=0.8)
+pat.data<-pat.data%>%rename(proteinLevels='LogFoldChange')%>%
+  rename(mRNALevels='transcriptCounts')%>%
+  rename(geneMutations='Tumor VAF')
+
+#summarizing AUC data
+plotAllAUCs(auc.dat)
+plotAllPatients(auc.dat,pat.data)
+
+print("Getting predictors")
+all.preds<-purrr::map_df(list(mRNA='mRNALevels',
+                             protein='proteinLevels',
+                             gene='geneMutations'),~ drugMolRegression(auc.dat,
+                                                                  pat.data,
+                                                                  .x,category='Condition'))
+
+full.tab<-all.preds%>%
+  rename(Condition='var')%>%
+  ungroup()%>%
+  left_join(drug.class)%>%
+  mutate(noGenes=(numGenes==0))
+
+class.size<-drug.class%>%group_by(family)%>%
+  summarize(size=n())
+bigger.fams<-subset(class.size,size>1)
+
+print("Plotting predictors")
+
+p<- full.tab%>%
+    subset(family%in%bigger.fams$family)%>%
+    ggplot(aes(x=family,y=MSE,fill=noGenes))+
+    geom_boxplot()+
+    facet_grid(~Molecular)+
+   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  ggtitle('Mean Squared Error of predictors by features')
+ggsave('MSEpreds.png')
+
+
+if(FALSE){
+  print("Getting correlations")
+  all.cors<-purrr::map_df(list(mRNA='mRNALevels',
+                           protein='proteinLevels',
+                           gene='geneMutations'),~ computeAUCCorVals(auc.dat,pat.data,.x))
+
+  print('Plotting')
+  plotCorrelationsByDrug(all.cors,cor.thresh=0.8)
+}
