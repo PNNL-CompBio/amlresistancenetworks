@@ -16,12 +16,7 @@ drugMolRegression(clin.data, mol.data, mol.feature, category = "Condition")
 
 \item{mol.feature}{is name of column to select from mol.data}
 
-\item{category}{can be either 'Condition' or 'family' which is how to group AUC values}
-
-\item{tab}{with column names `AML sample`,Gene, and whatever the value of 'mol.feature' is.}
-}
-\value{
-a data.frame with three values/colulmns: MSE, NumGenes, and Genes
+\item{category}{can be either Condition or family}
 }
 \description{
 working on this function still

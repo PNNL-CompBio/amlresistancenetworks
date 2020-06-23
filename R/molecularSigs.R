@@ -1,5 +1,6 @@
 
 
+
 #' working on this function still
 #' The goal is to use a basic elastic net regression to identify how 
 #' well each molecular feature predicts outcome as well as how many features
@@ -8,85 +9,155 @@
 #' @param clin.data is tidied clinical data
 #' @param mol.data is tidied table of molecular data
 #' @param mol.feature is name of column to select from mol.data
-#' @param category can be either 'Condition' or 'family' which is how to group AUC values
+#' @param category can be either Condition or family
 #' @export 
 drugMolRegression<-function(clin.data,
                             mol.data,
                             mol.feature,
                             category='Condition'){
   
-  #' miniReg
-  #' Runs lasso regression from tabular data
-  #' @param tab with column names `AML sample`,Gene, and whatever the value of 'mol.feature' is.
-  #' @return a data.frame with three values/colulmns: MSE, NumGenes, and Genes
-  miniReg<-function(tab){
-    library(glmnet)
-    
-    vfn=list(0.0)
-    names(vfn)=mol.feature
-    vfc<-list(mean)
-    names(vfc)=mol.feature
-    
-    mat<-tab%>%
-      dplyr::select(`AML sample`,Gene,!!mol.feature)%>%
-      tidyr::pivot_wider(names_from="AML sample",values_from=mol.feature,
-                         values_fill=vfn,values_fn = vfc)%>%
-      subset(Gene!="")%>%
-      tibble::column_to_rownames('Gene')
-    
-    cm<-apply(mat,2,mean)
-    zvals<-which(cm==0)
-    if(length(zvals)>0)
-      mat<-mat[,-zvals]
-    
-    if(ncol(mat)<5)
-      return(data.frame(MSE=0,numGenes=0,genes=''))
-    
-    tmp<-tab%>%
-      dplyr::select(meanVal,`AML sample`)%>%
-      distinct()
-    yvar<-tmp$meanVal
-    names(yvar)<-tmp$`AML sample`
-    yvar<-yvar[colnames(mat)]
-    
-    #use CV to get maximum AUC
-    cv.res=cv.glmnet(x=t(mat),y=yvar,type.measure='mse')
-    best.res<-data.frame(lambda=cv.res$lambda,MSE=cv.res$cvm)%>%
-      subset(MSE==min(MSE))
-    
-    #then select how many elements
-    full.res<-glmnet(x=t(mat),y=yvar,type.measure='mse')
-    genes=names(which(full.res$beta[,which(full.res$lambda==best.res$lambda)]!=0))
-    genelist<-paste(genes,collapse=',')
-    #print(paste(best.res$MSE,":",genelist))
-    return(data.frame(MSE=best.res$MSE,numGenes=length(genes),genes=genelist))
+   
+  if(length(mol.feature)==1){
+    drug.mol<-clin.data%>%
+      dplyr::select(`AML sample`,var=category,percAUC)%>%
+       group_by(`AML sample`,var)%>%
+      summarize(meanVal=mean(percAUC,na.rm=T))%>%
+      left_join(select(mol.data,c(Gene,`AML sample`,!!mol.feature)),
+                by='AML sample')
+  
+  
+    reg.res<-drug.mol%>%group_by(var)%>%
+      group_modify(~ miniReg(.x,mol.feature),keep=T)%>%
+      mutate(Molecular=mol.feature)
+  }else{
+    drug.mol<-clin.data%>%
+      dplyr::select(`AML sample`,var=category,percAUC)%>%
+      group_by(`AML sample`,var)%>%
+      summarize(meanVal=mean(percAUC,na.rm=T))%>%
+      left_join(select(mol.data,c(Gene,`AML sample`,mol.feature)),
+                by='AML sample')
+    reg.res<-drug.mol%>%group_by(var)%>%
+      group_modify(~ combReg(.x,mol.feature),keep=T)%>%
+      mutate(Molecular=paste(mol.feature,collapse='_'))
   }
-  
-  
-  drug.mol<-clin.data%>%
-    dplyr::select(`AML sample`,var=category,percAUC)%>%
-    #subset(clin.data,Metric%in%c("auc","AUC"))%>%
-    #  dplyr::select(`AML sample`,var=category,Value)%>%
-    group_by(`AML sample`,var)%>%
-    summarize(meanVal=mean(percAUC,na.rm=T))%>%
-    left_join(select(mol.data,c(Gene,`AML sample`,!!mol.feature)),by='AML sample')
-  
-  
-  reg.res<-drug.mol%>%group_by(var)%>%
-    group_modify(~ miniReg(.x),keep=T)%>%
-    mutate(Molecular=mol.feature)
-  
   return(reg.res)
   
 }
 
+#' combReg
+#' Runs lasso regression on a combination of feature types
+#' @param tab
+#' @param feature.list
+#' @return a data frame with three values/columns
+combReg<-function(tab,feature.list=c('proteinLevels','mRNALevels','geneMutations')){
+  
+   comb.mat<-do.call('cbind',lapply(feature.list,function(x) buildFeatureMatrix(tab,x)))
+   
+   
+  # cm<-apply(comb.mat,1,mean)
+  # zvals<-which(cm==0)
+  # if(length(zvals)>0)
+  #   comb.mat<-comb.mat[-zvals,]
+   
+   
+  if(ncol(comb.mat)<5 || nrow(comb.mat)<5)
+    return(data.frame(MSE=0,numGenes=0,genes=''))
+  
+  #now collect our y output variable
+  tmp<-tab%>%
+    dplyr::select(meanVal,`AML sample`)%>%
+    distinct()
+  yvar<-tmp$meanVal
+  names(yvar)<-tmp$`AML sample`
+  yvar<-unlist(yvar[rownames(comb.mat)])
+  
+  #use CV to get maximum AUC
+  cv.res=cv.glmnet(x=comb.mat,y=yvar,type.measure='mse')
+  best.res<-data.frame(lambda=cv.res$lambda,MSE=cv.res$cvm)%>%
+    subset(MSE==min(MSE))
+  
+  #then select how many elements
+  full.res<-glmnet(x=comb.mat,y=yvar,type.measure='mse')
+  genes=names(which(full.res$beta[,which(full.res$lambda==best.res$lambda)]!=0))
+  genelist<-paste(genes,collapse=',')
+  #print(paste(best.res$MSE,":",genelist))
+  return(data.frame(MSE=best.res$MSE,numGenes=length(genes),genes=genelist))
+  
+  
+}
+
+#' buildFeatureMatrix
+#' Builds a matrix for regression with rows as patients and columns as gene
+#' @param tab
+#' @param mol.feature
+#' @return matrix
+buildFeatureMatrix<-function(tab,mol.feature){
+  print(mol.feature)
+  vfn=list(0.0)
+  names(vfn)=mol.feature
+  vfc<-list(mean)
+  names(vfc)=mol.feature
+
+  mat<-tab%>%
+  dplyr::select(`AML sample`,Gene,!!mol.feature)%>%
+    subset(Gene!="")%>%
+    tidyr::pivot_wider(names_from=Gene,values_from=mol.feature,
+                     values_fill=vfn,values_fn = vfc,names_prefix=mol.feature)%>%
+    tibble::column_to_rownames('AML sample')
+
+  mat<-apply(mat,2,unlist)
+  return(mat)
+}
+#' miniReg
+#' Runs lasso regression on a single feature from tabular data
+#' @param tab with column names `AML sample`,meanVal,Gene, and whatever the value of 'mol.feature' is.
+#' @return a data.frame with three values/columns: MSE, NumGenes, and Genes
+miniReg<-function(tab,mol.feature){
+  library(glmnet)
+  
+  #first build our feature matrix
+ mat<-buildFeatureMatrix(tab,mol.feature)
+
+ cm<-apply(mat,1,mean)
+ zvals<-which(cm==0)
+ if(length(zvals)>0)
+   mat<-mat[-zvals,]
+ 
+  if(ncol(mat)<5 || nrow(mat)<5)
+      return(data.frame(MSE=0,numGenes=0,genes=''))
+
+  #now collect our y output variable
+  tmp<-tab%>%
+     dplyr::select(meanVal,`AML sample`)%>%
+      distinct()
+  yvar<-tmp$meanVal
+  names(yvar)<-tmp$`AML sample`
+  yvar<-unlist(yvar[rownames(mat)])
+  
+  #use CV to get maximum AUC
+  cv.res=cv.glmnet(x=mat,y=yvar,type.measure='mse')
+  best.res<-data.frame(lambda=cv.res$lambda,MSE=cv.res$cvm)%>%
+    subset(MSE==min(MSE))
+  
+  #then select how many elements
+  full.res<-glmnet(x=mat,y=yvar,type.measure='mse')
+  genes=names(which(full.res$beta[,which(full.res$lambda==best.res$lambda)]!=0))
+  genelist<-paste(genes,collapse=',')
+  #print(paste(best.res$MSE,":",genelist))
+  return(data.frame(MSE=best.res$MSE,numGenes=length(genes),genes=genelist))
+}
+
+
 #' how do we visualize the correlations of each drug/gene pair?
+#' 
+#' Computes drug by element correlation and plots them in various ways
 #' @param cor.res
 #' @param cor.thresh 
-#' Computes drug by element correlaction and plots them in various ways
 #' @import ggplot2
 #' @import dplyr
 #' @import cowplot
+#' @import ggridges
+#' @export
 plotCorrelationsByDrug<-function(cor.res,cor.thresh){
   ##for each drug class - what is the distribution of correlations broken down by data type
   library(ggplot2)
@@ -115,7 +186,7 @@ plotCorrelationsByDrug<-function(cor.res,cor.thresh){
     return(fname)
   }
   
-  famplots<-all.cors%>%split(all.cors$family)%>%purrr::map(do.p,cor.thresh)                                                  
+  famplots<-cor.res%>%split(cor.res$family)%>%purrr::map(do.p,cor.thresh)                                                  
   
   lapply(famplots,synapseStore,'syn22130776')
   
@@ -143,6 +214,7 @@ computeDiffExByDrug<-function(sens.data){
 
 
 #' what molecules are
+#' @import dplyr
 #' @param clin.data
 #' @param mol.data
 #' @param mol.feature
@@ -152,11 +224,12 @@ computeAUCCorVals<-function(clin.data,mol.data,mol.feature){
     dplyr::select(Gene,`AML sample`,Mol=mol.feature)%>%
     subset(!is.na(Mol))%>%
     inner_join(clin.data,by='AML sample')
+  
   print('here')
-  dcors<-tdat%>%select(Gene,Mol,Condition,percAUC,family)%>%
+  dcors<-tdat%>%select(Gene,Mol,Condition,AUC)%>%
     distinct()%>%
     group_by(Gene,Condition)%>%
-    mutate(numSamps=n(),drugCor=cor(Mol,percAUC))%>%
+    mutate(numSamps=n(),drugCor=cor(Mol,AUC))%>%
     dplyr::select(Gene,Condition,numSamps,drugCor)%>%distinct()%>%
     arrange(desc(drugCor))%>%
     subset(numSamps>10)%>%

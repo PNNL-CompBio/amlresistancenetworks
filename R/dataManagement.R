@@ -1,5 +1,5 @@
 ##load data from files into rdata files
-
+#this file should only be modified rarely when new data are to be added
 
 
 
@@ -250,6 +250,8 @@ getPatientTranscript<-function(patientlist){
     select(-Gene)%>%
     rename(Gene='Symbol',`AML sample`='patient')
   
+
+  
   subset(patient.cpm, `AML sample`%in%patientlist)
 
 }
@@ -267,20 +269,42 @@ getPatientVariants<-function(patientlist){
   return(gene.var)
 }
 
+#' this grabs drug responses from three different sources, all on synapse
+#' @param patientlist it will only return drugs for these patients
+#' @return data frame of drug response values
+#' @import dplyr
+#' @import readxl
 getPatientDrugResponses<-function(patientlist){
   library(dplyr)
   library(readxl)
   syn=synapseLogin()
     exp.3.megafile=syn$get('syn22130786')$path
 
+    #this file has the primary drug responses
   dose.response<-readxl::read_xlsx(exp.3.megafile,sheet='Table S10-Drug Responses')%>%
     tidyr::pivot_longer(c(ic50,auc),names_to='Metric',values_to='Value')%>%
     dplyr::rename(`AML sample`='lab_id',Condition='inhibitor')
 
+  #here is an additional set of data
   other.data<-readAndTidySensMetadata()%>%
     dplyr::select(-Barcode)
 
-  comb.response<-rbind(dose.response,other.data)
+  #even more data
+  extra.files<-c('syn22170222','syn22170223','syn22170225','syn22170226','syn22170227')
+  more.data<-purrr::map_df(extra.files,function(x){
+    fname=syn$get(x)$path
+    if(length(grep('xlsx',fname))>0)
+      ex<-readxl::read_xlsx(fname)
+    else
+      ex<-readxl::read_xls(fname)
+
+    ex%>%dplyr::select(`AML sample`='Specimen: Lab ID',
+                    Condition='Inhibitor Panel Definition: Drug',
+                    AUC='Probit Interpretation: Area Under Curve',
+                    IC50='Probit Interpretation: IC50')%>%
+      tidyr::pivot_longer(c(IC50,AUC),names_to='Metric',values_to='Value')
+  })  
+  comb.response<-rbind(dose.response,other.data,more.data)
   return(subset(comb.response,`AML sample`%in%patientlist))
 
 }
@@ -298,6 +322,7 @@ getPatientMetadata<-function(){
     dplyr::select('Specimen ID')%>%distinct()
 
   drugs<-getPatientDrugResponses(unlist(patients))
+  
  patData<-readxl::read_xlsx(exp.3.megafile,sheet='Clinical Summary')%>%
    subset(labId%in%unlist(patients))%>%
    select(`AML sample`='labId',gender,ageAtDiagnosis, priorMalignancyType,
@@ -336,8 +361,9 @@ getPatientMolecularData<-function(){
   rna<-getPatientTranscript(unlist(patients))
   variants<-getPatientVariants(unlist(patients))
   prots<-getPatientBaselines()
-  patientMolecularData<-rna%>%left_join(variants,by=c('AML sample','Gene'))%>%
-    left_join(prots,by=c('AML sample','Gene'))%>%
+  patientMolecularData<-prots%>%
+    full_join(rna,by=c('AML sample','Gene'),na_matches="never")%>%
+    full_join(variants,by=c('AML sample','Gene'),na_matches="never")%>%
     mutate(transcriptCounts=tidyr::replace_na(transcriptCounts,0))%>%
     mutate(`Tumor VAF`=tidyr::replace_na(`Tumor VAF`,0))%>%
     mutate(LogFoldChange=tidyr::replace_na(LogFoldChange,0))
@@ -349,7 +375,7 @@ getPatientMolecularData<-function(){
 }
 
 #' get proteomic data for beataml samples
-#' @improt dplyr
+#' @import dplyr
 getPatientBaselines<-function(){
   library(dplyr)
   syn=synapseLogin()

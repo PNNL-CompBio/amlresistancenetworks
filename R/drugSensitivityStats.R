@@ -36,7 +36,7 @@ plotProtsByMetric<-function(sens.data,genelist=c("BCL2","TRIM21","DUSP23"),
 #' @param auc.data
 #' @import pheatmap
 #' @export
-plotAllAUCs<-function(auc.data){
+plotAllAUCs<-function(auc.data,to.plot='percAUC'){
   auc.data%>%
     dplyr::select(`AML sample`,Condition,percAUC)%>%distinct()%>%
     ggplot(aes(x=percAUC,fill=Condition))+geom_histogram()+ theme(legend.position = "none")+
@@ -52,21 +52,37 @@ plotAllAUCs<-function(auc.data){
   
   library(pheatmap)
   pat.vars<-auc.data%>%
-    dplyr::select(`AML sample`,gender,ageAtDiagnosis,vitalStatus,overallSurvival)%>%
+    dplyr::select(-c(Condition,family,c('percAUC','AUC','medAUC')))%>%
+#      `AML sample`,gender,ageAtDiagnosis,vitalStatus,overallSurvival)%>%
     distinct()%>%
     tibble::column_to_rownames("AML sample")
+  
+  if('RNA'%in%names(pat.vars))
+    pat.vars$RNA<-as.factor(pat.vars$RNA)
+  if('mutations'%in%names(pat.vars))
+    pat.vars$mutations<-as.factor(pat.vars$mutations)
+  if('proteins'%in%names(pat.vars))
+    pat.vars$proteins<-as.factor(pat.vars$proteins)
   drug.vars<-auc.data%>%
     dplyr::select(Drug='Condition',family)%>%
     distinct()
+  
+  pfn=list(0)
+  names(pfn)=to.plot
+  pff=list(mean)
+  names(pff)<-to.plot
+  
   auc.mat<-auc.data%>%
-    dplyr::select(`AML sample`,Drug='Condition',percAUC)%>%
+    dplyr::select(`AML sample`,Drug='Condition',!!to.plot)%>%
     distinct()%>%
-    tidyr::pivot_wider(names_from="AML sample",values_from="percAUC",values_fill=(list(percAUC=0)),
-                       values_fn=list(percAUC=mean))%>%
+    tidyr::pivot_wider(names_from="AML sample",values_from=to.plot,
+                       values_fill=pfn,
+                       values_fn=pff)%>%
     tibble::column_to_rownames('Drug')%>%
     as.matrix()
   
-  pheatmap(auc.mat,annotation_col = pat.vars,filename = 'AUCheatmap.pdf',cellwidth = 10,cellheight = 10) 
-  synapseStore('AUCheatmap.pdf','syn22130776')
+  pheatmap(auc.mat,annotation_col = pat.vars,clustering_distance_cols='correlation',
+           clustering_method='ward',filename = paste0(to.plot,'heatmap.pdf'),cellwidth = 10,cellheight = 10) 
+  synapseStore(paste0(to.plot,'heatmap.pdf'),'syn22130776')
 }
 

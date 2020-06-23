@@ -7,8 +7,8 @@
 plotCorrelationsByDrug(cor.res, cor.thresh)
 }
 \arguments{
-\item{cor.thresh}{Computes drug by element correlaction and plots them in various ways}
+\item{cor.thresh}{}
 }
 \description{
-how do we visualize the correlations of each drug/gene pair?
+Computes drug by element correlaction and plots them in various ways
 }
