@@ -10,5 +10,5 @@ plotCorrelationsByDrug(cor.res, cor.thresh)
 \item{cor.thresh}{}
 }
 \description{
-Computes drug by element correlaction and plots them in various ways
+Computes drug by element correlation and plots them in various ways
 }

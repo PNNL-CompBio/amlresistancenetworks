@@ -11,7 +11,8 @@
 
 readAndTidyMetadata<-function(){
   syn=synapseLogin()
-  metadata<-readxl::read_xlsx(syn$get('syn22136312')$path)
+  metadata<-readxl::read_xlsx(syn$get('syn22136312')$path)%>%
+    stringr::string_replace()
 
   #update sample
   metadata$Sample<-sapply(metadata$`Sample ID`,function(x) paste('Sample',x,sep='_'))
@@ -490,4 +491,44 @@ getTimeCoursePhosphoData<-function(){
   synTableStore(timeCoursePhospho,'Cell Line Time Course Phosphoproteomics')
   
 #  saveRDS(timeCoursePhospho,file='inst/timeCoursePhosphoData.Rds')
+}
+
+
+#' getCytokine data
+#' gets cytokine sensitivity data and metadata in one call
+#' @import dplyr
+#' @import readxl
+#' @export
+getCytokineSensData<-function(){
+  library(dplyr)
+  syn<-synapseLogin()
+  metadata<-readxl::read_xlsx(syn$get('syn22175391')$path)%>%
+    mutate(sample=stringr::str_replace(`Sample name (DMS)`,'PTRC_Ex15_',''))%>%
+    dplyr::select(sample,CellType,TimePoint,Treatment)
+  
+  metadata$CellType<-sapply(metadata$CellType,function(x) {
+    ifelse(x=='M','MOLM-13','MOLM-13 Tr Resistant')})
+  metadata$Treatment<-sapply(metadata$Treatment,function(x){
+    switch(x,M='MCP-1',T='Trametinib',TW='Trametinib Withdrawn',none="none",`T+M`='Trametinib+MCP-1')})
+    
+
+  pdat<-read.csv2(syn$get('syn22173207')$path,sep='\t')%>%
+    tidyr::pivot_longer(-c(Protein,Gene),names_to='tsamp',values_to='LogRatio')%>%
+    mutate(sample=stringr::str_replace(tsamp,'X',''))%>%
+    dplyr::select(-tsamp)%>%
+    left_join(metadata)
+
+    phdat<-read.csv2(syn$get('syn22173201')$path,sep='\t')%>%
+      tidyr::pivot_longer(-c(Protein,Gene,site,Peptide),
+                          names_to='tsamp',values_to='LogRatio')%>%
+      mutate(sample=stringr::str_replace(tsamp,'X',''))%>%
+      dplyr::select(-tsamp)%>%
+      left_join(metadata)
+    
+    synTableStore(pdat,'Cytokine-induced Drug Sensitivity Proteomics')
+    synTableStore(phdat,'Cytokine-induced Drug Sensitivity Phospho-proteomics')
+    
+    
+      
+  
 }

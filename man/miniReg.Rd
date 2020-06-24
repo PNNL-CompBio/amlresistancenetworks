@@ -3,17 +3,17 @@
 \name{miniReg}
 \alias{miniReg}
 \title{miniReg
-Runs lasso regression from tabular data}
+Runs lasso regression on a single feature from tabular data}
 \usage{
 miniReg(tab, mol.feature)
 }
 \arguments{
-\item{tab}{with column names `AML sample`,Gene, and whatever the value of 'mol.feature' is.}
+\item{tab}{with column names `AML sample`,meanVal,Gene, and whatever the value of 'mol.feature' is.}
 }
 \value{
-a data.frame with three values/colulmns: MSE, NumGenes, and Genes
+a data.frame with three values/columns: MSE, NumGenes, and Genes
 }
 \description{
 miniReg
-Runs lasso regression from tabular data
+Runs lasso regression on a single feature from tabular data
 }
