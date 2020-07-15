@@ -4,7 +4,7 @@
 \alias{plotOldGSEA}
 \title{Old plot using clusterProfiler}
 \usage{
-plotOldGSEA(genes.with.values, prot.univ, prefix)
+plotOldGSEA(genes.with.values, prefix, gsea_FDR = 0.05)
 }
 \description{
 Old plot using clusterProfiler

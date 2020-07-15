@@ -55,7 +55,7 @@ limmaTwoFactorDEAnalysis <- function(dat, sampleIDs.group1, sampleIDs.group2) {
   print(topTable(fit, coef=2))
   res <- topTable(fit, coef=2, number=Inf, sort.by="none")
   res <- data.frame(featureID=rownames(res), res, stringsAsFactors = F)
-  return(res)
+  return(arrange(res,P.Value))
 }
 
 #' compute manual lfc
@@ -220,4 +220,18 @@ getCoClusteredProteins<-function(prot.data){
   ggsave(paste0(treatment,'_treated_',cellLine,'cells.png'))
   
   return(res)
+}
+
+
+#'get ordered phospho sites
+#'@param phosData
+#'@return data table of log fold change
+#'@import dplyr
+computePhosphoChanges<-function(phosData,samps1,samps2){
+  gene.to.site<-dplyr::select(phosData,Gene,site,Peptide)%>%distinct()%>%
+    dplyr::mutate(residue=stringr::str_replace(site,paste0(Gene,'-'),''))%>%
+    dplyr::mutate(residue=stringr::str_replace_all(residue,"([STY])", ";\\1"))%>%
+    dplyr::mutate(residue=stringr::str_replace(residue,"^;", ""))%>%
+    dplyr::mutate(residue=stringr::str_replace_all(residue,"([sty])", ""))
+  
 }

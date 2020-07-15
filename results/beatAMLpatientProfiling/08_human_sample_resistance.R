@@ -10,8 +10,20 @@ pat.data<-querySynapseTable('syn22172602')#readRDS(system.file('patientMolecular
 pat.phos<-querySynapseTable("syn22156830")#readRDS(system.file('patientPhosphoSampleData.Rds',package='amlresistancenetworks'))
 #   pat.drugClin<-querySynapseTable("syn22156866")
     #readRDS(system.file('patientDrugAndClinical.Rds', package='amlresistancenetworks'))
+
+KSDB <- read.csv(system.file('PSP&NetworKIN_Kinase_Substrate_Dataset_July2016.csv',package='amlresistancenetworks'),stringsAsFactors = FALSE)
+
+pat.phos$Gene<-unlist(pat.phos$Gene)
+phos.with.subs<-pat.phos%>%left_join(rename(KSDB,Gene='SUB_GENE'),by='Gene')
+
+pat.kin.scores<-filter(phos.with.subs,!is.na(GENE))%>%
+  dplyr::select(Sample,site,Gene,LogFoldChange,GENE,networkin_score)%>%distinct()%>%
+  group_by(Sample,GENE)%>%
+  summarize(meanLFC=mean(LogFoldChange),meanNKINscore=mean(networkin_score),numSubstr=n_distinct(Gene))%>%
+  rename(Kinase='GENE')
+
 drug.class<-querySynapseTable("syn22156956")%>%
-  rename(Condition='inhibitor')%>%
+  dplyr::rename(Condition='inhibitor')%>%
   mutate(Condition=unlist(Condition))%>%
   mutate(family=unlist(family))
 
@@ -21,6 +33,9 @@ pat.drugClin<-querySynapseTable("syn22170540")%>%
   left_join(drug.class,by='Condition')
 
 
+print("Fixing mispelling")
+pat.drugClin$Condition<-sapply(pat.drugClin$Condition,function(x){
+  ifelse(x=='Vargetef','Vargatef',x)})
 
 #'plotAll patients
 #'summarize dataset
@@ -46,15 +61,12 @@ plotAllPatients<-function(auc.data,pat.data){
 }
 
 
-print("Fixing mispelling")
-pat.drugClin$Condition<-sapply(pat.drugClin$Condition,function(x){
-  ifelse(x=='Vargetef','Vargatef',x)})
 
 
 print("Reformating AUC data")
 clin.dat<-pat.drugClin%>%
   mutate(family=unlist(family))%>%
-  select(`AML sample`,gender,ageAtDiagnosis,vitalStatus,overallSurvival,family,Condition)%>%
+  dplyr::select(`AML sample`,gender,ageAtDiagnosis,vitalStatus,overallSurvival,family,Condition)%>%
   distinct()
 
 auc.dat<- subset(pat.drugClin,Metric%in%c('auc','AUC'))%>%
@@ -103,7 +115,8 @@ if(FALSE){
   plotCorrelationsByDrug(red.cors,cor.thresh=0.8)
 }
 
-print("Getting predictors")
+if(FALSE){
+print("Getting Regression predictors")
 all.preds<-purrr::map_df(list(mRNA='mRNALevels',
                              protein='proteinLevels',
                              gene='geneMutations'),~ drugMolRegression(auc.dat,
@@ -116,6 +129,20 @@ all.preds<-purrr::map_df(list(mRNA='mRNALevels',
 full.preds<-drugMolRegression(auc.dat,pat.data,c('mRNALevels','proteinLevels','geneMutations'))
 ##now how do we visualize this? 
 
+}
+
+print("Getting Random Forest predictors")
+all.preds<-purrr::map_df(list(mRNA='mRNALevels',
+                              protein='proteinLevels',
+                              gene='geneMutations'),~ drugMolRandomForest(auc.dat,
+                                                                        pat.data,
+                                                                        .x,category='Condition'))
+
+
+
+
+full.preds<-drugMolRandomForest(auc.dat,pat.data,c('mRNALevels','proteinLevels','geneMutations'))
+##now how do we visualize this? 
 
 
 comb.preds<-rbind(all.preds,full.preds%>%mutate(Molecular='allThree'))

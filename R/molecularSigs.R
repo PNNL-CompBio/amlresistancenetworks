@@ -1,6 +1,48 @@
 
 
 
+
+#' drugMolRandomForest
+#' builds random forest predictor of molecular data
+#' @param clin.data
+#' @param mol.data
+#' @param mol.feature
+#' @param category
+#' @export
+drugMolRandomForest<-function(clin.data,
+                              mol.data,
+                              mol.feature,
+                              category='Condition'){
+  
+  
+  if(length(mol.feature)==1){
+    drug.mol<-clin.data%>%
+      dplyr::select(`AML sample`,var=category,percAUC)%>%
+      group_by(`AML sample`,var)%>%
+      summarize(meanVal=mean(percAUC,na.rm=T))%>%
+      left_join(dplyr::select(mol.data,c(Gene,`AML sample`,!!mol.feature)),
+                by='AML sample')
+    
+    
+    reg.res<-drug.mol%>%group_by(var)%>%
+      group_modify(~ miniForest(.x,mol.feature),keep=T)%>%
+      mutate(Molecular=mol.feature)
+  }else{
+    drug.mol<-clin.data%>%
+      dplyr::select(`AML sample`,var=category,percAUC)%>%
+      group_by(`AML sample`,var)%>%
+      summarize(meanVal=mean(percAUC,na.rm=T))%>%
+      left_join(select(mol.data,c(Gene,`AML sample`,mol.feature)),
+                by='AML sample')
+    reg.res<-drug.mol%>%group_by(var)%>%
+      group_modify(~ combForest(.x,mol.feature),keep=T)%>%
+      mutate(Molecular=paste(mol.feature,collapse='_'))
+  }
+  return(reg.res)
+  
+}
+
+
 #' working on this function still
 #' The goal is to use a basic elastic net regression to identify how 
 #' well each molecular feature predicts outcome as well as how many features
@@ -41,6 +83,34 @@ drugMolRegression<-function(clin.data,
       mutate(Molecular=paste(mol.feature,collapse='_'))
   }
   return(reg.res)
+  
+}
+
+#'combForest
+#'Runs random forest on combination of feature types
+#'@param feature.list
+#'@param tab
+#'@return a data frame with 3 values
+combForest<-function(tab,feature.list=c('proteinLevels','mRNAlevels','geneMutations')){
+  comb.mat<-do.call('cbind',lapply(feature.list,function(x) buildFeatureMatrix(tab,x)))
+  
+  if(ncol(comb.mat)<5 || nrow(comb.mat)<5)
+    return(data.frame(MSE=0,numGenes=0,genes=''))
+  
+  #now collect our y output variable
+  tmp<-tab%>%
+    dplyr::select(meanVal,`AML sample`)%>%
+    distinct()
+  yvar<-tmp$meanVal
+  names(yvar)<-tmp$`AML sample`
+  yvar<-unlist(yvar[rownames(comb.mat)])
+               
+  rf<-randomForest(comb.mat,yvar)
+  # rf.pred<-predict(rf,mat)
+  # mse=mean((rf.pred-yvar)^2)
+  return(data.frame(MSE=min(rf$mse),
+                    numGenes=length(which(rf$importance!=0)),
+                    genes=paste(names(rf$importance)[which(rf$importance!=0)],collapse=',')))
   
 }
 
@@ -108,6 +178,44 @@ buildFeatureMatrix<-function(tab,mol.feature){
   mat<-apply(mat,2,unlist)
   return(mat)
 }
+
+
+#' miniForest
+#' Runds random forest on the table and molecular feature of interest
+#' @import randomForest
+#' @return list
+miniForest<-function(tab,mol.feature){
+  library(randomForest)
+  
+  #first build our feature matrix
+  mat<-buildFeatureMatrix(tab,mol.feature)
+  
+  cm<-apply(mat,1,mean)
+  zvals<-which(cm==0)
+  if(length(zvals)>0)
+    mat<-mat[-zvals,]
+  
+  if(ncol(mat)<5 || nrow(mat)<5)
+    return(data.frame(MSE=0,numGenes=0,genes=''))
+  
+  #now collect our y output variable
+  tmp<-tab%>%
+    dplyr::select(meanVal,`AML sample`)%>%
+    distinct()
+  yvar<-tmp$meanVal
+  names(yvar)<-tmp$`AML sample`
+  yvar<-unlist(yvar[rownames(mat)])
+  
+  rf<-randomForest(mat,yvar)
+ # rf.pred<-predict(rf,mat)
+ # mse=mean((rf.pred-yvar)^2)
+  return(data.frame(MSE=min(rf$mse),
+                    numGenes=length(which(rf$importance!=0)),
+                    genes=paste(names(rf$importance)[which(rf$importance!=0)],collapse=',')))
+         
+  
+}
+
 #' miniReg
 #' Runs lasso regression on a single feature from tabular data
 #' @param tab with column names `AML sample`,meanVal,Gene, and whatever the value of 'mol.feature' is.
