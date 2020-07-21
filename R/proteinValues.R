@@ -235,3 +235,24 @@ computePhosphoChanges<-function(phosData,samps1,samps2){
     dplyr::mutate(residue=stringr::str_replace_all(residue,"([sty])", ""))
   
 }
+
+#'mapPhosphoToKInase
+#'reads in phospho data, looads of KSDB and then computes log fold change for each kinase
+#'@param pat.phos
+#'@return data table of merged data
+#'@import dplyr
+#'@export
+mapPhosphoToKinase<-function(pat.phos){
+
+  KSDB <- read.csv(system.file('PSP&NetworKIN_Kinase_Substrate_Dataset_July2016.csv',package='amlresistancenetworks'),stringsAsFactors = FALSE)
+
+  pat.phos$Gene<-unlist(pat.phos$Gene)
+  phos.with.subs<-pat.phos%>%left_join(rename(KSDB,Gene='SUB_GENE'),by='Gene')
+
+  pat.kin.scores<-filter(phos.with.subs,!is.na(GENE))%>%
+    dplyr::select(Sample,site,Gene,LogFoldChange,GENE,networkin_score)%>%distinct()%>%
+    group_by(Sample,GENE)%>%
+    summarize(meanLFC=mean(LogFoldChange),meanNKINscore=mean(networkin_score),numSubstr=n_distinct(Gene))%>%
+    rename(Kinase='GENE')
+  return(pat.kin.scores)
+}

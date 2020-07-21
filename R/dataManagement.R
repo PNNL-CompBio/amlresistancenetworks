@@ -457,7 +457,7 @@ getTimeCourseData<-function(){
     syn=synapseLogin()
     metadata<-getTimeCourseMetadata()
     dat<-read.csv2(syn$get("syn22130819")$path,
-                   sep='\t',header=T)
+                   sep='\t',header=T,stringsAsFactors = FALSE)
     timeCourseData<-dat%>%tidyr::pivot_longer(cols=c(4:ncol(dat)),names_to='sample', values_to='LogFoldChange')%>%
     #dplyr::mutate(specId=stringr::str_replace(sample,".","-"))%>%
     dplyr::mutate(Sample=stringr::str_replace(sample,stringr::fixed("."),"-"))%>%
@@ -478,7 +478,7 @@ getTimeCoursePhosphoData<-function(){
   syn<-synapseLogin()
   metadata<-getTimeCourseMetadata()
   timeCoursePhospho<-read.csv2(syn$get('syn22130820')$path,
-                 sep='\t',header=T)%>%
+                 sep='\t',header=T,stringsAsFactors = F)%>%
     tidyr::pivot_longer(-c(Entry,Gene,site,Peptide,ids,Entry.name,Protein),"Sample",values_to='LogFoldChange')%>%
     dplyr::mutate(specId=stringr::str_replace(Sample,"X",""))%>%
     dplyr::mutate(Sample=stringr::str_replace(specId,stringr::fixed("."),"-"))%>%

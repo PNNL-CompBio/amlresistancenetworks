@@ -7,6 +7,21 @@ phosData<-querySynapseTable('syn22217040')%>%subset(!is.nan(LogRatio))%>%
   mutate(Gene=unlist(Gene))%>%
   mutate(site=unlist(site))
 
+#otherData<-''
+otherPhosData<-querySynapseTable('syn22255396')%>%
+  subset(!is.nan(LogFoldChange))%>%
+  subset(cellLine=='HL60')%>%
+  mutate(Gene=unlist(Gene))%>%
+  mutate(site=unlist(site))%>%
+  rowwise()%>%
+  mutate(Condition=paste(treatment,timePoint,sep='_'))
+
+
+kindat<-mapPhosphoToKinase(rename(phosData,Sample='sample',LogFoldChange='LogRatio'))
+
+parental<-mapPhosphoToKinase(rename(filter(phosData,CellType=='MOLM-13'),
+                                    Sample='sample',LogFoldChange='LogRatio'))
+
 ##
 #' @param dat.table
 plotAllData<-function(dat.table){
@@ -25,6 +40,30 @@ plotAllData<-function(dat.table){
   autoplot(prcomp(t(mat)),data=met,colour='Treatment',shape='CellType')
  
 }
+
+plotKinDat<-function(kindat,prefix='all'){
+  library(pheatmap)
+  ##create matrix of kinase scores
+  mat <-kindat%>%ungroup()%>%tidyr::pivot_wider(-c(meanNKINscore,numSubstr),
+                                                values_from=meanLFC,
+                                                names_from=Sample,
+                                                values_fn=list(meanLFC=mean))%>%
+    tibble::column_to_rownames('Kinase')
+  kinAts<-kindat%>%ungroup()%>%select(Kinase,numSubstr)%>%distinct()%>%
+    group_by(Kinase)%>%summarize(substrates=mean(numSubstr))%>%
+  tibble::column_to_rownames('Kinase')
+  
+  sampAts<-phosData%>%select(sample,CellType,TimePoint,Treatment)%>%distinct()%>%tibble::column_to_rownames('sample')
+  sampAts$TimePoint=as.factor(sampAts$TimePoint)
+  vars=names(sort(apply(mat,1,var),decreasing=T)[1:150])
+ pheatmap(mat[vars,],cellwidth = 8,cellheight=8,clustering_distance_cols = 'correlation',
+          clustering_distance_rows = 'correlation',
+          annotation_row = kinAts,annotation_col=sampAts,
+          file=paste0(prefix,'cytokineKinaseHeatmap.pdf'),height=20,width=8) 
+}
+
+plotKinDat(kindat)
+plotKinDat(parental,'molm13')
 
 plots=list(plotAllData(protData),plotAllData(phosData))
 cowplot::plot_grid(plotlist=plots,labels=c("Bulk Proteomics",'Phosphoprotomics'),nrow=2)
@@ -45,6 +84,13 @@ phosMat<-phosData%>%dplyr::select(sample,site,LogRatio)%>%
   tidyr::pivot_wider(values_from=LogRatio,names_from=sample,
                      values_fn=list(LogRatio=mean),values_fill=list(LogRatio=0.0))%>%
   tibble::column_to_rownames('site')
+
+otherPhosMat <-otherPhosData%>%dplyr::select(Sample,site,LogFoldChange)%>%ungroup()%>%
+  tidyr::pivot_wider(values_from=LogFoldChange,names_from=Sample,
+                     values_fn=mean,values_fill=list(LogFoldChange=0.0))%>%
+  tibble::column_to_rownames('site')
+
+otherSummary<-otherPhosData%>%dplyr::select(Sample,Condition)%>%distinct()
 
 library(ggplot2)
 library(ggalluvial)
@@ -100,9 +146,9 @@ doAllGOplots<-function(condList){
 #' plot all the KSEA 
 #' @param condList
 #' @return data frame
-doAllKSEAplots<-function(condList){
+doAllKSEAplots<-function(condList,pdat=phosData){
   
-  gene.to.site<-dplyr::select(phosData,Gene,site,Peptide)%>%distinct()%>%
+  gene.to.site<-dplyr::select(pdat,Gene,site,Peptide)%>%distinct()%>%
     dplyr::mutate(residue=stringr::str_replace(site,paste0(Gene,'-'),''))%>%
     dplyr::mutate(residue=stringr::str_replace_all(residue,"([STY])", ";\\1"))%>%
     dplyr::mutate(residue=stringr::str_replace(residue,"^;", ""))%>%
@@ -140,6 +186,25 @@ runNetworksFromDF<-function(data,gene.col='Kinase.Gene',
     dplyr::select(c('cond','Gene','value',extra.col,'signif'))%>%group_map(~ amlresistancenetworks::computeProteinNetwork(.x),.keep=TRUE)
   return(res)
 }
+
+
+
+
+tramHLPhos<-list(hl60_tram_3_hour =manualDEAnalysis(otherPhosMat,
+                                                    filter(otherSummary,Condition=='trametinib_3 hr')$Sample,
+                                                    filter(otherSummary,Condition=='no treatment_3 hr')$Sample),
+                 hl60_tram_16_hr=manualDEAnalysis(otherPhosMat,
+                                                  filter(otherSummary,Condition=='trametinib_16 hr')$Sample,
+                                                  filter(otherSummary,Condition=='no treatment_3 hr')$Sample),
+                 hl60_tram_30min=manualDEAnalysis(otherPhosMat,
+                                                  filter(otherSummary,Condition=='trametinib_30 min')$Sample,
+                                                  filter(otherSummary,Condition=='no treatment_3 hr')$Sample))
+
+p3<-plotConditionsInFlow(tramHLPhos,title='Effects of tram in hL60',0.05)
+ggsave('tramHL60.png',p3,width=11,height=6)
+ph3<-doAllKSEAplots(tramHLPhos,otherPhosData)
+mcp1Resistnetworks<-runNetworksFromDF(ph3)
+
 
 ##now compute differences in conditions
 t0Values<-list(molm13_vs_resistant=limmaTwoFactorDEAnalysis(protMat,
@@ -284,3 +349,4 @@ p3<-plotConditionsInFlow(mcp1ResistPhos,title='Effects of tram/mcp-1 in resistan
 ggsave('mcp1PhosInResistantCells.png',p3,width=11,height=6)
 ph3<-doAllKSEAplots(mcp1ResistPhos)
 mcp1Resistnetworks<-runNetworksFromDF(ph3)
+

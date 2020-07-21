@@ -11,13 +11,13 @@ prot.univ<-unique(gilt.data$Gene)
 
 syn<-synapseLogin()
 targ.data<-read.csv2(syn$get('syn22214245')$path,sep='\t',header=T)%>%
-  rename(Gene='T..Category')%>%
+  dplyr::rename(Gene='T..Category')%>%
   tidyr::pivot_longer(-Gene,names_to='sample',values_to='value')%>%
   mutate(value=as.numeric(value))%>%
   rowwise()%>%
   mutate(samp2=stringr::str_replace(sample,'_3June20.+',''))%>%
   mutate(Patient=stringr::str_replace(samp2,'.*Ex16_',''))%>%
-  select(-c(samp2,sample))
+  dplyr::select(-c(samp2,sample))
 
 norm.data<-targ.data%>%tidyr::pivot_wider(values_from=value,names_from=Patient)%>%tidyr::pivot_longer(-c(Gene,pool),values_to='value',names_to='Patient')%>%rowwise()%>%mutate(logRatio=log10(value)-log10(pool))%>%
   dplyr::select(-c(pool,value))%>%
@@ -51,7 +51,7 @@ late.data<-gilt.data%>%
 #'it computes differential expression betwee control and various conditions
 #'runs GSEA, plots, and creates a network
 plotDataByCondition<-function(data,control='None',condition=c('Early Gilteritinib'),
-                              cellLine='MOLM14',doNetworks=TRUE,doGSEA=FALSE,prefix=''){
+                              cellLine='MOLM14',doNetworks=FALSE,doGSEA=FALSE,prefix=''){
   
   total.mean.diffs<-data%>%
     dplyr::filter(cellLine==!!cellLine)%>%

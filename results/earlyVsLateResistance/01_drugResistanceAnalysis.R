@@ -5,7 +5,8 @@ library(amlresistancenetworks)
 library(dplyr)
 
 ##first run gilteritinib data
-gilt.data<-querySynapseTable('syn22156807')
+gilt.data<-querySynapseTable('syn22156807')%>%
+  filter(!is.na(Gene))
 #  readRDS(system.file('gilteritinibData.Rds',package='amlresistancenetworks'))
 prot.univ<-unique(gilt.data$Gene)
 
@@ -21,9 +22,12 @@ late.data<-gilt.data%>%
   dplyr::rename(treatment='ligand')
 
 
-plotDataByLigand<-function(data,ligand='FLT3',treatment='Early',doNetworks=TRUE){
+plotDataByLigand<-function(fulldata,ligand='FLT3',treatment='Early',doNetworks=FALSE){
   
-  total.mean.diffs<-amlresistancenetworks::computeFoldChangePvals(data,control='None',conditions=c("FLT3","FGF2"))
+  
+  for(cl in c("MOLM14",'MV411')){
+    data <-subset(fulldata,cellLine==cl)  
+    total.mean.diffs<-amlresistancenetworks::computeFoldChangePvals(data,control='None',conditions=c("FLT3","FGF2"))
   
   ##first plot FGF2
   genes.with.values=total.mean.diffs%>%
@@ -31,20 +35,18 @@ plotDataByLigand<-function(data,ligand='FLT3',treatment='Early',doNetworks=TRUE)
     subset(Condition==ligand)%>%
     dplyr::select(Gene,value=condition_to_control,p_adj)
   
-  total.lig=computeGSEA(genes.with.values,prot.univ,
-                        prefix=paste(treatment,'Treatment_Combined',ligand,sep='_'))
-  
+  total.lig=amlresistancenetworks::computeGSEA(genes.with.values,prefix=paste(treatment,'Treatment',cl,ligand,sep='_'))
   
   if(doNetworks){
-  lig.network<-computeProteinNetwork(sig.vals=subset(genes.with.values,p_adj<0.05),
+    lig.network<-computeProteinNetwork(sig.vals=subset(genes.with.values,p_adj<0.05),
                                      all.vals=genes.with.values,nrand=1000)
-  RCy3::createNetworkFromIgraph(lig.network,title=paste(treatment,'Treatment',ligand,'Network'))
-  lig.network
+    RCy3::createNetworkFromIgraph(lig.network,title=paste(treatment,'Treatment',cl,ligand,'Network'))
+    lig.network
   }else{
     return(NULL)
   }
+  }
 }
-
 
 fgf2.net=plotDataByLigand(early.data,"FGF2",treatment='Early')
 fl.net=plotDataByLigand(early.data,"FLT3",treatment='Early')
@@ -60,6 +62,5 @@ late.fl.net=plotDataByLigand(late.data,"FLT3",treatment='Late')
 #mv411.mean.diffs<-amlresistancenetworks::computeFoldChangePvals(subset(early.data, cellLine=='MV411'),
 #                                                                control='None',
 #                                                                conditions=c("FL","FGF2"))
-
 
 #quiz.data<-readRDS()

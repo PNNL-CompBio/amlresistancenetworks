@@ -11,16 +11,6 @@ pat.phos<-querySynapseTable("syn22156830")#readRDS(system.file('patientPhosphoSa
 #   pat.drugClin<-querySynapseTable("syn22156866")
     #readRDS(system.file('patientDrugAndClinical.Rds', package='amlresistancenetworks'))
 
-KSDB <- read.csv(system.file('PSP&NetworKIN_Kinase_Substrate_Dataset_July2016.csv',package='amlresistancenetworks'),stringsAsFactors = FALSE)
-
-pat.phos$Gene<-unlist(pat.phos$Gene)
-phos.with.subs<-pat.phos%>%left_join(rename(KSDB,Gene='SUB_GENE'),by='Gene')
-
-pat.kin.scores<-filter(phos.with.subs,!is.na(GENE))%>%
-  dplyr::select(Sample,site,Gene,LogFoldChange,GENE,networkin_score)%>%distinct()%>%
-  group_by(Sample,GENE)%>%
-  summarize(meanLFC=mean(LogFoldChange),meanNKINscore=mean(networkin_score),numSubstr=n_distinct(Gene))%>%
-  rename(Kinase='GENE')
 
 drug.class<-querySynapseTable("syn22156956")%>%
   dplyr::rename(Condition='inhibitor')%>%

@@ -7,4 +7,4 @@ Description: A small package that experiments with getting AML resistance networ
 Depends:
 License: MIT
 LazyData: true
-RoxygenNote: 7.1.0
+RoxygenNote: 7.1.1
