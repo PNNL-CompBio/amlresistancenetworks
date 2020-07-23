@@ -90,6 +90,7 @@ drugMolRegression<-function(clin.data,
 #'Runs random forest on combination of feature types
 #'@param feature.list
 #'@param tab
+#'@export
 #'@return a data frame with 3 values
 combForest<-function(tab,feature.list=c('proteinLevels','mRNAlevels','geneMutations')){
   comb.mat<-do.call('cbind',lapply(feature.list,function(x) buildFeatureMatrix(tab,x)))
@@ -117,6 +118,7 @@ combForest<-function(tab,feature.list=c('proteinLevels','mRNAlevels','geneMutati
 #' combReg
 #' Runs lasso regression on a combination of feature types
 #' @param tab
+#' @export
 #' @param feature.list
 #' @return a data frame with three values/columns
 combReg<-function(tab,feature.list=c('proteinLevels','mRNALevels','geneMutations')){
@@ -183,12 +185,16 @@ buildFeatureMatrix<-function(tab,mol.feature){
 #' miniForest
 #' Runds random forest on the table and molecular feature of interest
 #' @import randomForest
+#' @export 
 #' @return list
 miniForest<-function(tab,mol.feature){
   library(randomForest)
   
   #first build our feature matrix
   mat<-buildFeatureMatrix(tab,mol.feature)
+  #rint(dim(mat))
+  if(is.null(dim(mat)))
+    return(data.frame(MSE=0,numGenes=0,genes=''))
   
   cm<-apply(mat,1,mean)
   zvals<-which(cm==0)
@@ -219,13 +225,16 @@ miniForest<-function(tab,mol.feature){
 #' miniReg
 #' Runs lasso regression on a single feature from tabular data
 #' @param tab with column names `AML sample`,meanVal,Gene, and whatever the value of 'mol.feature' is.
+#' @export 
 #' @return a data.frame with three values/columns: MSE, NumGenes, and Genes
 miniReg<-function(tab,mol.feature){
   library(glmnet)
   
   #first build our feature matrix
  mat<-buildFeatureMatrix(tab,mol.feature)
-
+ if(is.null(dim(mat)))
+   return(data.frame(MSE=0,numGenes=0,genes=''))
+ 
  cm<-apply(mat,1,mean)
  zvals<-which(cm==0)
  if(length(zvals)>0)
@@ -313,7 +322,6 @@ computeDiffExByDrug<-function(sens.data){
     group_by(cellLine)%>%
     group_modify(~ computeFoldChangePvals(.x,control=NA,conditions =c("Sensitive","Resistant")),keep=TRUE)%>%
     rename(Drug='cellLine')
-  
   
   table(result%>%group_by(Drug)%>%subset(p_adj<0.1)%>%summarize(sigProts=n()))
   

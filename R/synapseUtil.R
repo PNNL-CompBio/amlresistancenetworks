@@ -1,4 +1,3 @@
-
 ## This package uses the synapse web platform at http://synapse.org
 # you must first register and update your config
 
@@ -23,7 +22,7 @@ synapseLogin<-function(){
   sync=syn$login()
 }
 
-#' Synapse store 
+#' Synapse store
 #' @import reticulate
 #' @param path to file
 #' @param parentId of folder to store
@@ -31,7 +30,7 @@ synapseLogin<-function(){
 synapseStore<-function(path,parentId){
   library(reticulate)
   reticulate::use_condaenv(condaenv)
-  
+
   synapse=reticulate::import('synapseclient')
   sync=synapse$login()
   sync$store(synapse$File(path,parentId=parentId))
@@ -52,13 +51,12 @@ synTableStore<-function(tab,tabname,parentId='syn22128879'){
   fpath=write.table(tab,file='tmp.csv',sep=',',row.names = FALSE,quote=FALSE)
   reticulate::use_condaenv(condaenv)
   synapse=reticulate::import('synapseclient')
-  
+
   tab<-synapse$build_table(tabname,parentId,'tmp.csv')
   sync=synapse$login()
   sync$store(tab)
-  
-}
 
+}
 
 #' query synapse table
 #' This is how you get data from the project
@@ -69,4 +67,3 @@ querySynapseTable<-function(tableid){
   res<-syn$tableQuery(paste('select * from',tableid))$asDataFrame()
   return(res)
 }
-
