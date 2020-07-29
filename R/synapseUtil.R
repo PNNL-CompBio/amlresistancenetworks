@@ -48,11 +48,11 @@ synTableStore<-function(tab,tabname,parentId='syn22128879'){
   #we have to first write the table to a file, then build it and store it
   library(reticulate)
   print(head(tab))
-  fpath=write.table(tab,file='tmp.csv',sep=',',row.names = FALSE,quote=FALSE)
+  fpath=write.table(tab,file='tmp.tsv',sep='\t',row.names = FALSE,quote=FALSE)
   reticulate::use_condaenv(condaenv)
   synapse=reticulate::import('synapseclient')
 
-  tab<-synapse$build_table(tabname,parentId,'tmp.csv')
+  tab<-synapse$build_table(tabname,parentId,'tmp.tsv')
   sync=synapse$login()
   sync$store(tab)
 

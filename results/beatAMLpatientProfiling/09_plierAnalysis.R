@@ -18,45 +18,14 @@ plier.results <- readRDS("recount_PLIER_model.RDS")
 #'  Mao W, Harmann B, Sealfon SC, Zaslavsky E, and Chikina M (2017). "Pathway-Level Information ExtractoR (PLIER) for gene expression data." bioRxiv. doi: 10.1101/116061
 #'  
 #
+source("beatAMLdata.R")
 
-pat.data<-querySynapseTable('syn22172602')#readRDS(system.file('patientMolecularData.Rds',package='amlresistancenetworks'))
-
-#drug response
-pat.drugClin<-querySynapseTable("syn22170540")%>%
-  mutate(Condition=unlist(Condition))%>%
-  left_join(drug.class,by='Condition')
-
-
-print("Fixing mispelling")
-pat.drugClin$Condition<-sapply(pat.drugClin$Condition,function(x){
-  ifelse(x=='Vargetef','Vargatef',x)})
-
-
-print("Reformating AUC data")
-clin.dat<-pat.drugClin%>%
- # mutate(family=unlist(family))%>%
-  dplyr::select(`AML sample`,gender,ageAtDiagnosis,vitalStatus,overallSurvival,Condition)%>%
-  distinct()
-
-auc.dat<- subset(pat.drugClin,Metric%in%c('auc','AUC'))%>%
-  dplyr::select(`AML sample`,Condition,AUC='Value')%>%
-  distinct()%>%
-  mutate(Condition=unlist(Condition))%>%
-  group_by(Condition)%>%
-  mutate(medAUC=median(AUC))%>%
-  mutate(percAUC=100*AUC/medAUC)%>%
-  ungroup()%>%
-  left_join(clin.dat)
-
-drug.combos<-unique(auc.dat$Condition[grep(" - |\\+",auc.dat$Condition)])
-print("Removing drug combinations")
-auc.dat<-subset(auc.dat,!Condition%in%drug.combos)
 
 exprs.mat<-pat.data%>%
-  select(`AML sample`,'Gene','transcriptCounts')%>%
-  pivot_wider(values_from=transcriptCounts, names_from=`AML sample`,
-              values_fn=list(transcriptCounts=mean),
-              values_fill=list(transcriptCounts=0.01))%>% #no zeroes allowed!
+  select(`AML sample`,'Gene','mRNALevels')%>%
+  pivot_wider(values_from=mRNALevels, names_from=`AML sample`,
+              values_fn=list(mRNALevels=mean),
+              values_fill=list(mRNALevels=0.01))%>% #no zeroes allowed!
   tibble::column_to_rownames('Gene')%>%as.matrix()
 
 source("../../../multi-plier/util/plier_util.R")
@@ -64,17 +33,19 @@ pat.recount.b <- GetNewDataB(exprs.mat = exprs.mat,
                              plier.model = plier.results)
 
 
-
 ###now that all the data are loaded we can compute the correlation, regression, and random forest values
 
 lv.df<-pat.recount.b%>%
     as.data.frame()%>%
-    tibble::rownames_to_column("Gene")%>%
-    pivot_longer(-Gene,names_to='AML sample',values_to="LV")
+    tibble::rownames_to_column("Latent Variable")%>%
+    pivot_longer(-`Latent Variable`,names_to='AML sample',values_to="Loading")
 
+#doesnt work
+#synTableStore(as.data.frame(lv.df),tabname='BeatAML Patient Latent Variables',parentId='syn22128879')
 
-reg.results<-drugMolRegression(auc.dat,lv.df,'LV')
-rf.results<-drugMolRandomForest(auc.dat,lv.df,'LV')
-cor.results<-computeAUCCorVals(auc.dat,lv.df,'LV')
+lv.df<-rename(lv.df,Gene='Latent Variable')
+reg.results<-drugMolRegression(auc.dat,lv.df,'Loading')
+rf.results<-drugMolRandomForest(auc.dat,lv.df,'Loading')
+cor.results<-computeAUCCorVals(auc.dat,lv.df,'Loading')
 
 

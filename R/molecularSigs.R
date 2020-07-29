@@ -17,9 +17,9 @@ drugMolRandomForest<-function(clin.data,
   
   if(length(mol.feature)==1){
     drug.mol<-clin.data%>%
-      dplyr::select(`AML sample`,var=category,percAUC)%>%
+      dplyr::select(`AML sample`,var=category,AUC)%>%
       group_by(`AML sample`,var)%>%
-      summarize(meanVal=mean(percAUC,na.rm=T))%>%
+      summarize(meanVal=mean(AUC,na.rm=T))%>%
       left_join(dplyr::select(mol.data,c(Gene,`AML sample`,!!mol.feature)),
                 by='AML sample')
     
@@ -29,9 +29,9 @@ drugMolRandomForest<-function(clin.data,
       mutate(Molecular=mol.feature)
   }else{
     drug.mol<-clin.data%>%
-      dplyr::select(`AML sample`,var=category,percAUC)%>%
+      dplyr::select(`AML sample`,var=category,AUC)%>%
       group_by(`AML sample`,var)%>%
-      summarize(meanVal=mean(percAUC,na.rm=T))%>%
+      summarize(meanVal=mean(AUC,na.rm=T))%>%
       left_join(select(mol.data,c(Gene,`AML sample`,mol.feature)),
                 by='AML sample')
     reg.res<-drug.mol%>%group_by(var)%>%
@@ -61,9 +61,9 @@ drugMolRegression<-function(clin.data,
    
   if(length(mol.feature)==1){
     drug.mol<-clin.data%>%
-      dplyr::select(`AML sample`,var=category,percAUC)%>%
+      dplyr::select(`AML sample`,var=category,AUC)%>%
        group_by(`AML sample`,var)%>%
-      summarize(meanVal=mean(percAUC,na.rm=T))%>%
+      summarize(meanVal=mean(AUC,na.rm=T))%>%
       left_join(select(mol.data,c(Gene,`AML sample`,!!mol.feature)),
                 by='AML sample')
   
@@ -73,9 +73,9 @@ drugMolRegression<-function(clin.data,
       mutate(Molecular=mol.feature)
   }else{
     drug.mol<-clin.data%>%
-      dplyr::select(`AML sample`,var=category,percAUC)%>%
+      dplyr::select(`AML sample`,var=category,AUC)%>%
       group_by(`AML sample`,var)%>%
-      summarize(meanVal=mean(percAUC,na.rm=T))%>%
+      summarize(meanVal=mean(AUC,na.rm=T))%>%
       left_join(select(mol.data,c(Gene,`AML sample`,mol.feature)),
                 by='AML sample')
     reg.res<-drug.mol%>%group_by(var)%>%
@@ -96,7 +96,7 @@ combForest<-function(tab,feature.list=c('proteinLevels','mRNAlevels','geneMutati
   comb.mat<-do.call('cbind',lapply(feature.list,function(x) buildFeatureMatrix(tab,x)))
   
   if(ncol(comb.mat)<5 || nrow(comb.mat)<5)
-    return(data.frame(MSE=0,numGenes=0,genes=''))
+    return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=nrow(comb.mat)))
   
   #now collect our y output variable
   tmp<-tab%>%
@@ -110,8 +110,9 @@ combForest<-function(tab,feature.list=c('proteinLevels','mRNAlevels','geneMutati
   # rf.pred<-predict(rf,mat)
   # mse=mean((rf.pred-yvar)^2)
   return(data.frame(MSE=min(rf$mse),
-                    numGenes=length(which(rf$importance!=0)),
-                    genes=paste(names(rf$importance)[which(rf$importance!=0)],collapse=',')))
+                    numFeatures=length(which(rf$importance!=0)),
+                    genes=paste(names(rf$importance)[which(rf$importance!=0)],collapse=';',),
+                    numSamples=length(yvar)))
   
 }
 
@@ -133,7 +134,7 @@ combReg<-function(tab,feature.list=c('proteinLevels','mRNALevels','geneMutations
    
    
   if(ncol(comb.mat)<5 || nrow(comb.mat)<5)
-    return(data.frame(MSE=0,numGenes=0,genes=''))
+    return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=nrow(comb.mat)))
   
   #now collect our y output variable
   tmp<-tab%>%
@@ -151,9 +152,9 @@ combReg<-function(tab,feature.list=c('proteinLevels','mRNALevels','geneMutations
   #then select how many elements
   full.res<-glmnet(x=comb.mat,y=yvar,type.measure='mse')
   genes=names(which(full.res$beta[,which(full.res$lambda==best.res$lambda)]!=0))
-  genelist<-paste(genes,collapse=',')
+  genelist<-paste(genes,collapse=';')
   #print(paste(best.res$MSE,":",genelist))
-  return(data.frame(MSE=best.res$MSE,numGenes=length(genes),genes=genelist))
+  return(data.frame(MSE=best.res$MSE,numFeatures=length(genes),genes=genelist,numSamples=length(yvar)))
   
   
 }
@@ -164,7 +165,7 @@ combReg<-function(tab,feature.list=c('proteinLevels','mRNALevels','geneMutations
 #' @param mol.feature
 #' @return matrix
 buildFeatureMatrix<-function(tab,mol.feature){
-  print(mol.feature)
+ # print(mol.feature)
   vfn=list(0.0)
   names(vfn)=mol.feature
   vfc<-list(mean)
@@ -187,14 +188,14 @@ buildFeatureMatrix<-function(tab,mol.feature){
 #' @import randomForest
 #' @export 
 #' @return list
-miniForest<-function(tab,mol.feature){
+miniForest<-function(tab,mol.feature,quant=0.995){
   library(randomForest)
   
   #first build our feature matrix
   mat<-buildFeatureMatrix(tab,mol.feature)
   #rint(dim(mat))
   if(is.null(dim(mat)))
-    return(data.frame(MSE=0,numGenes=0,genes=''))
+    return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=0))
   
   cm<-apply(mat,1,mean)
   zvals<-which(cm==0)
@@ -202,7 +203,7 @@ miniForest<-function(tab,mol.feature){
     mat<-mat[-zvals,]
   
   if(ncol(mat)<5 || nrow(mat)<5)
-    return(data.frame(MSE=0,numGenes=0,genes=''))
+    return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=nrow(mat)))
   
   #now collect our y output variable
   tmp<-tab%>%
@@ -215,9 +216,16 @@ miniForest<-function(tab,mol.feature){
   rf<-randomForest(mat,yvar)
  # rf.pred<-predict(rf,mat)
  # mse=mean((rf.pred-yvar)^2)
+  
+  ##let's parse through the importance
+ 
+  top5=quantile(rf$importance,quant)
+  
+  
   return(data.frame(MSE=min(rf$mse),
-                    numGenes=length(which(rf$importance!=0)),
-                    genes=paste(names(rf$importance)[which(rf$importance!=0)],collapse=',')))
+                    numFeatures=length(which(rf$importance>top5)),
+                    genes=paste(rownames(rf$importance)[which(rf$importance>top5)],collapse=';'),
+                    numSamples=length(yvar)))
          
   
 }
@@ -226,22 +234,27 @@ miniForest<-function(tab,mol.feature){
 #' Runs lasso regression on a single feature from tabular data
 #' @param tab with column names `AML sample`,meanVal,Gene, and whatever the value of 'mol.feature' is.
 #' @export 
-#' @return a data.frame with three values/columns: MSE, NumGenes, and Genes
+#' @return a data.frame with three values/columns: MSE, numFeatures, and Genes
 miniReg<-function(tab,mol.feature){
   library(glmnet)
   
   #first build our feature matrix
  mat<-buildFeatureMatrix(tab,mol.feature)
  if(is.null(dim(mat)))
-   return(data.frame(MSE=0,numGenes=0,genes=''))
+   return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=0))
  
  cm<-apply(mat,1,mean)
- zvals<-which(cm==0)
+ vm<-apply(mat,1,var)
+ zvals<-union(which(cm==0),which(vm==0))
  if(length(zvals)>0)
    mat<-mat[-zvals,]
+ zcols<-apply(mat,2,var)
+ zvals<-which(zcols==0)
+ if(length(zvals)>0)
+   mat<-mat[,-zcols]
  
   if(ncol(mat)<5 || nrow(mat)<5)
-      return(data.frame(MSE=0,numGenes=0,genes=''))
+      return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=nrow(mat)))
 
   #now collect our y output variable
   tmp<-tab%>%
@@ -259,9 +272,10 @@ miniReg<-function(tab,mol.feature){
   #then select how many elements
   full.res<-glmnet(x=mat,y=yvar,type.measure='mse')
   genes=names(which(full.res$beta[,which(full.res$lambda==best.res$lambda)]!=0))
-  genelist<-paste(genes,collapse=',')
+  genelist<-paste(genes,collapse=';')
   #print(paste(best.res$MSE,":",genelist))
-  return(data.frame(MSE=best.res$MSE,numGenes=length(genes),genes=genelist))
+  return(data.frame(MSE=best.res$MSE,numFeatures=length(genes),genes=genelist,
+                    numSamples=length(yvar)))
 }
 
 
