@@ -11,3 +11,4 @@ cor.results<-computeAUCCorVals(auc.dat,rename(pat.kin,Gene='Kinase',`AML sample`
 reg.results=pat.kin%>%rename(Gene='Kinase',`AML sample`='Sample')%>%drugMolRegression(auc.dat,.,'meanLFC')
 rf.results=pat.kin%>%rename(Gene='Kinase',`AML sample`='Sample')%>%drugMolRandomForest(auc.dat,.,'meanLFC')
 
+

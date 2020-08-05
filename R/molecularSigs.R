@@ -168,6 +168,7 @@ buildFeatureMatrix<-function(tab,mol.feature){
  # print(mol.feature)
   vfn=list(0.0)
   names(vfn)=mol.feature
+  
   vfc<-list(mean)
   names(vfc)=mol.feature
 
@@ -193,12 +194,14 @@ miniForest<-function(tab,mol.feature,quant=0.995){
   
   #first build our feature matrix
   mat<-buildFeatureMatrix(tab,mol.feature)
+  
   #rint(dim(mat))
   if(is.null(dim(mat)))
     return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=0))
   
   cm<-apply(mat,1,mean)
-  zvals<-which(cm==0)
+  zvals<-which(cm==0.0)
+  print(paste("Found",length(zvals),'patients with no expression/values across',ncol(mat),'features'))
   if(length(zvals)>0)
     mat<-mat[-zvals,]
   
@@ -214,9 +217,7 @@ miniForest<-function(tab,mol.feature,quant=0.995){
   yvar<-unlist(yvar[rownames(mat)])
   
   rf<-randomForest(mat,yvar)
- # rf.pred<-predict(rf,mat)
- # mse=mean((rf.pred-yvar)^2)
-  
+
   ##let's parse through the importance
  
   top5=quantile(rf$importance,quant)
@@ -240,6 +241,7 @@ miniReg<-function(tab,mol.feature){
   
   #first build our feature matrix
  mat<-buildFeatureMatrix(tab,mol.feature)
+ #print(mat)
  if(is.null(dim(mat)))
    return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=0))
  
@@ -248,10 +250,14 @@ miniReg<-function(tab,mol.feature){
  zvals<-union(which(cm==0),which(vm==0))
  if(length(zvals)>0)
    mat<-mat[-zvals,]
+ 
+ print(paste("Found",length(zvals),'patients with no expression/values across',ncol(mat),'features'))
+ 
  zcols<-apply(mat,2,var)
  zvals<-which(zcols==0)
+# print(zvals)
  if(length(zvals)>0)
-   mat<-mat[,-zcols]
+   mat<-mat[,-zvals]
  
   if(ncol(mat)<5 || nrow(mat)<5)
       return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=nrow(mat)))

@@ -11,7 +11,7 @@ library(tidyr)
 #'@param mol.data -molelcular data
 #'@import pheatmap
 #'@import dplyr
-plotAllPatients<-function(auc.data,pat.data){
+plotAllPatients<-function(auc.data,pat.data,pat.phos){
   library(gridExtra)
   numDrugs=auc.data%>%
     group_by(`AML sample`)%>%
@@ -20,6 +20,10 @@ plotAllPatients<-function(auc.data,pat.data){
     group_by(`AML sample`)%>%
     summarize(RNA=any(mRNALevels!=0),mutations=any(geneMutations!=0),proteins=any(proteinLevels!=0))%>%
     right_join(numDrugs)
+  
+  pat.df<-pat.phos%>%group_by(`Sample`)%>%summarize(phosphoSites=any(LogFoldChange!=0))%>%
+    rename(`AML sample`='Sample')%>%right_join(pat.df)
+    
   pdf('patientSummaryTab.pdf',height=11)
   grid.table(pat.df)
   dev.off()
@@ -39,7 +43,7 @@ pat.data<-pat.data%>%rename(proteinLevels='LogFoldChange')%>%
   mutate(Gene=unlist(Gene))
 
 pat.phos<-querySynapseTable("syn22156830")#readRDS(system.file('patientPhosphoSampleData.Rds',package='amlresistancenetworks'))
-
+pat.phos$site<-unlist(pat.phos$site)
 print("Loading patient variables and drug response")
 #readRDS(system.file('patientMolecularData.Rds',package='amlresistancenetworks'))
 
@@ -57,8 +61,9 @@ print("Fixing Vargatef mispelling")
 pat.drugClin$Condition<-sapply(pat.drugClin$Condition,function(x){
   ifelse(x=='Vargetef','Vargatef',x)})
 pat.drugClin$Condition<-sapply(pat.drugClin$Condition,function(x){
-  ifelse(x=='Doramapimod','Doramapimod (BIRB 796) ',x)})
-
+  ifelse(x=='Doramapimod','Doramapimod (BIRB 796)',x)})
+pat.drugClin$Condition<-sapply(pat.drugClin$Condition,function(x){
+  ifelse(x=='Gilteritinib','Gilteritinib (ASP-2215)',x)})
 
 print("Reformating AUC data")
 clin.dat<-pat.drugClin%>%
@@ -81,6 +86,19 @@ auc.dat<- subset(pat.drugClin,Metric%in%c('auc','AUC'))%>%
   select(-AUC)%>%
   rename(AUC='meanAUC')
 
+res<-plotAllPatients(auc.dat,pat.data,pat.phos)
+numSens<-auc.dat%>%
+  group_by(Condition)%>%
+  subset(AUC<100)%>%summarize(numSens=n())
+fracSens<-auc.dat%>%group_by(Condition)%>%
+  summarize(nSamps=n())%>%
+  left_join(numSens)%>%mutate(fracSens=numSens/nSamps)
+
+threshold<-0.10
+withSens=subset(fracSens,fracSens>threshold)%>%
+  subset(numSens>1)
+auc.dat<-subset(auc.dat,Condition%in%withSens$Condition)
+
 drug.combos<-unique(auc.dat$Condition[grep(" - |\\+",auc.dat$Condition)])
 print("Removing drug combinations")
 auc.dat<-subset(auc.dat,!Condition%in%drug.combos)
@@ -93,7 +111,7 @@ lv.df<-querySynapseTable('syn22274890')
 
 
 ##getting kinase
-print('Getting kinase estiamtes')
+print('Getting kinase estimates')
 pat.kin <-mapPhosphoToKinase(pat.phos)
 
 

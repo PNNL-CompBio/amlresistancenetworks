@@ -51,12 +51,21 @@ plotAllAUCs<-function(auc.data,to.plot='percAUC'){
   synapseStore('AUCdist.pdf','syn22130776')
   
   library(pheatmap)
+  dat.summ<-pat.data%>%group_by(`AML sample`)%>%summarize(RNA=if_else(all(mRNALevels==0),FALSE,TRUE),
+                                                          proteins=if_else(all(proteinLevels==0),FALSE,TRUE),
+                                                          mutations=if_else(all(geneMutations==0),FALSE,TRUE))
+  
+  
   pat.vars<-auc.data%>%
-    dplyr::select(-c(Condition,family,c('percAUC','AUC','medAUC')))%>%
+    dplyr::select(-c(Condition,percAUC,AUC,medAUC))%>%
 #      `AML sample`,gender,ageAtDiagnosis,vitalStatus,overallSurvival)%>%
     distinct()%>%
+    left_join(dat.summ)%>%
     tibble::column_to_rownames("AML sample")
   
+  print(pat.vars)
+  
+
   if('RNA'%in%names(pat.vars))
     pat.vars$RNA<-as.factor(pat.vars$RNA)
   if('mutations'%in%names(pat.vars))
@@ -64,7 +73,7 @@ plotAllAUCs<-function(auc.data,to.plot='percAUC'){
   if('proteins'%in%names(pat.vars))
     pat.vars$proteins<-as.factor(pat.vars$proteins)
   drug.vars<-auc.data%>%
-    dplyr::select(Drug='Condition',family)%>%
+    dplyr::select(Drug='Condition')%>%
     distinct()
   
   pfn=list(0)
@@ -83,6 +92,6 @@ plotAllAUCs<-function(auc.data,to.plot='percAUC'){
   
   pheatmap(auc.mat,annotation_col = pat.vars,clustering_distance_cols='correlation',
            clustering_method='ward',filename = paste0(to.plot,'heatmap.pdf'),cellwidth = 10,cellheight = 10) 
-  synapseStore(paste0(to.plot,'heatmap.pdf'),'syn22130776')
+ # synapseStore(paste0(to.plot,'heatmap.pdf'),'syn22130776')
 }
 
