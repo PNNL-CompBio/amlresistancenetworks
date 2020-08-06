@@ -209,7 +209,7 @@ getPreds<-function(){
 }
 plotAllAUCs(auc.dat,'AUC')
 
-#new.results<-getPreds()
+new.results<-getPreds()
 
 subset(new.results,var%in%auc.dat$Condition)%>%
   subset(numFeatures>1)%>%

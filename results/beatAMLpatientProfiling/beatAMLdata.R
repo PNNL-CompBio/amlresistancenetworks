@@ -44,6 +44,15 @@ pat.data<-pat.data%>%rename(proteinLevels='LogFoldChange')%>%
 
 pat.phos<-querySynapseTable("syn22156830")#readRDS(system.file('patientPhosphoSampleData.Rds',package='amlresistancenetworks'))
 pat.phos$site<-unlist(pat.phos$site)
+pat.phos$Gene<-unlist(pat.phos$Gene)
+
+extra.phos<-querySynapseTable("syn22156814")%>%
+  dplyr::select(Gene,site,Peptide,LogFoldChange='value',Sample="AML sample")
+
+extra.phos$site <-unlist(extra.phos$site)
+extra.phos$Gene <-unlist(extra.phos$Gene)
+pat.phos<-rbind(pat.phos,unique(extra.phos))
+
 print("Loading patient variables and drug response")
 #readRDS(system.file('patientMolecularData.Rds',package='amlresistancenetworks'))
 
@@ -87,6 +96,7 @@ auc.dat<- subset(pat.drugClin,Metric%in%c('auc','AUC'))%>%
   rename(AUC='meanAUC')
 
 res<-plotAllPatients(auc.dat,pat.data,pat.phos)
+
 numSens<-auc.dat%>%
   group_by(Condition)%>%
   subset(AUC<100)%>%summarize(numSens=n())
@@ -97,7 +107,8 @@ fracSens<-auc.dat%>%group_by(Condition)%>%
 threshold<-0.10
 withSens=subset(fracSens,fracSens>threshold)%>%
   subset(numSens>1)
-auc.dat<-subset(auc.dat,Condition%in%withSens$Condition)
+include<-union(withSens$Condition,'Gilteritinib (ASP-2215)')
+auc.dat<-subset(auc.dat,Condition%in%include)
 
 drug.combos<-unique(auc.dat$Condition[grep(" - |\\+",auc.dat$Condition)])
 print("Removing drug combinations")

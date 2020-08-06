@@ -227,8 +227,8 @@ getCoClusteredProteins<-function(prot.data){
 #'@param phosData
 #'@return data table of log fold change
 #'@import dplyr
-computePhosphoChanges<-function(phosData,samps1,samps2){
-  gene.to.site<-dplyr::select(phosData,Gene,site,Peptide)%>%distinct()%>%
+computePhosphoChanges<-function(phosData){
+  dplyr::select(phosData,Gene,site,Peptide)%>%distinct()%>%
     dplyr::mutate(residue=stringr::str_replace(site,paste0(Gene,'-'),''))%>%
     dplyr::mutate(residue=stringr::str_replace_all(residue,"([STY])", ";\\1"))%>%
     dplyr::mutate(residue=stringr::str_replace(residue,"^;", ""))%>%
@@ -247,9 +247,12 @@ mapPhosphoToKinase<-function(pat.phos){
   KSDB <- read.csv(system.file('PSP&NetworKIN_Kinase_Substrate_Dataset_July2016.csv',package='amlresistancenetworks'),stringsAsFactors = FALSE)
 
   pat.phos$Gene<-unlist(pat.phos$Gene)
-  phos.with.subs<-pat.phos%>%left_join(rename(KSDB,Gene='SUB_GENE'),by='Gene')
+  gene.phos<-computePhosphoChanges(pat.phos)
+  phos.with.subs<-gene.phos%>%
+    inner_join(rename(KSDB,Gene='SUB_GENE',residue='SUB_MOD_RSD'),by=c('Gene','residue'))%>%
+    inner_join(pat.phos,by=c('site','Gene'))
 
-  pat.kin.scores<-filter(phos.with.subs,!is.na(GENE))%>%
+  pat.kin.scores<-phos.with.subs%>%
     dplyr::select(Sample,site,Gene,LogFoldChange,GENE,networkin_score)%>%distinct()%>%
     group_by(Sample,GENE)%>%
     summarize(meanLFC=mean(LogFoldChange),meanNKINscore=mean(networkin_score),numSubstr=n_distinct(Gene))%>%
