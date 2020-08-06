@@ -2,7 +2,9 @@
 library(amlresistancenetworks)
 library(dplyr)
 
-protData<-querySynapseTable('syn22217037')%>%subset(!is.nan(LogRatio))
+protData<-querySynapseTable('syn22217037')%>%subset(!is.nan(LogRatio))%>%
+  mutate(Gene=unlist(Gene))
+
 phosData<-querySynapseTable('syn22217040')%>%subset(!is.nan(LogRatio))%>%
   mutate(Gene=unlist(Gene))%>%
   mutate(site=unlist(site))
@@ -17,10 +19,10 @@ otherPhosData<-querySynapseTable('syn22255396')%>%
   mutate(Condition=paste(treatment,timePoint,sep='_'))
 
 
-kindat<-mapPhosphoToKinase(rename(phosData,Sample='sample',LogFoldChange='LogRatio'))
+kindat<-mapPhosphoToKinase(dplyr::rename(phosData,Sample='sample', LogFoldChange='LogRatio'))
 
-parental<-mapPhosphoToKinase(rename(filter(phosData,CellType=='MOLM-13'),
-                                    Sample='sample',LogFoldChange='LogRatio'))
+parental<-mapPhosphoToKinase(dplyr::rename(filter(phosData,CellType=='MOLM-13'),Sample='sample', LogFoldChange='LogRatio'))
+                                    
 
 ##
 #' @param dat.table
@@ -49,11 +51,11 @@ plotKinDat<-function(kindat,prefix='all'){
                                                 names_from=Sample,
                                                 values_fn=list(meanLFC=mean))%>%
     tibble::column_to_rownames('Kinase')
-  kinAts<-kindat%>%ungroup()%>%select(Kinase,numSubstr)%>%distinct()%>%
+  kinAts<-kindat%>%ungroup()%>%dplyr::select(Kinase,numSubstr)%>%distinct()%>%
     group_by(Kinase)%>%summarize(substrates=mean(numSubstr))%>%
   tibble::column_to_rownames('Kinase')
   
-  sampAts<-phosData%>%select(sample,CellType,TimePoint,Treatment)%>%distinct()%>%tibble::column_to_rownames('sample')
+  sampAts<-phosData%>%dplyr::select(sample,CellType,TimePoint,Treatment)%>%distinct()%>%tibble::column_to_rownames('sample')
   sampAts$TimePoint=as.factor(sampAts$TimePoint)
   vars=names(sort(apply(mat,1,var),decreasing=T)[1:150])
  pheatmap(mat[vars,],cellwidth = 8,cellheight=8,clustering_distance_cols = 'correlation',
@@ -85,10 +87,14 @@ phosMat<-phosData%>%dplyr::select(sample,site,LogRatio)%>%
                      values_fn=list(LogRatio=mean),values_fill=list(LogRatio=0.0))%>%
   tibble::column_to_rownames('site')
 
-otherPhosMat <-otherPhosData%>%dplyr::select(Sample,site,LogFoldChange)%>%ungroup()%>%
+otherPhosMat <-otherPhosData%>%ungroup()%>%dplyr::select(Sample,site,LogFoldChange)%>%
   tidyr::pivot_wider(values_from=LogFoldChange,names_from=Sample,
-                     values_fn=mean,values_fill=list(LogFoldChange=0.0))%>%
+                     values_fn=list(LogFoldChange=mean),values_fill=list(LogFoldChange=0.0))%>%
   tibble::column_to_rownames('site')
+
+tpm<-apply(otherPhosMat,2,as.numeric)
+rownames(tpm)<-rownames(otherPhosMat)
+otherPhosMat<-tpm
 
 otherSummary<-otherPhosData%>%dplyr::select(Sample,Condition)%>%distinct()
 
@@ -183,7 +189,8 @@ runNetworksFromDF<-function(data,gene.col='Kinase.Gene',
       dplyr::select(c(condition.col,weight.col,gene.col,'signif',extra.col))%>%distinct()%>%
     dplyr::rename(cond=condition.col,value=weight.col,Gene=gene.col)%>%
     group_by(cond)%>%
-    dplyr::select(c('cond','Gene','value',extra.col,'signif'))%>%group_map(~ amlresistancenetworks::computeProteinNetwork(.x),.keep=TRUE)
+    dplyr::select(c('cond','Gene','value',extra.col,'signif'))%>%
+    group_map(~ amlresistancenetworks::computeProteinNetwork(.x),.keep=TRUE)
   return(res)
 }
 

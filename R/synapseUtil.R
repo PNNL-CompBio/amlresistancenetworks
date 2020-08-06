@@ -64,6 +64,10 @@ synTableStore<-function(tab,tabname,parentId='syn22128879'){
 #' @export
 querySynapseTable<-function(tableid){
   syn=synapseLogin()
-  res<-syn$tableQuery(paste('select * from',tableid))$asDataFrame()
+  res<-syn$tableQuery(paste('select * from',tableid))$asDataFrame
+  if('Gene'%in%names(res))
+    res$Gene<-unlist(res$Gene)
+  if('site'%in%names(res))
+    res$site<-unlist(res$site)
   return(res)
 }

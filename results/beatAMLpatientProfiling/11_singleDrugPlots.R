@@ -203,6 +203,9 @@ getPreds<-function(){
   
   p3<-ggplot(new.results,aes(x=method,y=MSE,fill=Molecular))+geom_boxplot()
   ggsave('dataComparison.png',p3)
+  newer.result<-new.results%>%mutate(perSampleError=MSE/numSamples)
+  p4<-ggplot(newer.result,aes(x=method,y=perSampleError,fill=Molecular))+geom_boxplot()
+  ggsave('normalizedDataComparison.png',p4,width=10)
   return(new.results)
 #plot all preds
 #arbitrary filter
