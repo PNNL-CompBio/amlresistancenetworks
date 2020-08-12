@@ -8,21 +8,26 @@ if(!require(ggplot2))
   install.packages('ggplot2')
 if(!require(purrr))
   install.packages("purrr")
-library(MXM)
 library(stringr)
 library(purrr)
 library(ggplot2)
 
 
-syn=MXM::synapseLogin()
-df = MXM::querySynapseTable("syn22172602")
+syn=amlresistancenetworks::synapseLogin()
+df = amlresistancenetworks::querySynapseTable("syn22172602")
 
 newdf <- df[df$Tumor.VAF >0 & (df$Gene == "NRAS" | df$Gene =="FLT3") ,]
 # Compare number of rows
 nrow(df)
-nrow(newdf)
+nrow(newdf)##this has no rows, i don't see where you put in the tumor data
+#try this:
+mut_status <- subset(df,Gene%in%c("NRAS","FLT3"))%>%
+  mutate(mutated=(`Tumor VAF`>0))%>%
+  dplyr::select(c("AML sample",Gene,"mutated"))
 
-AML = MXM::querySynapseTable("syn22288960")
+AML = amlresistancenetworks::querySynapseTable("syn22288960")
+
+##here use a join to add in the mutational status
 
 community = AML %>% filter(net2_type == 'community')
 
