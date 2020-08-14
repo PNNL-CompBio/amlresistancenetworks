@@ -246,6 +246,7 @@ mapPhosphoToKinase<-function(pat.phos){
 
   KSDB <- read.csv(system.file('PSP&NetworKIN_Kinase_Substrate_Dataset_July2016.csv',package='amlresistancenetworks'),stringsAsFactors = FALSE)
 
+  clinvars<-setdiff(names(pat.phos),c('Protein','Gene','site','Peptide','LogRatio'))
   pat.phos$Gene<-unlist(pat.phos$Gene)
   gene.phos<-computePhosphoChanges(pat.phos)
   phos.with.subs<-gene.phos%>%
@@ -253,7 +254,7 @@ mapPhosphoToKinase<-function(pat.phos){
     inner_join(pat.phos,by=c('site','Gene'))
 
   pat.kin.scores<-phos.with.subs%>%
-    dplyr::select(Sample,site,Gene,LogFoldChange,GENE,networkin_score)%>%distinct()%>%
+    dplyr::select('Sample','site',Gene,LogFoldChange,GENE,networkin_score)%>%distinct()%>%
     group_by(Sample,GENE)%>%
     summarize(meanLFC=mean(LogFoldChange),meanNKINscore=mean(networkin_score),numSubstr=n_distinct(Gene))%>%
     rename(Kinase='GENE')

@@ -11,6 +11,8 @@ if(!require(purrr))
 library(stringr)
 library(purrr)
 library(ggplot2)
+library(dplyr)
+library(tidyr)
 
 
 syn=amlresistancenetworks::synapseLogin()
@@ -22,64 +24,39 @@ nrow(df)
 nrow(newdf)##this has no rows, i don't see where you put in the tumor data
 #try this:
 mut_status <- subset(df,Gene%in%c("NRAS","FLT3"))%>%
-  mutate(mutated=(`Tumor VAF`>0))%>%
+  dplyr::mutate(mutated=(`Tumor VAF`>0))%>%
   dplyr::select(c("AML sample",Gene,"mutated"))
 
+all_muts <- mut_status%>%tidyr::pivot_wider(values_from='mutated',
+                                            names_from=Gene,values_fn=list(mutated=any))
+
+
 AML = amlresistancenetworks::querySynapseTable("syn22288960")
+community <- AML %>%dplyr::rename(`AML sample`='net1')%>%
+  dplyr::left_join(all_muts)%>%
+  subset(net2_type=='community')%>%
+  dplyr::mutate(same=(hyp1==hyp2))%>%subset(same)
 
 ##here use a join to add in the mutational status
 
-community = AML %>% filter(net2_type == 'community')
+#community = AML %>% filter(net2_type == 'community')%>%
+#  dplyr::mutate(same=(hyp1==hyp2))
 
-select_data = function(hype,hype_type,community_number){
-  data = community %>% filter(net2 == community_number)
-  if (hype == 1){
-    data = data %>% filter(hyp1 == hype_type)
-  }
-  else{
-    data = data %>% filter(hyp2 == hype_type)
-  }
-  return (data)
+do_ttest<-function(df,gn='NRAS'){
+  res<-df%>%dplyr::select(c("AML sample","distance",gn))%>%
+    tidyr::pivot_wider(values_from=distance,names_from=gn)
+  t.test(res$`FALSE`,res$`TRUE`,na.rm=TRUE)$p.value
 }
 
-ttest_comm = function(test_data,sample_number1,sample_number2){
-  sample1 = data %>% filter(net1 == sample_number1)
-  sample2 = data %>% filter(net1 == sample_number2)
-  model = t.test(sample1$distance, sample2$distance, paired = FALSE)
-  return (model$p.value)
-}
 
-community_list = unique(community$net2)
-#Hyp value, 
-#change this value to 1 for hyp1, or 2 for hyp2
-hype = 1
-#hyp type value
-#change this to mutation to test for mutations or proteomics
-hype_type = "mutations"
+nras.pvals=community%>%
+  group_by(hyp1,net2)%>%
+  do(tidy(t.test(distance~NRAS,data=.)))%>%
+  dplyr::select(hyp=hyp1,community=net2,PVal=p.value)%>%mutate(Gene='NRAS')
 
-result <- data.frame("Communities" = NA, "Sample_1" = NA, "Sample_2" = NA,"Pvalue" = NA)
-for (com in community_list){
-  data = select_data(hype,hype_type,com)
-  for(x in data$net1){
-    for (y in data$net1){
-      if (x != y){
-        print(paste("Community number", com))
-        print(paste("sample 1", x))
-        print(paste("sample 2", y))
-        pvalue = try(ttest_comm(data,x,y), silent = T)
-        temp = try(data.frame("Communities" = com, "Sample_1" = x, "Sample_2" = y,"Pvalue" = pvalue),silent = T)
-        result = rbind(result,temp)
-        
-      }
-    }
-  }
-  
-}
+flt3.pvals=community%>%
+  group_by(hyp1,net2)%>%
+  do(tidy(t.test(distance~FLT3,data=.)))%>%
+  dplyr::select(hyp=hyp1,community=net2,PVal=p.value)%>%mutate(Gene='FLT3')
 
-clean_result = result %>% filter(str_detect(result$Communities,"Error",negate = TRUE))
-
-
-
-
-
-
+all.pvals<-rbind(nras.pvals,flt3.pvals)
