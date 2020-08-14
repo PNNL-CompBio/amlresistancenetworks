@@ -19,6 +19,7 @@ otherPhosData<-querySynapseTable('syn22255396')%>%
   mutate(Condition=paste(treatment,timePoint,sep='_'))
 
 
+clinvars<-phosData%>%dplyr::select(Sample='sample',CellType,TimePoint,Treatment)%>%distinct()
 kindat<-mapPhosphoToKinase(dplyr::rename(phosData,Sample='sample', LogFoldChange='LogRatio'))
 
 parental<-mapPhosphoToKinase(dplyr::rename(filter(phosData,CellType=='MOLM-13'),Sample='sample', LogFoldChange='LogRatio'))
@@ -210,7 +211,7 @@ tramHLPhos<-list(hl60_tram_3_hour =manualDEAnalysis(otherPhosMat,
 p3<-plotConditionsInFlow(tramHLPhos,title='Effects of tram in hL60',0.05)
 ggsave('tramHL60.png',p3,width=11,height=6)
 ph3<-doAllKSEAplots(tramHLPhos,otherPhosData)
-mcp1Resistnetworks<-runNetworksFromDF(ph3)
+#mcp1Resistnetworks<-runNetworksFromDF(ph3)
 
 
 ##now compute differences in conditions
@@ -242,7 +243,7 @@ t0Phos=list(molm13_vs_resistant=limmaTwoFactorDEAnalysis(phosMat,
 ph<-plotConditionsInFlow(t0Phos,title='Phoshpochanges - trametinib on resistance')   
 ggsave('tramResistancePhos.png',ph,width=11,height=6)
 ksea.res<-doAllKSEAplots(t0Phos)
-t0PhosNetworks=runNetworksFromDF(ksea.res)
+#t0PhosNetworks=runNetworksFromDF(ksea.res)
 
 m13Values<-list(molm13_vs_tram_5min=limmaTwoFactorDEAnalysis(protMat,
                                                         filter(summary,conditionName=='MOLM-13_0_none')$sample,
@@ -288,7 +289,7 @@ r2<-doAllGOplots(m13Values)
 
 p3<-doAllKSEAplots(m13Phos)
 
-m13phosNetworks=runNetworksFromDF(p3)
+#m13phosNetworks=runNetworksFromDF(p3)
 
 ph3<-plotConditionsInFlow(m13Phos,title='Phospho effects of tram with MCP1',0.05)
 ggsave('molm13ConditionsPhos.png',ph3,width=11,height=6)
@@ -327,7 +328,7 @@ tramMCPPhos<-list(tram_vs_mcp1tram_5min=limmaTwoFactorDEAnalysis(phosMat,
                                                                     filter(summary,conditionName=='MOLM-13_60_Trametinib+MCP-1')$sample))
 
 ph3<-doAllKSEAplots(tramMCPPhos)
-tramMCPN=runNetworksFromDF(ph3)
+#tramMCP=runNetworksFromDF(ph3)
 
 ph3<-plotConditionsInFlow(tramMCPPhos,title='Phospho effects of tram vs combo',0.05)
 ggsave('phoscomboVsMCPTramIndiv.png',ph3,width=11,height=6)
@@ -355,5 +356,14 @@ mcp1ResistPhos<-list(resist_vs_mcp1_5min=limmaTwoFactorDEAnalysis(phosMat,
 p3<-plotConditionsInFlow(mcp1ResistPhos,title='Effects of tram/mcp-1 in resistant',0.05)
 ggsave('mcp1PhosInResistantCells.png',p3,width=11,height=6)
 ph3<-doAllKSEAplots(mcp1ResistPhos)
-mcp1Resistnetworks<-runNetworksFromDF(ph3)
+#mcp1Resistnetworks<-runNetworksFromDF(ph3)
 
+##plot single kinase/substrate expression of mapk3, mapk1, and mapk8
+p5<-kindat%>%
+  left_join(clinvars)%>%
+  subset(Kinase%in%c('MAPK1','MAPK3','MAPK8'))%>%
+  ggplot(aes(x=as.factor(TimePoint),y=meanLFC,fill=Treatment))+
+  geom_boxplot()+
+  facet_grid(~CellType+Kinase)+scale_fill_viridis_d()+
+  ggtitle("Estimated Kinase Activity")
+ggsave('estimatedErkActivity.png',p5,width=10)
