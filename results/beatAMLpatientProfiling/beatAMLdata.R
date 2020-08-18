@@ -11,7 +11,7 @@ library(tidyr)
 #'@param mol.data -molelcular data
 #'@import pheatmap
 #'@import dplyr
-plotAllPatients<-function(auc.data,pat.data,pat.phos){
+plotAllPatients<-function(auc.data,pat.data,pphos){
   library(gridExtra)
   numDrugs=auc.data%>%
     group_by(`AML sample`)%>%
@@ -21,17 +21,15 @@ plotAllPatients<-function(auc.data,pat.data,pat.phos){
     summarize(RNA=any(mRNALevels!=0),mutations=any(geneMutations!=0),proteins=any(proteinLevels!=0))%>%
     right_join(numDrugs)
   
-  pat.df<-pat.phos%>%group_by(`Sample`)%>%summarize(phosphoSites=any(LogFoldChange!=0))%>%
+  pat.df<-pphos%>%group_by(`Sample`)%>%summarize(phosphoSites=any(LogFoldChange!=0))%>%
     rename(`AML sample`='Sample')%>%right_join(pat.df)
     
   pdf('patientSummaryTab.pdf',height=11)
   grid.table(pat.df)
   dev.off()
-  #ggsave("PatientSummaryTab.pdf")
   return(pat.df)
   
 }
-
 
 
 print("loading molecular data")
@@ -42,16 +40,42 @@ pat.data<-pat.data%>%rename(proteinLevels='LogFoldChange')%>%
   rename(geneMutations='Tumor VAF')%>%
   mutate(Gene=unlist(Gene))
 
-pat.phos<-querySynapseTable("syn22156830")#readRDS(system.file('patientPhosphoSampleData.Rds',package='amlresistancenetworks'))
+soraf.prot<-querySynapseTable("syn22314121")%>%
+  subset(Treatment=='Vehicle')%>%
+  subset(`Cell number`>=10000000)%>%
+  dplyr::select(Gene,LogFoldChange,`AML sample`)%>%distinct()%>%
+  full_join(pat.data,by=c('AML sample','Gene'))%>%
+  rowwise()%>%
+  mutate(proteinLevels=max(proteinLevels,LogFoldChange,na.rm=T))%>%
+  select(-LogFoldChange)%>%
+  mutate(mRNALevels=tidyr::replace_na(mRNALevels,0))%>%
+  mutate(geneMutations=tidyr::replace_na(geneMutations,0))%>%
+ # mutate(countMetric=unlist(countMetric))%>%
+  distinct()
+pat.data<-soraf.prot
+
+non.soraf.prot<-subset(pat.data,!`AML sample`%in%soraf.prot$`AML sample`)
+
+###replace values in original table....
+print("Getting phosphosite data")
+pat.phos<-querySynapseTable("syn22156830")
 pat.phos$site<-unlist(pat.phos$site)
 pat.phos$Gene<-unlist(pat.phos$Gene)
 
 extra.phos<-querySynapseTable("syn22156814")%>%
   dplyr::select(Gene,site,Peptide,LogFoldChange='value',Sample="AML sample")
 
+soraf.phos<-querySynapseTable("syn22314122")%>%
+  subset(Treatment=='Vehicle')%>%
+  subset(`Cell number`>=10000000)%>%
+  dplyr::select(Gene,site,Peptide,LogFoldChange,Sample="AML sample")%>%distinct()
+
+soraf.phos$site<-unlist(soraf.phos$site)
+soraf.phos$Gene<-unlist(soraf.phos$Gene)
+
 extra.phos$site <-unlist(extra.phos$site)
 extra.phos$Gene <-unlist(extra.phos$Gene)
-pat.phos<-rbind(pat.phos,unique(extra.phos))
+pat.phos<-rbind(pat.phos,unique(extra.phos),soraf.phos)
 
 print("Loading patient variables and drug response")
 #readRDS(system.file('patientMolecularData.Rds',package='amlresistancenetworks'))
@@ -114,12 +138,9 @@ drug.combos<-unique(auc.dat$Condition[grep(" - |\\+",auc.dat$Condition)])
 print("Removing drug combinations")
 auc.dat<-subset(auc.dat,!Condition%in%drug.combos)
 
-
-
 ##reduce dims
 print("Getting Latent Variables")
 lv.df<-querySynapseTable('syn22274890')
-
 
 ##getting kinase
 print('Getting kinase estimates')

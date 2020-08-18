@@ -72,6 +72,9 @@ plotAllAUCs<-function(auc.data,to.plot='percAUC'){
     pat.vars$mutations<-as.factor(pat.vars$mutations)
   if('proteins'%in%names(pat.vars))
     pat.vars$proteins<-as.factor(pat.vars$proteins)
+  if('phosphoSites'%in%names(pat.vars))
+    pat.vars$phosphoSites<-as.factor(pat.vars$phosphoSites)
+  
   drug.vars<-auc.data%>%
     dplyr::select(Drug='Condition')%>%
     distinct()

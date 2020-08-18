@@ -4,20 +4,17 @@ library(amlresistancenetworks)
 library(dplyr)
 library(ggplot2)
 # this is the sensitivity data
-source('beatAMLdata.R')
-
-
-
-
-
-
+if(!exists('dataLoaded')){
+  source('beatAMLdata.R')
+  dataLoaded=TRUE
+}
 class.size<-drug.class%>%group_by(family)%>%
   summarize(size=n())
 bigger.fams<-subset(class.size,size>1)
 
 
 #summarizing AUC data
-pat.summary<-plotAllPatients(auc.dat,pat.data)
+pat.summary<-plotAllPatients(auc.dat,pat.data,pat.phos)
 auc.dat<-auc.dat%>%left_join(pat.summary)
 #plotAllAUCs(auc.dat,'percAUC')
 #plotAllAUCs(auc.dat,'AUC')
@@ -38,9 +35,9 @@ if(FALSE){
   plotCorrelationsByDrug(red.cors,cor.thresh=0.8)
 }
 
-if(FALSE){
+if(TRUE){
   print("Getting Regression predictors")
-  all.preds<-purrr::map_df(list(mRNA='mRNALevels',
+  reg.preds<-purrr::map_df(list(mRNA='mRNALevels',
                                protein='proteinLevels',
                                gene='geneMutations'),~ drugMolRegression(auc.dat,
                                                                     pat.data,
@@ -49,14 +46,14 @@ if(FALSE){
 
 
 
-  full.preds<-drugMolRegression(auc.dat,pat.data,c('mRNALevels','proteinLevels','geneMutations'))
+#  full.preds<-drugMolRegression(auc.dat,pat.data,c('mRNALevels','proteinLevels','geneMutations'))
 ##now how do we visualize this? 
 
 }
 
 if(TRUE){
   print("Getting Random Forest predictors")
-  all.preds<-purrr::map_df(list(mRNA='mRNALevels',
+  rf.preds<-purrr::map_df(list(mRNA='mRNALevels',
                                 protein='proteinLevels',
                                 gene='geneMutations'),~ drugMolRandomForest(auc.dat,
                                                                           pat.data,
@@ -64,8 +61,8 @@ if(TRUE){
 
 
 
-  full.preds<-drugMolRandomForest(auc.dat,pat.data,
-                                  c('mRNALevels','proteinLevels','geneMutations'))
+ # full.preds<-drugMolRandomForest(auc.dat,pat.data,
+#                                  c('mRNALevels','proteinLevels','geneMutations'))
 ##now how do we visualize this? 
 
 

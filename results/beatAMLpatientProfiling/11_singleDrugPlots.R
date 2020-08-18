@@ -91,7 +91,7 @@ plotMostVarByDrug<-function(drugName,data,mostVar=50){
     data.mat<-pat.phos%>%dplyr::select(Gene='site',`AML sample`='Sample',value='LogFoldChange')
   
   drug.dat<-subset(auc.dat,Condition==drugName)%>%
-    select(-c(Condition,medAUC,percAUC,overallSurvival,ageAtDiagnosis))%>%
+    select(-c(Condition,medAUC,percAUC,overallSurvival,RNA,phosphoSites,mutations,proteins,numDrugs,ageAtDiagnosis))%>%
     mutate(sensitive=if_else(AUC<100,'Sensitive','Resistant'))%>%
     distinct()%>%
     tibble::column_to_rownames('AML sample')
@@ -140,7 +140,7 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
 
     ##ASSSUMES AUC.DAT is global
     drug.dat<-subset(auc.dat,Condition==drugName)%>%
-    select(-c(Condition,medAUC,percAUC,overallSurvival,ageAtDiagnosis))%>%
+    select(-c(Condition,medAUC,percAUC,overallSurvival,numDrugs,RNA,proteins,mutations,phosphoSites,ageAtDiagnosis))%>%
       mutate(sensitive=if_else(AUC<100,'Sensitive','Resistant'))%>%
       distinct()%>%
     tibble::column_to_rownames('AML sample')
@@ -181,7 +181,7 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
     pat.mat<-log10(pat.mat+0.01)
   
   try(pheatmap::pheatmap(pat.mat,cellwidth = 10,cellheight=10,annotation_col = drug.dat,
-                         clustering_distance_cols = 'correlation',
+                         clustering_distance_cols = 'euclidean',
                      clustering_method = 'ward.D2',filename=fname))
   
   plotMostVarByDrug(drugName,data)
@@ -210,13 +210,13 @@ getPreds<-function(){
 #plot all preds
 #arbitrary filter
 }
-plotAllAUCs(auc.dat,'AUC')
 
-new.results<-getPreds()
+#new.results<-getPreds()
 
 subset(new.results,var%in%auc.dat$Condition)%>%
   subset(numFeatures>1)%>%
   rowwise()%>%mutate(clusterSingleDrugEfficacy(var,method,Molecular))
 
+plotAllAUCs(auc.dat,'AUC')
 
 #subset set of preds

@@ -11,7 +11,7 @@ miniReg(tab, mol.feature)
 \item{tab}{with column names `AML sample`,meanVal,Gene, and whatever the value of 'mol.feature' is.}
 }
 \value{
-a data.frame with three values/columns: MSE, NumGenes, and Genes
+a data.frame with three values/columns: MSE, numFeatures, and Genes
 }
 \description{
 miniReg

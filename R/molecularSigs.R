@@ -201,7 +201,7 @@ miniForest<-function(tab,mol.feature,quant=0.995){
   
   cm<-apply(mat,1,mean)
   zvals<-which(cm==0.0)
-  print(paste("Found",length(zvals),'patients with no expression/values across',ncol(mat),'features'))
+  print(paste("Found",length(zvals),'patients with no',mol.feature,'data across',ncol(mat),'features'))
   if(length(zvals)>0)
     mat<-mat[-zvals,]
   
@@ -251,7 +251,7 @@ miniReg<-function(tab,mol.feature){
  if(length(zvals)>0)
    mat<-mat[-zvals,]
  
- print(paste("Found",length(zvals),'patients with no expression/values across',ncol(mat),'features'))
+ print(paste("Found",length(zvals),'patients with no',mol.feature,'data across',ncol(mat),'features'))
  
  zcols<-apply(mat,2,var)
  zvals<-which(zcols==0)

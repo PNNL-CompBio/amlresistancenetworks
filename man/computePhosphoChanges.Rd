@@ -4,7 +4,7 @@
 \alias{computePhosphoChanges}
 \title{get ordered phospho sites}
 \usage{
-computePhosphoChanges(phosData, samps1, samps2)
+computePhosphoChanges(phosData)
 }
 \value{
 data table of log fold change

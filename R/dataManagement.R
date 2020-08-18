@@ -264,11 +264,24 @@ getPatientVariants<-function(patientlist){
   exp.3.megafile=syn$get('syn22130786')$path
   gene.var<-readxl::read_xlsx(exp.3.megafile,sheet='Table S7-Variants for Analysis')%>%
     subset(labId%in%patientlist)%>%
-    select(labId,t_vaf,symbol)%>%
+    select(labId,t_vaf,symbol)%>%distinct()%>%
     #tidyr::pivot_longer(c(t_vaf,n_vaf),names_to='Metric',values_to='Value')%>%
     rename(`AML sample`='labId',`Tumor VAF`='t_vaf',Gene='symbol')
   return(gene.var)
 }
+
+
+#'add in wave3/4 genetics 
+#'@import readxl
+#'@import dplyr
+addWave34GeneticsToTable<-function(){
+  syn=synapseLogin()
+  newtab<-readxl::read_xlsx(syn$get('syn22130786')$path,sheet=9)%>%
+    dplyr::select(Gene=symbol,`AML sample`=original_id,`Tumor VAF`=t_vaf)%>%distinct()
+  newtab
+  
+}
+
 
 #' this grabs drug responses from three different sources, all on synapse
 #' @param patientlist it will only return drugs for these patients
@@ -352,7 +365,7 @@ storeDrugClassInfo<-function(){
 
 # get all molecular data for patient baselines
 #'@export
-getPatientMolecularData<-function(){
+getPatientMolecularData<-function(synid='syn22172602'){
   syn=synapseLogin()
     exp.3.megafile=syn$get('syn22130786')$path
   
@@ -361,6 +374,8 @@ getPatientMolecularData<-function(){
 
   rna<-getPatientTranscript(unlist(patients))
   variants<-getPatientVariants(unlist(patients))
+  moreVars<-addWave34GeneticsToTable()
+  variants<-rbind(variants,moreVars)
   prots<-getPatientBaselines()
   patientMolecularData<-prots%>%
     full_join(rna,by=c('AML sample','Gene'),na_matches="never")%>%
@@ -369,7 +384,11 @@ getPatientMolecularData<-function(){
     mutate(`Tumor VAF`=tidyr::replace_na(`Tumor VAF`,0))%>%
     mutate(LogFoldChange=tidyr::replace_na(LogFoldChange,0))
 
-  synTableStore(patientMolecularData,'BeatAML Pilot Molecular Data')
+  if(!is.null(synid)){##we need to delete rows and re-uplooad
+    synTableUpdate(patientMolecularData,synid)
+    }else{
+    synTableStore(patientMolecularData,'BeatAML Pilot Molecular Data')
+  }
   #saveRDS(patientMolecularData,file='inst/patientMolecularData.Rds')
   #synapseStore('inst/patientMolecularData.Rds','syn22130776')
   return(patientMolecularData)
@@ -527,8 +546,41 @@ getCytokineSensData<-function(){
     
     synTableStore(pdat,'Cytokine-induced Drug Sensitivity Proteomics')
     synTableStore(phdat,'Cytokine-induced Drug Sensitivity Phospho-proteomics')
-    
-    
-      
   
 }
+
+#' getSorafenibSamples
+#' Gets sorafenib trreated samples and stores to synaspe tables
+#' @import dplyr
+#' @import readxl
+#' @import stringr
+#' @export
+getSorafenibSamples<-function(){
+  library(dplyr)
+  syn<-synapseLogin()
+  metadata<-readxl::read_xlsx(syn$get('syn22314059')$path)%>%
+    dplyr::select(specimen='Specimen ID',`FLT ITD`, `Sorafenib sensitivity`,`Sorafenib IC50`, `Cell number`,`Treatment`)%>%
+    rowwise()%>%mutate(`AML sample`=stringr::str_split_fixed(specimen,stringr::fixed('.'),2)[1])%>%
+    subset(!is.na(Treatment))
+  
+  pdat<-read.csv2(syn$get('syn22313435')$path,sep='\t')%>%dplyr::select(-ids)%>%
+    tidyr::pivot_longer(-Gene,values_to='LogFoldChange',names_to='specIds')%>%
+    mutate(LogFoldChange=as.numeric(as.character(LogFoldChange)))%>%
+    mutate(LogFoldChange=tidyr::replace_na(LogFoldChange,0))%>%
+    mutate(specimen=unlist(stringr::str_replace(specIds,'X','')))%>%
+    mutate(specimen=stringr::str_replace(specimen,'\\.','-'))%>%
+    left_join(metadata)%>%select(-c(specIds,specimen))%>%distinct()%>%subset(!is.na(`AML sample`))
+
+  phdat<-read.csv2(syn$get('syn22313433')$path,sep='\t')%>%
+  dplyr::select(-Entry,ids)%>%
+    tidyr::pivot_longer(-c(Gene,site,Peptide),values_to='LogFoldChange',names_to='specIds')%>%
+    mutate(LogFoldChange=as.numeric(as.character(LogFoldChange)))%>%
+    mutate(LogFoldChange=tidyr::replace_na(LogFoldChange,0))%>%
+    mutate(specimen=stringr::str_replace(specIds,'X',''))%>%
+    mutate(specimen=stringr::str_replace(specimen,'\\.','-'))%>%
+    left_join(metadata)%>%select(-c(specIds,specimen))%>%distinct()%>%subset(!is.na(`AML sample`))
+
+  synTableStore(pdat,'Sorafenib treated proteomics')
+  synTableStore(phdat,'Sorafenib treated Phospho-proteomics')
+}
+

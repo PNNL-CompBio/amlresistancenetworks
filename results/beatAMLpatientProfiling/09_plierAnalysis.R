@@ -18,8 +18,10 @@ plier.results <- readRDS("recount_PLIER_model.RDS")
 #'  Mao W, Harmann B, Sealfon SC, Zaslavsky E, and Chikina M (2017). "Pathway-Level Information ExtractoR (PLIER) for gene expression data." bioRxiv. doi: 10.1101/116061
 #'  
 #
-source("beatAMLdata.R")
-
+if(!exists('dataLoaded')){
+  source('beatAMLdata.R')
+  dataLoaded=TRUE
+}
 
 exprs.mat<-pat.data%>%
   select(`AML sample`,'Gene','mRNALevels')%>%
