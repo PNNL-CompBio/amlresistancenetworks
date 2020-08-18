@@ -48,14 +48,37 @@ synTableStore<-function(tab,tabname,parentId='syn22128879'){
   #we have to first write the table to a file, then build it and store it
   library(reticulate)
   print(head(tab))
-  fpath=write.table(tab,file='tmp.tsv',sep='\t',row.names = FALSE,quote=FALSE)
+  fpath=write.table(tab,file='tmp.csv',sep=',',row.names = FALSE,quote=FALSE)
   reticulate::use_condaenv(condaenv)
   synapse=reticulate::import('synapseclient')
 
-  tab<-synapse$build_table(tabname,parentId,'tmp.tsv')
+  tab<-synapse$build_table(tabname,parentId,'tmp.csv')
   sync=synapse$login()
   sync$store(tab)
 
+}
+
+
+#'synTableUpdate
+#'Removes all rows from table and replaces
+#'@param table
+#'@param synapse id of table to replace
+#'@import reticulate
+#'@export
+synTableUpdate<-function(tab,synid){
+  library(reticulate)
+  print(head(tab))
+  reticulate::use_condaenv(condaenv)
+  synapse=reticulate::import('synapseclient')
+  fpath=write.table(tab,file='tmp.csv',sep=',',row.names = FALSE,quote=FALSE)
+  ntab = synapse$Table(synid,'tmp.csv')
+  
+  
+  syn=synapse$login()
+  rows = syn$tableQuery(paste("select * from",synid))
+  syn$delete(rows)
+  syn$store(ntab)
+  
 }
 
 #' query synapse table
