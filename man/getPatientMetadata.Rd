@@ -4,7 +4,7 @@
 \alias{getPatientMetadata}
 \title{getPatientMetadata}
 \usage{
-getPatientMetadata()
+getPatientMetadata(synid = "syn22170540")
 }
 \description{
 getPatientMetadata

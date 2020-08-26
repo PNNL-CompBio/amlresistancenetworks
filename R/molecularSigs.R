@@ -86,6 +86,105 @@ drugMolRegression<-function(clin.data,
   
 }
 
+#' drugMolLogReg
+#' Computes logistic regression based on AUC threshold of 100
+#' @param tab
+#' @param feature
+#' @param aucThresh
+#' @export
+drugMolLogReg<-function(clin.data, 
+                        mol.data,
+                        mol.feature,
+                        category='Condition',
+                        aucThresh=100){
+  if(length(mol.feature)==1){
+    drug.mol<-clin.data%>%
+      dplyr::select(`AML sample`,var=category,AUC)%>%
+      group_by(`AML sample`,var)%>%
+      summarize(meanVal=mean(AUC,na.rm=T))%>%
+      left_join(select(mol.data,c(Gene,`AML sample`,!!mol.feature)),
+                by='AML sample')%>%
+      mutate(sensitive=meanVal<aucThresh)
+    
+    
+    reg.res<-drug.mol%>%group_by(var)%>%
+      group_modify(~ miniLogR(.x,mol.feature),keep=T)%>%
+      mutate(Molecular=mol.feature)
+  }else{
+    drug.mol<-clin.data%>%
+      dplyr::select(`AML sample`,var=category,AUC)%>%
+      group_by(`AML sample`,var)%>%
+      summarize(meanVal=mean(AUC,na.rm=T))%>%
+      left_join(select(mol.data,c(Gene,`AML sample`,mol.feature)),
+                by='AML sample')
+    reg.res<-drug.mol%>%group_by(var)%>%
+      group_modify(~ combDE(.x,mol.feature),keep=T)%>%
+      mutate(Molecular=paste(mol.feature,collapse='_'))
+  }
+  return(reg.res)
+  
+}
+
+#' miniDE
+#' Carries out differential expressiona nalysis using an AUC of 100
+#' @param tab
+#' @param mol.features
+#' 
+miniLogR<-function(tab,mol.feature){
+#  irst build our feature matrix
+  library(glmnet)
+  
+ mat<-buildFeatureMatrix(tab,mol.feature)
+  #print(mat)
+  if(is.null(dim(mat)))
+    return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=0))
+    
+  cm<-apply(mat,1,mean)
+  vm<-apply(mat,1,var)
+  zvals<-union(which(cm==0),which(vm==0))
+  if(length(zvals)>0)
+    mat<-mat[-zvals,]
+    
+  print(paste("Found",length(zvals),'patients with no',mol.feature,'data across',ncol(mat),'features'))
+  
+  zcols<-apply(mat,2,var)
+  zvals<-which(zcols==0)
+   #sprint(zvals)
+   if(length(zvals)>0)
+    mat<-mat[,-zvals]
+    
+   if(ncol(mat)<5 || nrow(mat)<5)
+      return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=nrow(mat)))
+    
+    #now collect our y output variable
+  tmp<-tab%>%
+     dplyr::select(sensitive,`AML sample`)%>%
+     distinct()
+  yvar<-tmp$sensitive
+  #print(yvar)
+  names(yvar)<-tmp$`AML sample`
+  yvar<-unlist(yvar[rownames(mat)])
+  
+  #use CV to get maximum AUC
+  cv.res<-NULL
+  try(cv.res<-cv.glmnet(x=mat,y=yvar,family='binomial',
+                        type.measure='mse',nfolds=length(yvar)))
+  if(is.null(cv.res))
+    return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=nrow(mat)))
+  
+  
+  best.res<-data.frame(lambda=cv.res$lambda,MSE=cv.res$cvm)%>%
+    subset(MSE==min(MSE))
+  
+  #then select how many elements
+  full.res<-glmnet(x=mat,y=yvar,family='binomial',type.measure='mse')
+  genes=names(which(full.res$beta[,which(full.res$lambda==best.res$lambda)]!=0))
+  genelist<-paste(genes,collapse=';')
+  #print(paste(best.res$MSE,":",genelist))
+  return(data.frame(MSE=best.res$MSE,numFeatures=length(genes),genes=genelist,
+                    numSamples=length(yvar)))
+}
+
 #'combForest
 #'Runs random forest on combination of feature types
 #'@param feature.list

@@ -326,7 +326,7 @@ getPatientDrugResponses<-function(patientlist){
 #' @export
 #' @import dplyr
 #' @import readxl
-getPatientMetadata<-function(){
+getPatientMetadata<-function(synid='syn22170540'){
     require(dplyr)
 #    synapser::synLogin()
   syn<-synapseLogin()
@@ -334,7 +334,8 @@ getPatientMetadata<-function(){
 
   patients<-readxl::read_xlsx(exp.3.megafile,sheet='Sample Summary')%>%
     dplyr::select('Specimen ID')%>%distinct()
-
+  patients=c(unlist(patients),'16-01254')
+  
   drugs<-getPatientDrugResponses(unlist(patients))
   
  patData<-readxl::read_xlsx(exp.3.megafile,sheet='Clinical Summary')%>%
@@ -345,8 +346,12 @@ getPatientMetadata<-function(){
           left_join(drugs)%>%
    mutate(Value=tidyr::replace_na(Value,0))
 #   subset(!is.na(Value))
-
- synTableStore(patData,'BeatAML Pilot Drug and Clinical Data')
+ 
+ if(!is.null(synid)){##we need to delete rows and re-uplooad
+   synTableUpdate(patData,synid)
+ }else{
+  synTableStore(patData,'BeatAML Pilot Drug and Clinical Data')
+ }
  # saveRDS(patData,file='inst/patientDrugAndClinical.Rds')
  # synapseStore('inst/patientDrugAndClinical.Rds','syn22130776')
  return(patData)
@@ -371,7 +376,7 @@ getPatientMolecularData<-function(synid='syn22172602'){
   
   patients<-readxl::read_xlsx(exp.3.megafile,sheet='Sample Summary')%>%
     dplyr::select('Specimen ID')%>%distinct()
-
+  patients=c(unlist(patients),'16-01254')
   rna<-getPatientTranscript(unlist(patients))
   variants<-getPatientVariants(unlist(patients))
   moreVars<-addWave34GeneticsToTable()

@@ -18,7 +18,6 @@ getFeaturesFromString<-function(string,prefix='mRNALevels'){
 }
 
 
-
 getAllPreds<-function(){
   
   print("Getting phospho preds")
@@ -26,8 +25,10 @@ getAllPreds<-function(){
     dplyr::select(`AML sample`='Sample',Gene='site',Phosphosite='LogFoldChange')
   phospho.reg.results<-drugMolRegression(auc.dat,substrate.dat,'Phosphosite')
   phospho.rf.results<-drugMolRandomForest(auc.dat,substrate.dat,'Phosphosite')
-  
-  
+  phospho.lr.results<-drugMolLogReg(auc.dat,substrate.dat,'Phosphosite')
+  logr.preds<-purrr::map_df(list(mRNA='mRNALevels',
+                                 protein='proteinLevels',
+                                 gene='geneMutations'),~drugMolLogReg(auc.dat,pat.data,.x,category='Condition'))
   
   reg.preds<-purrr::map_df(list(mRNA='mRNALevels',
                                 protein='proteinLevels',
@@ -48,18 +49,24 @@ getAllPreds<-function(){
   lv.df<-lv.df%>%rename(Gene='Latent_Variable',`AML sample`='AML_sample',`Latent Variable`='Loading')
   lv.reg.results<-drugMolRegression(auc.dat,lv.df,'Latent Variable')
   lv.rf.results<-drugMolRandomForest(auc.dat,lv.df,'Latent Variable')
+  lv.lr.results<-drugMolLogReg(auc.dat,lv.df,'Latent Variable')
+  
   kinase.dat<-pat.kin%>%
     rename(`AML sample`='Sample',Gene='Kinase',KinaseExpr='meanLFC')
   kin.reg.results=drugMolRegression(auc.dat,kinase.dat,'KinaseExpr')
   kin.rf.results=drugMolRandomForest(auc.dat,kinase.dat,'KinaseExpr')
-  
+  kin.lr.results<-drugMolLogReg(auc.dat,kinase.dat,'KinaseExpr')
   
   #now bind them together with MSE and num Features to plot
   full.results<-rbind(reg.preds,lv.reg.results,kin.reg.results,phospho.reg.results)%>%
     mutate(method='LASSO')
-  rf.results<-rbind(rf.preds,lv.rf.results,kin.rf.results,phospho.rf.results)%>%mutate(method='RandomForest')
+  rf.results<-rbind(rf.preds,lv.rf.results,kin.rf.results,phospho.rf.results)%>%
+    mutate(method='RandomForest')
   
-  full.results<-rbind(full.results,rf.results)
+  lr.results<-rbind(logr.preds,lv.lr.results,kin.lr.results,phospho.lr.results)%>%
+    mutate(method='LogisticReg')%>%mutate(MSE=MSE*10000)
+  
+  full.results<-rbind(full.results,rf.results,lr.results)
   saveRDS(full.results,'mostlyCompletePredictions.rds')
  
   return(full.results)
@@ -91,7 +98,7 @@ plotMostVarByDrug<-function(drugName,data,mostVar=50){
     data.mat<-pat.phos%>%dplyr::select(Gene='site',`AML sample`='Sample',value='LogFoldChange')
   
   drug.dat<-subset(auc.dat,Condition==drugName)%>%
-    select(-c(Condition,medAUC,percAUC,overallSurvival,RNA,phosphoSites,mutations,proteins,numDrugs,ageAtDiagnosis))%>%
+    select(-c(Condition,medAUC,percAUC,overallSurvival,RNA,phosphoSites,mutations,proteins,ageAtDiagnosis))%>%
     mutate(sensitive=if_else(AUC<100,'Sensitive','Resistant'))%>%
     distinct()%>%
     tibble::column_to_rownames('AML sample')
@@ -140,7 +147,7 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
 
     ##ASSSUMES AUC.DAT is global
     drug.dat<-subset(auc.dat,Condition==drugName)%>%
-    select(-c(Condition,medAUC,percAUC,overallSurvival,numDrugs,RNA,proteins,mutations,phosphoSites,ageAtDiagnosis))%>%
+    select(-c(Condition,medAUC,percAUC,overallSurvival,ageAtDiagnosis))%>%
       mutate(sensitive=if_else(AUC<100,'Sensitive','Resistant'))%>%
       distinct()%>%
     tibble::column_to_rownames('AML sample')
@@ -184,7 +191,7 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
                          clustering_distance_cols = 'euclidean',
                      clustering_method = 'ward.D2',filename=fname))
   
-  plotMostVarByDrug(drugName,data)
+ # plotMostVarByDrug(drugName,data)
   return(fname)
   
 }
@@ -211,7 +218,7 @@ getPreds<-function(){
 #arbitrary filter
 }
 
-#new.results<-getPreds()
+new.results<-getPreds()
 
 subset(new.results,var%in%auc.dat$Condition)%>%
   subset(numFeatures>1)%>%
