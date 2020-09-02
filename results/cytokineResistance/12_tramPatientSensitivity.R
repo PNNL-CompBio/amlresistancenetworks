@@ -69,6 +69,11 @@ t0Comps=list(molm13_vs_resistant_phos=limmaTwoFactorDEAnalysis(phosMat,
                                                           dplyr::filter(summary,conditionName=='MOLM-13 Tr Resistant_0_none')$sample))
           
 ##proteins, phosphopsites, and kinases between TRAM sens and resist patients
+patPhosMat<-pat.phos%>%
+  dplyr::select(Sample,site,LogFoldChange)%>%distinct()%>%
+  tidyr::pivot_wider(values_from=LogFoldChange,names_from=Sample,values_fn=list(LogFoldChange=mean),
+                     values_fill=list(LogFoldChange=0))%>%
+  tibble::column_to_rownames('site')
 
 pat.summmary<-auc.dat%>%subset(Condition=='Trametinib (GSK1120212)')%>%
   dplyr::select(`AML sample`,AUC)%>%mutate(Sensitive=AUC<100)%>%
@@ -81,11 +86,6 @@ patProtMat<-pat.data%>%
                      values_fill=list(proteinLevels=0))%>%
   tibble::column_to_rownames('Gene')
 
-patPhosMat<-pat.phos%>%
-  dplyr::select(Sample,site,LogFoldChange)%>%distinct()%>%
-  tidyr::pivot_wider(values_from=LogFoldChange,names_from=Sample,values_fn=list(LogFoldChange=mean),
-                     values_fill=list(LogFoldChange=0))%>%
-  tibble::column_to_rownames('site')
 
 patKinMat<-pat.kin%>%dplyr::select(Sample,Kinase,meanLFC)%>%distinct()%>%
   tidyr::pivot_wider(values_from=meanLFC,names_from=Sample,values_fn=list(meanLFC=mean),
@@ -116,7 +116,7 @@ plotGenesInMat<-function(limmaRes,resMat,pvalThresh=0.05, annotes,title){
   red.mat<-resMat[intersect(genes,rownames(resMat)),]
  # print(red.mat)
   fname=paste0(title,'.pdf')
-  pheatmap(red.mat,cellwidth = 10,cellheight=10,annotation_col = annotes,filename=fname,height=15)
+  pheatmap(red.mat,cellwidth = 10,cellheight=10,annotation_col = annotes,filename=fname,height=10)
   
 }
 
@@ -132,6 +132,7 @@ plotGenesInMat(patComps$tramSens_vs_resistant_kin,kinMat,0.05,cellAnnotes,'patie
 ##then plot cell line data in patients
 patAnnotes<-pat.summmary%>%mutate(Sensitive=as.factor(Sensitive))%>%
   tibble::column_to_rownames('AML sample')
+plotGenesInMat(patComps$tramSens_vs_resistant_prot,patProtMat,0.005,patAnnotes,'patientProtSigInPatient')
 
 plotGenesInMat(t0Comps$molm13_vs_resistant_phos,patPhosMat,0.01,patAnnotes,'cellLinePhosSigInPatients')
 plotGenesInMat(t0Comps$molm13_vs_resistant_prot,patProtMat,0.0001,patAnnotes,'cellLineProtSigInPatients')

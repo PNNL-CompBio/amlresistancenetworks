@@ -146,5 +146,14 @@ lv.df<-querySynapseTable('syn22274890')
 print('Getting kinase estimates')
 pat.kin <-mapPhosphoToKinase(pat.phos)
 
-
-
+##now get network dsitances
+print('Getting network distances')
+pat.net<-querySynapseTable("syn22343177")
+filtered=pat.net%>%mutate(same=(`Hypha 1`==`Hypha 2`))%>%
+  filter(same)%>%
+  subset(net2_type=='community')
+mut.nets<-filtered%>%subset(`Hypha 1`=='mutations')%>%
+  select(Community='Network 2', distance,`AML sample`='Network 1')%>%distinct()
+prot.nets<-filtered%>%subset(`Hypha 1`=='proteomics')%>%
+  select(Community='Network 2', distance,`AML sample`='Network 1')%>%distinct()
+  

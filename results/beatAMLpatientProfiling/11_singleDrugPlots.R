@@ -20,12 +20,33 @@ getFeaturesFromString<-function(string,prefix='mRNALevels'){
 
 getAllPreds<-function(){
   
+  print('getting network preds')
+  mut.net.df<-mut.nets%>%select(mutationNetworkDistance='distance',Gene='Community',`AML sample`)
+  mn.reg.results<-drugMolRegression(auc.dat,mut.net.df,'mutationNetworkDistance')
+  mn.rf.results<-drugMolRandomForest(auc.dat,mut.net.df,'mutationNetworkDistance')
+  mn.lr.results<-drugMolLogReg(auc.dat,mut.net.df,'mutationNetworkDistance')
+  
+  prot.net.df<-prot.nets%>%select(proteomicNetworkDistance='distance',Gene='Community',`AML sample`)
+  pn.reg.results<-drugMolRegression(auc.dat,prot.net.df,'proteomicNetworkDistance')
+  pn.rf.results<-drugMolRandomForest(auc.dat,prot.net.df,'proteomicNetworkDistance')
+  pn.lr.results<-drugMolLogReg(auc.dat,prot.net.df,'proteomicNetworkDistance')
+  
+  print('getting LV preds')
+  lv.df<-lv.df%>%rename(Gene='Latent_Variable',`AML sample`='AML_sample',`Latent Variable`='Loading')
+  lv.reg.results<-drugMolRegression(auc.dat,lv.df,'Latent Variable')
+  lv.rf.results<-drugMolRandomForest(auc.dat,lv.df,'Latent Variable')
+  lv.lr.results<-drugMolLogReg(auc.dat,lv.df,'Latent Variable')
+  
+  
+  
   print("Getting phospho preds")
   substrate.dat<-pat.phos%>%
     dplyr::select(`AML sample`='Sample',Gene='site',Phosphosite='LogFoldChange')
   phospho.reg.results<-drugMolRegression(auc.dat,substrate.dat,'Phosphosite')
   phospho.rf.results<-drugMolRandomForest(auc.dat,substrate.dat,'Phosphosite')
   phospho.lr.results<-drugMolLogReg(auc.dat,substrate.dat,'Phosphosite')
+  
+  print('getting full preds')
   logr.preds<-purrr::map_df(list(mRNA='mRNALevels',
                                  protein='proteinLevels',
                                  gene='geneMutations'),~drugMolLogReg(auc.dat,pat.data,.x,category='Condition'))
@@ -35,35 +56,25 @@ getAllPreds<-function(){
                                 gene='geneMutations'),~ drugMolRegression(auc.dat,
                                                                           pat.data,
                                                                           .x,category='Condition'))
-  
-  # cor.preds<-purrr::map_df(list(mRNA='mRNALevels',
-  #                               protein='proteinLevels',
-  #                               gene='geneMutations'),~ computeAUCCorVals(drug.dat,pat.data,.x))
-  
   rf.preds<-purrr::map_df(list(mRNA='mRNALevels',
                                protein='proteinLevels',
                                gene='geneMutations'),~ drugMolRandomForest(auc.dat,
                                                                            pat.data,
                                                                            .x,category='Condition'))
-  
-  lv.df<-lv.df%>%rename(Gene='Latent_Variable',`AML sample`='AML_sample',`Latent Variable`='Loading')
-  lv.reg.results<-drugMolRegression(auc.dat,lv.df,'Latent Variable')
-  lv.rf.results<-drugMolRandomForest(auc.dat,lv.df,'Latent Variable')
-  lv.lr.results<-drugMolLogReg(auc.dat,lv.df,'Latent Variable')
-  
+  print('getting kinase preds') 
   kinase.dat<-pat.kin%>%
     rename(`AML sample`='Sample',Gene='Kinase',KinaseExpr='meanLFC')
   kin.reg.results=drugMolRegression(auc.dat,kinase.dat,'KinaseExpr')
   kin.rf.results=drugMolRandomForest(auc.dat,kinase.dat,'KinaseExpr')
   kin.lr.results<-drugMolLogReg(auc.dat,kinase.dat,'KinaseExpr')
   
-  #now bind them together with MSE and num Features to plot
-  full.results<-rbind(reg.preds,lv.reg.results,kin.reg.results,phospho.reg.results)%>%
+    #now bind them together with MSE and num Features to plot
+  full.results<-rbind(reg.preds,lv.reg.results,kin.reg.results,phospho.reg.results,mn.reg.results,pn.reg.results)%>%
     mutate(method='LASSO')
-  rf.results<-rbind(rf.preds,lv.rf.results,kin.rf.results,phospho.rf.results)%>%
+  rf.results<-rbind(rf.preds,lv.rf.results,kin.rf.results,phospho.rf.results,mn.rf.results,pn.rf.results)%>%
     mutate(method='RandomForest')
   
-  lr.results<-rbind(logr.preds,lv.lr.results,kin.lr.results,phospho.lr.results)%>%
+  lr.results<-rbind(logr.preds,lv.lr.results,kin.lr.results,phospho.lr.results,mn.lr.results,pn.lr.results)%>%
     mutate(method='LogisticReg')%>%mutate(MSE=MSE*10000)
   
   full.results<-rbind(full.results,rf.results,lr.results)
@@ -167,8 +178,13 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
     data.mat<-lv.df%>%rename(Gene='Latent_Variable',`AML sample`='AML_sample',value='Loading')
   else if(data=='KinaseExpr')
     data.mat<-pat.kin%>%rename(Gene='Kinase',`AML sample`='Sample',value='meanLFC')
-  else
+  else if(data=='Phosphosite'){
     data.mat<-pat.phos%>%dplyr::select(Gene='site',`AML sample`='Sample',value='LogFoldChange')
+  }else if(data=='proteomicNetworkDistances')
+    data.mat<-prot.nets%>%dplyr::select(Gene='Community',value='distance',`AML sample`)
+  else
+    data.mat<-mut.nets%>%dplyr::select(Gene='Community',value='distance',`AML sample`)
+  
   
   pat.mat<-data.mat%>%select('AML sample','Gene','value')%>%
     subset(Gene%in%genes)%>%
@@ -198,15 +214,21 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
 
 getPreds<-function(){
   library(ggplot2)
-  full.results<-getAllPreds()
-  new.results<-full.results%>%mutate(reducedData=Molecular%in%c('Latent Variable','KinaseExpr'))
+  if(!file.exists('mostlyCompletePredictions.rds'))
+    full.results<-getAllPreds()
+  else
+    full.results<-readRDS('mostlyCompletePredictions.rds')
+    
+  new.results<-full.results%>%
+    mutate(reducedData=Molecular%in%c('proteomicNetworkDistance','mutationNetworkDistance','Latent Variable','KinaseExpr'))%>%
+    subset(method!='RandomForest')
   new.results<-subset(new.results,numFeatures>0)
   p1<-ggplot(new.results,aes(x=numFeatures,y=MSE,col=Molecular,shape=method,size=numSamples,alpha=0.7))+geom_point()+facet_grid(~reducedData)+scale_x_log10()
   ggsave('predictorSummary.png',p1,width=10)
   
   p2<-ggplot(new.results,aes(x=var,y=MSE,col=Molecular,size=numSamples,shape=method))+
     geom_point()+theme(axis.text.x=element_text(angle=90, hjust=1))
-  ggsave('predictorDotPlot.png',p2,width=10)
+  ggsave('predictorDotPlot.png',p2,width=10,height=10)
   
   p3<-ggplot(new.results,aes(x=method,y=MSE,fill=Molecular))+geom_boxplot()
   ggsave('dataComparison.png',p3)
@@ -220,10 +242,33 @@ getPreds<-function(){
 
 new.results<-getPreds()
 
+with.class<-drug.class%>%rename(var="Condition")%>%
+  inner_join(new.results)
+
+drug.nums<-with.class%>%subset(!is.na(MSE))%>%group_by(family)%>%
+  summarize(numDrugs=n_distinct(var))%>%
+  subset(numDrugs>1)
+
+pclass <- with.class%>%
+  subset(family%in%drug.nums$family)%>%
+ # subset(method%in%c('LogisticReg','LASSO'))%>%
+  ggplot(aes(x=family,y=MSE,fill=Molecular))+geom_boxplot()+facet_grid(method~.)+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+ggsave('predictorPerfByClass.png',pclass,width=12)
+
+pclass2 <- with.class%>%
+  subset(family%in%drug.nums$family)%>%
+  subset(!reducedData)%>%
+  # subset(method%in%c('LogisticReg','LASSO'))%>%
+  ggplot(aes(x=family,y=MSE,fill=Molecular))+geom_boxplot()+facet_grid(method~.)+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+ggsave('predictorPerfByClassOrigData.png',pclass2,width=12)
+doPlot=TRUE
+if(doPlot){
 subset(new.results,var%in%auc.dat$Condition)%>%
   subset(numFeatures>1)%>%
   rowwise()%>%mutate(clusterSingleDrugEfficacy(var,method,Molecular))
 
 plotAllAUCs(auc.dat,'AUC')
-
+}
 #subset set of preds
