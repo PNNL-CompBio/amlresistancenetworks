@@ -82,8 +82,10 @@ dn=FALSE
 m.vs.parental<-plotPhosphoByCondition(gilt.pdat,control='None',condition=c('Early Gilteritinib','Late Gilteritinib'),cellLine='MOLM14',doNetwork=dn)
 
 m.late.early<-plotPhosphoByCondition(gilt.pdat,condition='Late Gilteritinib',control='Early Gilteritinib',cellLine='MOLM14',doNetwork=dn)
-runNetworksFromDF(m.vs.parental)
+#runNetworksFromDF(m.vs.parental)
 runNetworksFromDF(m.late.early)
+
+if(FALSE){
 
 #mv411
 v.vs.parental<-plotPhosphoByCondition(gilt.pdat,control='None',condition=c('Early Gilteritinib','Late Gilteritinib'),cellLine='MV411',doNetwork=dn)
@@ -111,3 +113,5 @@ sapply(c("FGF2","FLT3"),function(lig){
   #                                    condition=c('Late Gilteritinib'),
   #                                    cellLine='MV411',doNetwork=dn,prefix=lig)
 })
+
+}

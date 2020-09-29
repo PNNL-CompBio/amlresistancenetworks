@@ -2,7 +2,6 @@
 #' compute gene set enrichment - osama's code wrapped in package.
 #' @export
 #' @import WebGestaltR
-#' @import ggplot2
 #' @author Osama 
 #' @param genes.with.values of genes and difference values
 #' @param prot.univ the space of all proteins we are considering
@@ -10,7 +9,7 @@
 computeGSEA<-function(genes.with.values,prefix,gsea_FDR=0.01){
   
   library(WebGestaltR)
-  library(ggplot2)
+  #library(ggplot2)
   inputdfforWebGestaltR <- genes.with.values%>%
     dplyr::rename(genes='Gene',scores='value')%>%
     dplyr::arrange(scores)
@@ -66,11 +65,11 @@ computeGSEA<-function(genes.with.values,prefix,gsea_FDR=0.01){
     top_n(20, wt = abs(NES)) %>% 
     ungroup() %>% 
     ggplot2::ggplot(aes(x=reorder(pathway, NES), y=NES)) +
-    geom_bar(stat='identity', aes(fill=status)) +
-    scale_fill_manual(values = c("Up" = "darkred", "Down" = "dodgerblue4")) +
-    coord_flip() +
-    theme_minimal() +
-    theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 18),
+    ggplot2::geom_bar(stat='identity', aes(fill=status)) +
+    ggplot2::scale_fill_manual(values = c("Up" = "darkred", "Down" = "dodgerblue4")) +
+    ggplot2::coord_flip() +
+    ggplot2::theme_minimal() +
+    ggplot2::theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 18),
           axis.title.x = element_text(size=16),
           axis.title.y = element_blank(), 
           axis.text.x = element_text(size = 14),
@@ -78,9 +77,9 @@ computeGSEA<-function(genes.with.values,prefix,gsea_FDR=0.01){
           axis.line.y = element_blank(),
           axis.ticks.y = element_blank(),
           legend.position = "none") +
-    labs(title = "", y="NES") +#for some reason labs still works with orientation before cord flip so set y
-    ggtitle(paste('All',prefix))
-  ggsave(paste0("allRegProts_", prefix,"_gseaGO_plot.pdf"), all_gseaGO, height = 8.5, width = 11, units = "in")
+    ggplot2::labs(title = "", y="NES") +#for some reason labs still works with orientation before cord flip so set y
+    ggplot2::ggtitle(paste('All',prefix))
+  ggplot2::ggsave(paste0("allRegProts_", prefix,"_gseaGO_plot.pdf"), all_gseaGO, height = 8.5, width = 11, units = "in")
   
   
   # bot_gseaGO <- go.bp.res.WebGestaltR %>% 
@@ -201,7 +200,7 @@ plotOldGSEA<-function(genes.with.values,prefix,gsea_FDR=0.05){
   # print(ents)
   
   gr<-clusterProfiler::gseGO(unlist(genelist),ont="BP",keyType="SYMBOL",
-                             OrgDb=org.Hs.eg.db,pAdjustMethod = 'BH')#,eps=1e-10)
+                             OrgDb=org.Hs.eg.db,pAdjustMethod = 'BH',pvalueCutoff = 0.5)#,eps=1e-10)
   #gr<-clusterProfiler::gseKEGG(genelist[!is.na(genelist)],organism='hsa',keyType="kegg",
   #OrgDb=org.Hs.eg.db,
   #                           pAdjustMethod = 'BH')#,eps=1e-10)

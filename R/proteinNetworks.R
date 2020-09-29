@@ -43,6 +43,7 @@ computeProteinNetwork<-function(all.vals,nrand=100){
   subnet<-igraph::set.vertex.attribute(subnet,'logFoldChange',value=lfcs)
   subnet<-igraph::set.edge.attribute(subnet,'interactionType',value='protein-protein interaction')
   
+  if('Substrate.Gene'%in%colnames(all.vals)){
   ksi <-all.vals%>%
     dplyr::select(Gene,Substrate.Gene,Source,log2FC)%>%distinct()
   edgelist<-c()
@@ -56,7 +57,7 @@ computeProteinNetwork<-function(all.vals,nrand=100){
   subnet <-igraph::add_edges(subnet,unlist(edgelist),attr=list(interactionType='kinase-substrate interaction',
                                                       source=as.character(ksi$Source),
                                                       weight=abs(as.numeric(ksi$log2FC))))
-  
+  }
  # subset<-igraph::set.vertex.attribute(subnet,'Significant',value=sogs)
   
   # if(!is.null(phos.vals)){

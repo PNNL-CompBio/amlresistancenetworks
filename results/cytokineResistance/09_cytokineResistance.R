@@ -191,7 +191,7 @@ runNetworksFromDF<-function(data,gene.col='Kinase.Gene',
     dplyr::rename(cond=condition.col,value=weight.col,Gene=gene.col)%>%
     group_by(cond)%>%
     dplyr::select(c('cond','Gene','value',extra.col,'signif'))%>%
-    group_map(~ amlresistancenetworks::computeProteinNetwork(.x),.keep=TRUE)
+    group_map(~ amlresistancenetworks::computeProteinNetwork(.x),keep=TRUE)
   return(res)
 }
 
@@ -229,6 +229,13 @@ p<-plotConditionsInFlow(t0Values,title='Effect of trametinib on resistance')
 
 ggsave("TrametinibResistanceConditions.png",p,width=11,height=6)
 r1<-doAllGOplots(t0Values)
+
+resdf<-do.call(rbind,lapply(names(t0Values),function(x) data.frame(t0Values[[x]],Condition=x)))
+
+pnets<-resdf%>%mutate(Condition=stringr::str_c(Condition,'_prot'))%>%
+  dplyr::rename(p.value='adj.P.Val')%>%
+  runNetworksFromDF(gene.col='featureID',weight.col='logFC',condition.col='Condition',extra.col=c('AveExpr','t','B','P.Value'),signif=0.0001)
+
 
 t0Phos=list(molm13_vs_resistant=limmaTwoFactorDEAnalysis(phosMat,
                                                                    filter(summary,conditionName=='MOLM-13_0_none')$sample,
@@ -295,6 +302,7 @@ ph3<-plotConditionsInFlow(m13Phos,title='Phospho effects of tram with MCP1',0.05
 ggsave('molm13ConditionsPhos.png',ph3,width=11,height=6)
           
 
+
 tramMCPValues<-list(tram_vs_mcp1tram_5min=limmaTwoFactorDEAnalysis(protMat,
                                                              filter(summary,conditionName=='MOLM-13_5_Trametinib')$sample,
                                                              filter(summary,conditionName=='MOLM-13_5_Trametinib+MCP-1')$sample),
@@ -328,7 +336,7 @@ tramMCPPhos<-list(tram_vs_mcp1tram_5min=limmaTwoFactorDEAnalysis(phosMat,
                                                                     filter(summary,conditionName=='MOLM-13_60_Trametinib+MCP-1')$sample))
 
 ph3<-doAllKSEAplots(tramMCPPhos)
-#tramMCP=runNetworksFromDF(ph3)
+tramMCP=runNetworksFromDF(ph3)
 
 ph3<-plotConditionsInFlow(tramMCPPhos,title='Phospho effects of tram vs combo',0.05)
 ggsave('phoscomboVsMCPTramIndiv.png',ph3,width=11,height=6)
@@ -361,6 +369,7 @@ ph3<-doAllKSEAplots(mcp1ResistPhos)
 ##plot single kinase/substrate expression of mapk3, mapk1, and mapk8
 p5<-kindat%>%
   left_join(clinvars)%>%
+  #subset(Treatment%in%c("MCP-1","none", 'Trametinib Withdrawn'))%>%
   subset(Kinase%in%c('MAPK1','MAPK3','MAPK8'))%>%
   ggplot(aes(x=as.factor(TimePoint),y=meanLFC,fill=Treatment))+
   geom_boxplot()+

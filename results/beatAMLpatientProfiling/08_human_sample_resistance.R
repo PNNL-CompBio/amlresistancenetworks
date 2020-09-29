@@ -35,7 +35,7 @@ if(FALSE){
   plotCorrelationsByDrug(red.cors,cor.thresh=0.8)
 }
 
-if(TRUE){
+if(FALSE){
   print("Getting Regression predictors")
   reg.preds<-purrr::map_df(list(mRNA='mRNALevels',
                                protein='proteinLevels',
@@ -51,7 +51,7 @@ if(TRUE){
 
 }
 
-if(TRUE){
+if(FALSE){
   print("Getting Random Forest predictors")
   rf.preds<-purrr::map_df(list(mRNA='mRNALevels',
                                 protein='proteinLevels',
@@ -113,6 +113,9 @@ red.tab<-full.tab%>%
         ggtitle(paste0('Mean Squared Error of ',fam,'response'))
       ggsave(paste0(fam,'_MSEGenePreds.png'),width=10,units='in')
   }
+
+p2<-subset(all.preds,method!='RandomForest')%>%subset(numFeatures>0)%>%subset(Molecular%in%c('geneMutations','Phosphosite','proteinLevels','mRNALevels'))%>%ggplot(aes(x=numFeatures,MSE,col=var,shape=Molecular))+geom_point()+facet_grid(~method)
+ggsave(p2,file='numFeaturesByDrug.png')
 }
 
 

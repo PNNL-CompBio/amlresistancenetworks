@@ -35,7 +35,7 @@ comb.data<-gilt.data%>%rename(condition='treatment')%>%
   rbind(add.cols)%>%
   mutate(value=as.numeric(value))
                                              
-ggplot(comb.data,aes(x=condition,fill=cellLine,y=value))+geom_boxplot()
+ggplot2::ggplot(comb.data,ggplot2::aes(x=condition,fill=cellLine,y=value))+ggplot2::geom_boxplot()
 
 early.data<-gilt.data%>%
   subset(treatment%in%(c('None','Early Gilteritinib')))%>%
@@ -130,6 +130,9 @@ plotLeadingEdgeGenes<-function(gdat,pathname='',respath='',prefix=''){
 files=c('proteomics__MOLM14_None_vs_EarlyGilteritinib_gseaGO_result.txt','proteomics__MV411_None_vs_EarlyGilteritinib_gseaGO_result.txt')
 
 
+dn=TRUE
+m.late.early<-plotDataByCondition(gilt.data,condition='Late Gilteritinib',control='Early Gilteritinib',
+                                  cellLine='MOLM14',doGSEA=TRUE)#doNetwork=dn)
 
 
 rerunPrev=FALSE
@@ -147,7 +150,6 @@ if(rerunPrev){
   #molm14
   m.vs.parental<-plotDataByCondition(gilt.data,control='None',condition=c('Early Gilteritinib','Late Gilteritinib'),cellLine='MOLM14',doNetwork=dn)
 
-  m.late.early<-plotDataByCondition(gilt.data,condition='Late Gilteritinib',control='Early Gilteritinib',cellLine='MOLM14',doNetwork=dn)
 
    v.vs.parental<-plotDataByCondition(gilt.data,control='None',condition=c('Early Gilteritinib','Late Gilteritinib'),cellLine='MV411',doNetwork=dn)
   

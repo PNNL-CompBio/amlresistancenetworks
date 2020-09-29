@@ -20,6 +20,7 @@ synapseLogin<-function(){
   reticulate::use_condaenv(condaenv)
   syn=reticulate::import('synapseclient')
   sync=syn$login()
+  return(sync)
 }
 
 #' Synapse store
