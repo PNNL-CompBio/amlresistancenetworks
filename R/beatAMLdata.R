@@ -140,7 +140,7 @@ loadBeatAMLClinicalDrugData<-function(threshold=0.10){
   
     numSens<-auc.dat%>%
       group_by(Condition)%>%
-      ssubset(AUC<100)%>%summarize(numSens=n())
+      subset(AUC<100)%>%summarize(numSens=n())
     
     fracSens<-auc.dat%>%group_by(Condition)%>%
       summarize(nSamps=n())%>%

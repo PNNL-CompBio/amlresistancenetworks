@@ -222,6 +222,21 @@ earlyLatePhos<-list(early_late_flt3 =limmaTwoFactorDEAnalysis(phosMat,
                                                   filter(summary,Condition%in%c('MOLM14_Early Gilteritinib_FGF2','MOLM14_Early Gilteritinib_FLT3'))$sample,
                                                   filter(summary,Condition%in%c('MOLM14_Late Gilteritinib_FGF2','MOLM14_Late Gilteritinib_FLT3'))$sample))
 
+earlyLateCombPhos<-list(early_both_comb =limmaTwoFactorDEAnalysis(phosMat,
+                                                              filter(summary,Condition%in%c("MV411_None_None","MOLM14_None_None"))$sample,
+                                                              filter(summary,Condition%in%c('MOLM14_Early Gilteritinib_FLT3','MV411_Early Gilteritinib_FLT3','MOLM14_Early Gilteritinib_FGF2','MV411_Early Gilteritinib_FGF2'))$sample),
+                    late_both_comb=limmaTwoFactorDEAnalysis(phosMat,
+                                                            filter(summary,Condition%in%c("MV411_None_None","MOLM14_None_None"))$sample,
+                                                            filter(summary,Condition%in%c('MOLM14_Late Gilteritinib_FLT3','MV411_Late Gilteritinib_FLT3','MOLM14_Late Gilteritinib_FGF2','MV411_Late Gilteritinib_FGF2'))$sample))
+                    #early_late_both_combined=limmaTwoFactorDEAnalysis(phosMat,
+                    #                                             filter(summary,Condition%in%c('MOLM14_Early Gilteritinib_FGF2','MOLM14_Early Gilteritinib_FLT3'))$sample,
+                    #                                             filter(summary,Condition%in%c('MOLM14_Late Gilteritinib_FGF2','MOLM14_Late Gilteritinib_FLT3'))$sample))
+
+
+p1<-plotConditionsInFlow(earlyLateCombPhos,title='Combined results',0.05)
+ggsave("earlyLateCombinedPhos.png",width=11,height=6)
+doAllKSEAplots(earlyLateCombPhos)
+
 p3<-plotConditionsInFlow(earlyLatePhos,title='Early Late Phos',0.05)
 ggsave('earlyLatePhos.png',p3,width=11,height=6)
 ph3<-doAllKSEAplots(earlyLatePhos)
