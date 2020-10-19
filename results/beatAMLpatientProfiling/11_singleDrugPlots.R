@@ -13,10 +13,6 @@ if(!exists('dataLoaded')){
 #'
 #'then  cluster by top predictors
 
-getFeaturesFromString<-function(string,prefix='mRNALevels'){
-  stringr::str_remove_all(string,prefix)%>%stringr::str_split(';')%>%unlist()
-}
-
 
 getAllPreds<-function(){
   
@@ -36,8 +32,6 @@ getAllPreds<-function(){
   lv.reg.results<-drugMolRegression(auc.dat,lv.df,'Latent Variable')
   lv.rf.results<-drugMolRandomForest(auc.dat,lv.df,'Latent Variable')
   lv.lr.results<-drugMolLogReg(auc.dat,lv.df,'Latent Variable')
-  
-  
   
   print("Getting phospho preds")
   substrate.dat<-pat.phos%>%
@@ -84,12 +78,7 @@ getAllPreds<-function(){
   
 }
 
-plotAllPreds<-function(allPreds){
-  library(ggplot2)
-  #plot dotplot of MSE vs. num genes
-  #shape is type of predictor
-  #color is 
-}
+
 
 plotMostVarByDrug<-function(drugName,data,mostVar=50){
   library(pheatmap)
@@ -144,73 +133,31 @@ plotMostVarByDrug<-function(drugName,data,mostVar=50){
   
 }
 
-#' selects genes from 
-clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
-                                    meth='RandomForest',
-                                    data='proteinLevels'){
-  ##get gene,transcript, protein predictor
-  library(pheatmap)
+selectDataMatAndPlot<-function(drugName,meth,data){
+  #get dimensionality-reduced samples
+  if(data%in%c('proteinLevels','mRNALevels','geneMutations') &&!is.null(pat.data))
+    data.mat<-pat.data%>%rename(value=data,Sample='AML sample')
+  else if(data=='Latent Variable'&&!is.null(lv.df))
+    data.mat<-lv.df%>%rename(Gene='Latent_Variable',Sample='AML_sample',value='Loading')
+  else if(data=='KinaseExpr'&&!is.null(pat.kin))
+    data.mat<-pat.kin%>%rename(Gene='Kinase',Sample,value='meanLFC')
+  else if(data=='Phosphosite'&&!is.null(pat.phos)){
+    data.mat<-pat.phos%>%dplyr::select(Gene='site',Sample,value='LogFoldChange')
+  }else if(data=='proteomicNetworkDistances'&&!is.null(prot.nets))
+    data.mat<-prot.nets%>%dplyr::select(Gene='Community',value='distance',Sample=`AML sample`)
+  else if(data=='mutationNetworkDistances' && !is.null(mut.nets))
+    data.mat<-mut.nets%>%dplyr::select(Gene='Community',value='distance',Sample=`AML sample`)
+  else{
+    print(paste("Do not have data for",data))
+    return(NULL)
+  }
   
-  fname=paste0(gsub(' ','',drugName),'_',meth,'selected_',data,'preds.pdf')
-  print(fname)
-  
-  drug.dat<-NULL
-
-    ##ASSSUMES AUC.DAT is global
-    drug.dat<-subset(auc.dat,Condition==drugName)%>%
+  auc.d<-auc.dat%>%
     select(-c(Condition,medAUC,percAUC,overallSurvival,ageAtDiagnosis))%>%
-      mutate(sensitive=if_else(AUC<100,'Sensitive','Resistant'))%>%
-      distinct()%>%
-    tibble::column_to_rownames('AML sample')
-
-  ##ASSUMES full.results is global
-  oneRow=subset(new.results,var==drugName)%>%
-    subset(method==meth)%>%
-    subset(Molecular==data)%>%distinct()
- 
-  genes=getFeaturesFromString(oneRow$genes,data)
-  
-  print(genes)
- ##get dimensionality-reduced samples
-  if(data%in%c('proteinLevels','mRNALevels','geneMutations'))
-    data.mat<-pat.data%>%rename(value=data)
-  else if(data=='Latent Variable')
-    data.mat<-lv.df%>%rename(Gene='Latent_Variable',`AML sample`='AML_sample',value='Loading')
-  else if(data=='KinaseExpr')
-    data.mat<-pat.kin%>%rename(Gene='Kinase',`AML sample`='Sample',value='meanLFC')
-  else if(data=='Phosphosite'){
-    data.mat<-pat.phos%>%dplyr::select(Gene='site',`AML sample`='Sample',value='LogFoldChange')
-  }else if(data=='proteomicNetworkDistances')
-    data.mat<-prot.nets%>%dplyr::select(Gene='Community',value='distance',`AML sample`)
-  else
-    data.mat<-mut.nets%>%dplyr::select(Gene='Community',value='distance',`AML sample`)
-  
-  
-  pat.mat<-data.mat%>%select('AML sample','Gene','value')%>%
-    subset(Gene%in%genes)%>%
-    subset(`AML sample`%in%rownames(drug.dat))%>%
-    pivot_wider(values_from='value',
-                names_from='AML sample', 
-                values_fill =list(value=0.0),
-                values_fn=list(value=mean))%>%
-    tibble::column_to_rownames('Gene')%>%as.matrix()
-  
-  zvals<-which(apply(pat.mat,2,var)==0)
-  if(length(zvals>0))
-    pat.mat<-pat.mat[,-zvals]
-  #print(pat.mat)
-  #cluster all selections
-  if(data=='mRNALevels')
-    pat.mat<-log10(pat.mat+0.01)
-  
-  try(pheatmap::pheatmap(pat.mat,cellwidth = 10,cellheight=10,annotation_col = drug.dat,
-                         clustering_distance_cols = 'euclidean',
-                     clustering_method = 'ward.D2',filename=fname))
-  
- # plotMostVarByDrug(drugName,data)
-  return(fname)
-  
+    rename(Sample='AML sample')
+  clusterSingleDrugEfficacy(drugName,meth,data,auc.dat=auc.d,auc.thresh=100,new.results,data.mat)  
 }
+
 
 getPreds<-function(){
   library(ggplot2)
@@ -220,10 +167,13 @@ getPreds<-function(){
     full.results<-readRDS('mostlyCompletePredictions.rds')
     
   new.results<-full.results%>%
-    mutate(reducedData=Molecular%in%c('proteomicNetworkDistance','mutationNetworkDistance','Latent Variable','KinaseExpr'))%>%
+    mutate(reducedData=Molecular%in%c('proteomicNetworkDistance',
+                                      'mutationNetworkDistance','Latent Variable',
+                                      'KinaseExpr'))%>%
     subset(method!='RandomForest')
   new.results<-subset(new.results,numFeatures>0)
-  p1<-ggplot(new.results,aes(x=numFeatures,y=MSE,col=Molecular,shape=method,size=numSamples,alpha=0.7))+geom_point()+facet_grid(~reducedData)+scale_x_log10()
+  p1<-ggplot(new.results,aes(x=numFeatures,y=MSE,col=Molecular,shape=method,
+                             size=numSamples,alpha=0.7))+geom_point()+facet_grid(~reducedData)+scale_x_log10()
   ggsave('predictorSummary.png',p1,width=10)
   
   p2<-ggplot(new.results,aes(x=var,y=MSE,col=Molecular,size=numSamples,shape=method))+
@@ -267,7 +217,7 @@ doPlot=TRUE
 if(doPlot){
 subset(new.results,var%in%auc.dat$Condition)%>%
   subset(numFeatures>1)%>%
-  rowwise()%>%mutate(clusterSingleDrugEfficacy(var,method,Molecular))
+  rowwise()%>%mutate(selectDataMatAndPlot(var,method,Molecular))
 
 plotAllAUCs(auc.dat,'AUC')
 }

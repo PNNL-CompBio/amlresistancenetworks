@@ -244,7 +244,8 @@ computePhosphoChanges<-function(phosData){
 #'@export
 mapPhosphoToKinase<-function(pat.phos){
 
-  KSDB <- read.csv(system.file('PSP&NetworKIN_Kinase_Substrate_Dataset_July2016.csv',package='amlresistancenetworks'),stringsAsFactors = FALSE)
+  KSDB <- read.csv(system.file('PSP&NetworKIN_Kinase_Substrate_Dataset_July2016.csv',
+                               package='amlresistancenetworks'),stringsAsFactors = FALSE)
 
   clinvars<-setdiff(names(pat.phos),c('Protein','Gene','site','Peptide','LogRatio'))
   pat.phos$Gene<-unlist(pat.phos$Gene)

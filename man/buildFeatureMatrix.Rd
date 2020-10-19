@@ -5,7 +5,7 @@
 \title{buildFeatureMatrix
 Builds a matrix for regression with rows as patients and columns as gene}
 \usage{
-buildFeatureMatrix(tab, mol.feature)
+buildFeatureMatrix(tab, mol.feature, sampname = "AML sample")
 }
 \value{
 matrix

@@ -262,8 +262,9 @@ combReg<-function(tab,feature.list=c('proteinLevels','mRNALevels','geneMutations
 #' Builds a matrix for regression with rows as patients and columns as gene
 #' @param tab
 #' @param mol.feature
+#' @param sampname
 #' @return matrix
-buildFeatureMatrix<-function(tab,mol.feature){
+buildFeatureMatrix<-function(tab,mol.feature,sampname='AML sample'){
  # print(mol.feature)
   vfn=list(0.0)
   names(vfn)=mol.feature
@@ -272,11 +273,11 @@ buildFeatureMatrix<-function(tab,mol.feature){
   names(vfc)=mol.feature
 
   mat<-tab%>%
-  dplyr::select(`AML sample`,Gene,!!mol.feature)%>%
+  dplyr::select(!!sampname,Gene,!!mol.feature)%>%
     subset(Gene!="")%>%
     tidyr::pivot_wider(names_from=Gene,values_from=mol.feature,
                      values_fill=vfn,values_fn = vfc,names_prefix=mol.feature)%>%
-    tibble::column_to_rownames('AML sample')
+    tibble::column_to_rownames(sampname)
 
   mat<-apply(mat,2,unlist)
   return(mat)
@@ -471,5 +472,83 @@ computeAUCCorVals<-function(clin.data,mol.data,mol.feature){
     mutate(feature=mol.feature)
   
   return(dcors)
+  
+}
+
+#' getFeaturesFromString - separates out comma-delimited model features
+#' @param string
+#' @param prefix
+#' @return list of features
+getFeaturesFromString<-function(string,prefix='mRNALevels'){
+  stringr::str_remove_all(string,prefix)%>%stringr::str_split(';')%>%unlist()
+}
+
+
+#' selects AUC data and molecular data nand builds heatmap
+#' of single drug and the results of the prediction
+#' @param drugName Name of drug to select from prediction results
+#' @param meth Method used to select predictors
+#' @param data Type of data to be plotted
+#' @param auc.dat AUC data from drug/samples
+#' @param auc.thresh Threshold to determine if sample is sensitive
+#' @param new.results Prediction data frame
+#' @param data.mat Data frame of data to plot
+#' @return filename of pdf
+#' @export
+clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
+                                    meth='RandomForest',
+                                    data='proteinLevels',
+                                    auc.dat=auc.dat,
+                                    auc.thresh=100,
+                                    new.results=new.results,
+                                    data.mat=NULL,
+                                    prefix=''){
+  
+  ##get gene,transcript, protein predictor
+  library(pheatmap)
+  
+  fname=paste0(prefix,gsub(' ','',drugName),'_',meth,'selected_',data,'preds.pdf')
+  print(fname)
+  
+
+  drug.dat<-subset(auc.dat,Condition==drugName)%>%
+    mutate(sensitive=if_else(AUC<auc.thresh,'Sensitive','Resistant'))%>%
+    distinct()%>%
+    tibble::column_to_rownames('Sample')
+
+  data.mat<-data.mat%>%rename(value=data)
+    
+  ##ASSUMES full.results is global
+  oneRow=subset(new.results,var==drugName)%>%
+    subset(method==meth)%>%
+    subset(Molecular==data)%>%distinct()
+  
+  genes=getFeaturesFromString(oneRow$genes,data)
+  
+  print(genes)
+  #
+  pat.mat<-data.mat%>%select('Sample','Gene','value')%>%
+    subset(Gene%in%genes)%>%
+    subset(`Sample`%in%rownames(drug.dat))%>%
+    pivot_wider(values_from='value',
+                names_from='Sample', 
+                values_fill =list(value=0.0),
+                values_fn=list(value=mean))%>%
+    tibble::column_to_rownames('Gene')%>%as.matrix()
+  
+  zvals<-which(apply(pat.mat,2,var)==0)
+  if(length(zvals>0))
+    pat.mat<-pat.mat[,-zvals]
+  #print(pat.mat)
+  #cluster all selections
+  if(data=='mRNALevels')
+    pat.mat<-log10(pat.mat+0.01)
+  
+  try(pheatmap::pheatmap(pat.mat,cellwidth = 10,cellheight=10,annotation_col = drug.dat,
+                         clustering_distance_cols = 'euclidean',
+                         clustering_method = 'ward.D2',filename=fname))
+  
+  # plotMostVarByDrug(drugName,data)
+  return(fname)
   
 }
