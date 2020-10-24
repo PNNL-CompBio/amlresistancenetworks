@@ -3,7 +3,7 @@
 library(amlresistancenetworks)
 
 if(!exists('dataLoaded')){
-  source('beatAMLdata.R')
+  amlresistancenetworks::loadBeatAMLData()
   dataLoaded=TRUE
 }
 #' How do we assess the efficacy of genes/transcripts/proteins in a single drug? 
@@ -13,14 +13,16 @@ if(!exists('dataLoaded')){
 #'
 #'then  cluster by top predictors
 
-
+#'getAllPreds as the name gets all types of predictors
+#'based on all types of data/models
+#'
 getAllPreds<-function(){
   
   print('getting network preds')
-  mut.net.df<-mut.nets%>%select(mutationNetworkDistance='distance',Gene='Community',`AML sample`)
-  mn.reg.results<-drugMolRegression(auc.dat,mut.net.df,'mutationNetworkDistance')
-  mn.rf.results<-drugMolRandomForest(auc.dat,mut.net.df,'mutationNetworkDistance')
-  mn.lr.results<-drugMolLogReg(auc.dat,mut.net.df,'mutationNetworkDistance')
+#  mut.net.df<-mut.nets%>%select(mutationNetworkDistance='distance',Gene='Community',`AML sample`)
+#  mn.reg.results<-drugMolRegression(auc.dat,mut.net.df,'mutationNetworkDistance')
+#  mn.rf.results<-drugMolRandomForest(auc.dat,mut.net.df,'mutationNetworkDistance')
+#  mn.lr.results<-drugMolLogReg(auc.dat,mut.net.df,'mutationNetworkDistance')
   
   prot.net.df<-prot.nets%>%select(proteomicNetworkDistance='distance',Gene='Community',`AML sample`)
   pn.reg.results<-drugMolRegression(auc.dat,prot.net.df,'proteomicNetworkDistance')
@@ -109,6 +111,7 @@ plotMostVarByDrug<-function(drugName,data,mostVar=50){
     summarize(var=var(value))%>%
     arrange(desc(var))%>%
     select(Gene)
+  
   print(var.vals$Gene[1:mostVar])
   
   pat.mat<-data.mat%>%select('AML sample','Gene','value')%>%
@@ -133,6 +136,14 @@ plotMostVarByDrug<-function(drugName,data,mostVar=50){
   
 }
 
+#'
+#'selectDataMatAndPlot matches the output of a predictor (new.results) to the AUC data
+#'and original molecular data to create heatmap
+#'and combines ith with the specified data type and passes along a method to be used
+#'@param drugName
+#'@param meth
+#'@param data
+#'@return output of prediction
 selectDataMatAndPlot<-function(drugName,meth,data){
   #get dimensionality-reduced samples
   if(data%in%c('proteinLevels','mRNALevels','geneMutations') &&!is.null(pat.data))
@@ -140,23 +151,26 @@ selectDataMatAndPlot<-function(drugName,meth,data){
   else if(data=='Latent Variable'&&!is.null(lv.df))
     data.mat<-lv.df%>%rename(Gene='Latent_Variable',Sample='AML_sample',value='Loading')
   else if(data=='KinaseExpr'&&!is.null(pat.kin))
-    data.mat<-pat.kin%>%rename(Gene='Kinase',Sample,value='meanLFC')
+    data.mat<-pat.kin%>%select(Gene='Kinase',Sample,value='meanLFC')
   else if(data=='Phosphosite'&&!is.null(pat.phos)){
     data.mat<-pat.phos%>%dplyr::select(Gene='site',Sample,value='LogFoldChange')
-  }else if(data=='proteomicNetworkDistances'&&!is.null(prot.nets))
+  }else if(data=='proteomicNetworkDistance'&&!is.null(prot.nets))
     data.mat<-prot.nets%>%dplyr::select(Gene='Community',value='distance',Sample=`AML sample`)
-  else if(data=='mutationNetworkDistances' && !is.null(mut.nets))
-    data.mat<-mut.nets%>%dplyr::select(Gene='Community',value='distance',Sample=`AML sample`)
+#  else if(data=='mutationNetworkDistances' && !is.null(mut.nets))
+#    data.mat<-mut.nets%>%dplyr::select(Gene='Community',value='distance',Sample=`AML sample`)
   else{
     print(paste("Do not have data for",data))
     return(NULL)
   }
   
   auc.d<-auc.dat%>%
-    select(-c(Condition,medAUC,percAUC,overallSurvival,ageAtDiagnosis))%>%
+    select(-c(medAUC,percAUC,overallSurvival,ageAtDiagnosis))%>%
     rename(Sample='AML sample')
-  clusterSingleDrugEfficacy(drugName,meth,data,auc.dat=auc.d,auc.thresh=100,new.results,data.mat)  
+
+    clusterSingleDrugEfficacy(drugName,meth,data,auc.dat=auc.d,auc.thresh=100,
+                            new.results,data.mat)  
 }
+
 
 
 getPreds<-function(){
@@ -164,7 +178,7 @@ getPreds<-function(){
   if(!file.exists('mostlyCompletePredictions.rds'))
     full.results<-getAllPreds()
   else
-    full.results<-readRDS('mostlyCompletePredictions.rds')
+     full.results<-readRDS('mostlyCompletePredictions.rds')
     
   new.results<-full.results%>%
     mutate(reducedData=Molecular%in%c('proteomicNetworkDistance',
@@ -201,14 +215,14 @@ drug.nums<-with.class%>%subset(!is.na(MSE))%>%group_by(family)%>%
 
 pclass <- with.class%>%
   subset(family%in%drug.nums$family)%>%
- # subset(method%in%c('LogisticReg','LASSO'))%>%
+  subset(method%in%c('LogisticReg','LASSO'))%>%
   ggplot(aes(x=family,y=MSE,fill=Molecular))+geom_boxplot()+facet_grid(method~.)+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 
 ggsave('predictorPerfByClass.png',pclass,width=12)
 
 pclass2 <- with.class%>%
   subset(family%in%drug.nums$family)%>%
-  subset(!reducedData)%>%
+ # subset(!reducedData)%>%
   # subset(method%in%c('LogisticReg','LASSO'))%>%
   ggplot(aes(x=family,y=MSE,fill=Molecular))+geom_boxplot()+facet_grid(method~.)+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 

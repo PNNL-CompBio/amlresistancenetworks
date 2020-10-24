@@ -5,7 +5,8 @@ library(dplyr)
 library(ggplot2)
 # this is the sensitivity data
 if(!exists('dataLoaded')){
-  source('beatAMLdata.R')
+#  source('beatAMLdata.R')
+  amlresistancenetworks::loadBeatAMLData()
   dataLoaded=TRUE
 }
 class.size<-drug.class%>%group_by(family)%>%
@@ -16,8 +17,6 @@ bigger.fams<-subset(class.size,size>1)
 #summarizing AUC data
 pat.summary<-plotAllPatients(auc.dat,pat.data,pat.phos)
 auc.dat<-auc.dat%>%left_join(pat.summary)
-#plotAllAUCs(auc.dat,'percAUC')
-#plotAllAUCs(auc.dat,'AUC')
 
 if(FALSE){
   print("Getting correlations")

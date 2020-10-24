@@ -167,14 +167,21 @@ getNetworksAndLVs<-function(){
   
   ##now get network dsitances
   print('Getting network distances')
-  pat.net<-querySynapseTable("syn22343177")
-  filtered=pat.net%>%mutate(same=(`Hypha 1`==`Hypha 2`))%>%
-    filter(same)%>%
-    subset(net2_type=='community')
-  mut.nets<<-filtered%>%subset(`Hypha 1`=='mutations')%>%
-    select(Community='Network 2', distance,`AML sample`='Network 1')%>%distinct()
-  prot.nets<<-filtered%>%subset(`Hypha 1`=='proteomics')%>%
-    select(Community='Network 2', distance,`AML sample`='Network 1')%>%distinct()
+  #pat.net<-querySynapseTable("syn22343177")
+  pat.net <-querySynapseTable("syn23448907")
+  filtered = pat.net%>% 
+    filter(net2_type=='community')%>%
+    filter(hyp1=='patients')%>%
+    filter(hyp2=='panCan')
+  
+#  filtered=pat.net%>%mutate(same=(`Hypha 1`==`Hypha 2`))%>%
+#    filter(same)%>%
+#    subset(net2_type=='community')
+#  mut.nets<<-filtered%>%subset(`Hypha 1`=='mutations')%>%
+#    select(Community='Network 2', distance,`AML sample`='Network 1')%>%distinct()
+  prot.nets<<-filtered%>%select(Community='net2',distance,`AML sample`='net1')
+    #filtered%>%subset(`Hypha 1`=='proteomics')%>%
+    #select(Community='Network 2', distance,`AML sample`='Network 1')%>%distinct()
 }
 
 

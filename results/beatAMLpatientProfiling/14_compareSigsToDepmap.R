@@ -8,6 +8,9 @@
 
 
 library(amlresistancenetworks)
+library(ggplot2)
+library(dplyr)
+
 formatCTRPData<-function(){
   syn=synapseLogin()
   cells<-read.csv(syn$get('syn22990030')$path,sep='\t')
@@ -105,12 +108,17 @@ all.mol<-full_join(evenmoremuts,evenmoreexp,by=c('Gene','Sample'))%>%
 
 
 ##get aml
-loadBeatAMLData()
-
+if(!exists('data.loaded')||!data.loaded){
+  loadBeatAMLData()
+  data.loaded=TRUE
+}
 syn=synapseLogin()
 
 ## get depmap
-cl.mol.dat<-syn$tableQuery('select * from  syn23004114')$asDataFrame()%>%
+cells<-syn$tableQuery('select distinct Sample from  syn23004114 where ( LogFoldChange<>0 AND transcriptCounts<>0)')$asDataFrame()$Sample
+
+cl.mol.dat<-syn$tableQuery('select * from syn23004114')$asDataFrame()%>%
+  subset(Sample%in%cells)%>%
   dplyr::rename(mRNALevels='transcriptCounts',proteinLevels='LogFoldChange',
                 geneMutations='numMuts')%>%mutate(Sample=unlist(Sample),Gene=unlist(Gene))
 
@@ -124,7 +132,8 @@ cl.auc.dat<-syn$tableQuery('select * from syn23004543')$asDataFrame()%>%
   mutate(drugName=unlist(Condition),Sample=unlist(Sample))%>%
   left_join(drug.mapping,by=c('drugName','source'))%>%
   dplyr::select(Sample,Condition='PTRC',Value,source)%>%
-  subset(Sample%in%cl.mol.dat$Sample)
+  subset(Sample%in%cl.mol.dat$Sample)%>%
+  group_by(Sample,Condition,source)%>%summarize(Value=mean(Value))%>%unggroup()
 
 sanger.cl.auc<-cl.auc.dat%>%
   subset(source=='Sanger')%>%
@@ -133,6 +142,35 @@ sanger.cl.auc<-cl.auc.dat%>%
 ctrp.cl.auc<-cl.auc.dat%>%
   subset(source=='CTRP')%>%
   mutate(AUC=Value*10)
+
+
+###let's summarize the data here
+mol.sum<- cl.mol.dat%>%group_by(Sample)%>%summarize(mutations=length(which(geneMutations>0)),proteomics=length(which(proteinLevels!=0)),mRNAseq=length(which(mRNALevels!=0)))
+drug.sum<-cl.auc.dat%>%
+  group_by(Sample)%>%
+  summarize(numDrugs=n_distinct(Condition),numSources=n_distinct(source))
+full.sum<-mol.sum%>%full_join(drug.sum)
+
+cell.net <-querySynapseTable("syn23481350")
+  filtered = cell.net%>% 
+    filter(net2_type=='community')%>%
+    filter(hyp1=='patients')%>%
+    filter(hyp2=='panCan')
+
+cell.net.df<<-filtered%>%
+    select(Community='net2',distance,Sample='net1')%>%
+    select(proteomicNetworkDistance='distance',Gene='Community',Sample)
+
+prot.net.df<-prot.nets%>%select(proteomicNetworkDistance='distance',Gene='Community',`AML sample`)
+
+
+pn.reg.results<-do.call(rbind,drugMolRegressionEval(auc.dat,prot.net.df,'proteomicNetworkDistance', 
+                                      ctrp.cl.auc,cell.net.df))%>%as.data.frame()
+pn.lr.results<-do.call(rbind,drugMolLogRegEval(auc.dat,prot.net.df,'proteomicNetworkDistance',
+                                 ctrp.cl.auc,cell.net.df))%>%as.data.frame()%>%
+  mutate(testMSE=unlist(testMSE)*10000)
+
+
 
 ##for each drug -  build a model in AML, eval in sanger and in PTRC
 
@@ -147,7 +185,6 @@ reg.preds<-purrr::map_df(list(mRNA='mRNALevels',
                                                                         category='Condition'))
 
 
-
 log.reg.preds<-purrr::map_df(list(protein='proteinLevels',
                                   mRNA='mRNALevels',
                               gene='geneMutations'),~ drugMolLogRegEval(auc.dat,
@@ -155,20 +192,27 @@ log.reg.preds<-purrr::map_df(list(protein='proteinLevels',
                                                                          .x,
                                                                          ctrp.cl.auc,
                                                                          cl.mol.dat,
-                                                                         category='Condition'))
+                                                                         category='Condition'))%>%
+  mutate(testMSE=unlist(testMSE)*10000)
 ##i think we have all the results now, we can join them
 ctrp.full.res<-rbind(mutate(log.reg.preds,method='LogisticRegression'), 
-                mutate(reg.preds,method='LassoRegression'))
+                mutate(reg.preds,method='LassoRegression'),
+                mutate(pn.reg.results,method='LassoRegression'),
+                mutate(pn.lr.results,method='LogisticRegression'))%>%
 
 selectDataMatAndPlotCTRP<-function(compound,method,Molecular){
   print(paste(c(compound,method,Molecular)))
+  if(Molecular=='proteomicNetworkDistance')
+    dat.mat<-rename(cell.net.df,value=Molecular)
+  else
+    dat.mat<-rename(cl.mol.dat,value=Molecular)
   amlresistancenetworks::clusterSingleDrugEfficacy(drugName=compound,
                                     meth=method,
                                       data=Molecular,
                                       auc.dat=select(ctrp.cl.auc,-c(Value,source)),
                                       auc.thresh=100,
                                         new.results=rename(ctrp.full.res,var='compound'),
-                                      data.mat=cl.mol.dat,
+                                      data.mat=dat.mat,
                                     prefix='CTRP')
 
 }
@@ -188,29 +232,43 @@ reg.preds<-purrr::map_df(list(mRNA='mRNALevels',
                                                                             cl.mol.dat,
                                                                             category='Condition'))
 
+pn.reg.results<-do.call(rbind,drugMolRegressionEval(auc.dat,prot.net.df,'proteomicNetworkDistance', 
+                                      sanger.cl.auc, cell.net.df))%>%as.data.frame()
+pn.lr.results<-do.call(rbind,drugMolLogRegEval(auc.dat,prot.net.df,'proteomicNetworkDistance',
+                                 sanger.cl.auc, cell.net.df))%>%as.data.frame()%>%
+  mutate(testMSE=unlist(testMSE)*10000)
 
 
 log.reg.preds<-purrr::map_df(list(protein='proteinLevels',
                                   mRNA='mRNALevels',
-                                  gene='geneMutations'),~ drugMolLogRegEval(auc.dat,
+                                  gene='geneMutations'),~ amlresistancenetworksdrugMolLogRegEval(auc.dat,
                                                                             pat.data,
                                                                             .x,
                                                                             sanger.cl.auc,
                                                                             cl.mol.dat,
-                                                                            category='Condition'))
+                                                                            category='Condition'))%>%
+  mutate(testMSE=unlist(testMSE)*10000)
 ##i think we have all the results now, we can join them
 sanger.full.res<-rbind(mutate(log.reg.preds,method='LogisticRegression'), 
-                     mutate(reg.preds,method='LassoRegression'))
+                     mutate(reg.preds,method='LassoRegression'),
+                          mutate(pn.reg.results,method='LassoRegression'),
+                mutate(pn.lr.results,method='LogisticRegression'))%>%
+  mutate(compound=as.character(compound),Molecular=as.character(Molecular))
 
 selectDataMatAndPlotSanger<-function(compound,method,Molecular){
   print(paste(c(compound,method,Molecular)))
+  if(Molecular=='proteomicNetworkDistance')
+    dat.mat<-rename(cell.net.df,value=Molecular)
+  else
+    dat.mat<-rename(cl.mol.dat,value=Molecular)
+  
   amlresistancenetworks::clusterSingleDrugEfficacy(drugName=compound,
                                                    meth=method,
                                                    data=Molecular,
-                                                   auc.dat=select(ctrp.cl.auc,-c(Value,source)),
+                                                   auc.dat=select(sanger.cl.auc,-c(Value,source)),
                                                    auc.thresh=100,
                                                    new.results=rename(sanger.full.res,var='compound'),
-                                                   data.mat=cl.mol.dat,
+                                                   data.mat=dat.mat,
                                                    prefix='Sanger')
   
 }
@@ -220,23 +278,22 @@ sanger.full.res%>%
   rowwise()%>%mutate(selectDataMatAndPlotSanger(compound,method,Molecular))
 
 new.results<-rbind(mutate(sanger.full.res,source='Sanger'),
-                   mutate(ctrp.full.res,source='CTRP'))
+                   mutate(ctrp.full.res,source='CTRP'))%>%
+  mutate(MSE=unlist(MSE),testMSE=unlist(testMSE),resCor=unlist(resCor),numFeatures=unlist(numFeatures),
+         numSamples=unlist(numSamples),compound=unlist(compound),Molecular=unlist(Molecular))
 
 
-##now we need to plot the results across all. 
-new.results<-subset(new.results,numFeatures>0)
+new.results<-new.results%>%subset(numFeatures!=0)
+
 p1<-ggplot(new.results,aes(x=numFeatures,y=testMSE,col=Molecular,shape=method,
-                           size=numSamples,alpha=0.7))+geom_point()+facet_grid(~source)+scale_y_log10()
+                           size=numSamples,alpha=0.7))+geom_point()+facet_grid(~source)+scale_y_log10()+scale_color_viridis_d()
 ggsave('cellLinepredictorSummary.png',p1,width=10)
 
 p2<-ggplot(new.results,aes(x=compound,y=testMSE,col=Molecular,size=numSamples,shape=method))+
-  geom_point()+facet_grid(source~.)+theme(axis.text.x=element_text(angle=90, hjust=1))+scale_y_log10()
+  geom_point()+facet_grid(source~.)+theme(axis.text.x=element_text(angle=90, hjust=1))+scale_y_log10()+scale_color_viridis_d()
 ggsave('cellLinepredictorDotPlot.png',p2,width=10,height=10)
 
 p3<-ggplot(new.results,aes(x=method,y=testMSE,fill=Molecular))+geom_boxplot()+
-  facet_grid(source~.)+scale_y_log10()
-ggsave('cellLinedataComparison.png',p3)
+  facet_grid(source~.)+scale_y_log10()+scale_color_viridis_d()
+ggsave('cellLinedataComparison.png',p3,width=10)
 
-newer.result<-new.results%>%mutate(perSampleError=testMSE/numSamples)
-p4<-ggplot(newer.result,aes(x=method,y=perSampleError,fill=Molecular))+geom_boxplot()
-ggsave('cellLinenormalizedDataComparison.png',p4,width=10)

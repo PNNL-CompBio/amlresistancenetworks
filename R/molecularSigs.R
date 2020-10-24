@@ -279,8 +279,10 @@ buildFeatureMatrix<-function(tab,mol.feature,sampname='AML sample'){
                      values_fill=vfn,values_fn = vfc,names_prefix=mol.feature)%>%
     tibble::column_to_rownames(sampname)
 
-  mat<-apply(mat,2,unlist)
-  return(mat)
+  tmat<-apply(mat,2,unlist)
+  colnames(tmat)<-colnames(mat)
+  rownames(tmat)<-rownames(mat)
+  return(tmat)
 }
 
 
@@ -513,10 +515,11 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
 
   drug.dat<-subset(auc.dat,Condition==drugName)%>%
     mutate(sensitive=if_else(AUC<auc.thresh,'Sensitive','Resistant'))%>%
+    dplyr::select(AUC,sensitive,Sample)%>%
     distinct()%>%
     tibble::column_to_rownames('Sample')
 
-  data.mat<-data.mat%>%rename(value=data)
+  #data.mat<-data.mat%>%rename(value=data)
     
   ##ASSUMES full.results is global
   oneRow=subset(new.results,var==drugName)%>%
@@ -550,5 +553,13 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
   
   # plotMostVarByDrug(drugName,data)
   return(fname)
+  
+}
+
+#' The goal is to do go enrichment on the genes
+#' selected by each predictor to identify each pathway
+#' @param new.preds summary of predictors
+#' @return data frame of GO terms
+summarizePredictedGeneFunction<-function(new.preds){
   
 }
