@@ -151,6 +151,7 @@ doAllGOplots<-function(condList){
       amlresistancenetworks::plotOldGSEA(.,prefix=clName,0.1)%>%
       as.data.frame()
   })
+  return(full.df)
   
 }
 
@@ -221,7 +222,26 @@ doLateComparisons<-function(){
                                                          filter(summary,conditionName=='MOLM-13_0_none')$sample,
                                                          filter(summary,conditionName=='Late MOLM-13_0_Trametinib+MCP-1')$sample))
 
-
+  earlyLatePhos<-list(early_60m_combo_vs_late_combo=limmaTwoFactorDEAnalysis(phosMat,
+                                                                         filter(summary,conditionName=='MOLM-13_60_Trametinib+MCP-1')$sample,
+                                   filter(summary,conditionName=='Late MOLM-13_0_Trametinib+MCP-1')$sample),
+                      early_5m_combo_vs_late_combo=limmaTwoFactorDEAnalysis(phosMat,
+                                                                         filter(summary,conditionName=='MOLM-13_5_Trametinib+MCP-1')$sample,
+                                   filter(summary,conditionName=='Late MOLM-13_0_Trametinib+MCP-1')$sample),
+                      early_both_combo_vs_late_combo=limmaTwoFactorDEAnalysis(phosMat,
+                                                                               filter(summary,conditionName%in%c('MOLM-13_5_Trametinib+MCP-1','MOLM-13_60_Trametinib+MCP-1'))$sample,
+                                                                              filter(summary,conditionName=='Late MOLM-13_0_Trametinib+MCP-1')$sample))
+                      
+  earlyLateProt<-list(early_60m_combo_vs_late_combo=limmaTwoFactorDEAnalysis(protMat,
+                                                                             filter(summary,conditionName=='MOLM-13_60_Trametinib+MCP-1')$sample,
+                                                                             filter(summary,conditionName=='Late MOLM-13_0_Trametinib+MCP-1')$sample),
+                      early_5m_combo_vs_late_combo=limmaTwoFactorDEAnalysis(protMat,
+                                                                            filter(summary,conditionName=='MOLM-13_5_Trametinib+MCP-1')$sample,
+                                                                            filter(summary,conditionName=='Late MOLM-13_0_Trametinib+MCP-1')$sample),
+                      early_both_combo_vs_late_combo=limmaTwoFactorDEAnalysis(protMat,
+                                                                              filter(summary,conditionName%in%c('MOLM-13_5_Trametinib+MCP-1','MOLM-13_60_Trametinib+MCP-1'))$sample,
+                                                                              filter(summary,conditionName=='Late MOLM-13_0_Trametinib+MCP-1')$sample))
+  
 
 lateP<-plotConditionsInFlow(lateProt,title='Bulk Proteomics in late',0.05)
 ggsave('lateProt.png',lateP,width=11,height=6)
@@ -234,17 +254,29 @@ phresdf<-do.call(rbind,lapply(names(latePhos),function(x) data.frame(latePhos[[x
 
 ph3<-doAllKSEAplots(latePhos)
 
+
 resdf<-do.call(rbind,lapply(names(lateProt),function(x) data.frame(lateProt[[x]],Condition=x)))
 
-pnets<-resdf%>%mutate(Condition=stringr::str_c(Condition,'_prot'))%>%
-  dplyr::rename(p.value='adj.P.Val')%>%
-  runNetworksFromDF(gene.col='featureID',weight.col='logFC',
-                    condition.col='Condition',extra.col=c('AveExpr','t','B','P.Value'),
-                    signif=0.01)
+#pnets<-resdf%>%mutate(Condition=stringr::str_c(Condition,'_prot'))%>%
+#  dplyr::rename(p.value='adj.P.Val')%>%
+#  runNetworksFromDF(gene.col='featureID',weight.col='logFC',
+#                    condition.col='Condition',extra.col=c('AveExpr','t','B','P.Value'),
+#                    signif=0.005)
 
 
+#lateNets<-runNetworksFromDF(ph3)
+
+earlyLateP<-plotConditionsInFlow(earlyLateProt,title='Bulk Proteomics in early vs late',0.05)
+ggsave('earlyLateProt.png',earlyLateP,width=11,height=6)
+r2<-doAllGOplots(earlyLateProt)              
+
+earlyLatePh<-plotConditionsInFlow(earlyLatePhos,title='Phosphoproteomics in late',0.05)
+ggsave('earlyLatePhos.png',earlyLatePh,width=11,height=6)
+
+earlyLatePhresdf<-do.call(rbind,lapply(names(earlyLatePhos),function(x) data.frame(earlyLatePhos[[x]],Condition=x)))
+
+ph3<-doAllKSEAplots(earlyLatePhos)
 lateNets<-runNetworksFromDF(ph3)
-
 
 
 }
@@ -451,8 +483,8 @@ p5<-kindat%>%
   left_join(clinvars)%>%
   #subset(Treatment%in%c("MCP-1","none", 'Trametinib Withdrawn'))%>%
   subset(Kinase%in%c('MAPK1','MAPK3','MAPK8','PRKCD'))%>%
-  ggplot(aes(x=as.factor(TimePoint),y=meanLFC,fill=Treatment))+
+  ggplot(aes(x=as.factor(TimePoint),y=meanLFC,fill=Kinase))+
   geom_boxplot()+
-  facet_grid(~CellType+Kinase)+scale_fill_viridis_d()+
+  facet_grid(~CellType+Treatment)+scale_fill_viridis_d()+
   ggtitle("Estimated Kinase Activity")
 ggsave('estimatedErkActivity.png',p5,width=10)

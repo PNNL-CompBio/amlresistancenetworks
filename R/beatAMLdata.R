@@ -17,7 +17,8 @@ plotAllPatients<-function(auc.data,pat.data,pphos){
     summarize(numDrugs=n_distinct(Condition))
   pat.df<-pat.data%>%
     group_by(`AML sample`)%>%
-    summarize(RNA=any(mRNALevels!=0),mutations=any(geneMutations!=0),proteins=any(proteinLevels!=0))%>%
+    summarize(RNA=any(mRNALevels!=0),mutations=any(geneMutations!=0),
+              proteins=any(proteinLevels!=0))%>%
     right_join(numDrugs)
   
   pat.df<-pphos%>%group_by(`Sample`)%>%summarize(phosphoSites=any(LogFoldChange!=0))%>%
@@ -100,6 +101,11 @@ loadBeatAMLClinicalDrugData<-function(threshold=0.10){
 
   require(dplyr)
   require(tidyr)
+  
+  mut.status<<-querySynapseTable("syn23538858")%>%
+    mutate(status=tolower(status))%>%
+    pivot_wider(values_from='status',names_from='variant')
+  
   drug.class<<-querySynapseTable("syn22156956")%>%
     dplyr::rename(Condition='inhibitor')%>%
     mutate(Condition=unlist(Condition))%>%
@@ -136,7 +142,8 @@ loadBeatAMLClinicalDrugData<-function(threshold=0.10){
     ungroup()%>%
     left_join(clin.dat)%>%
     select(-AUC)%>%
-    rename(AUC='meanAUC')
+    rename(AUC='meanAUC')%>%
+    left_join(mut.status)
   
     numSens<-auc.dat%>%
       group_by(Condition)%>%

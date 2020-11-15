@@ -30,6 +30,7 @@ plotSingleProtein<-function(gene,df,prefix=''){
 #'uses Osama's code to compute de from limma
 #'@author Osama
 #'@import limma
+#'@export
 #'@param data matrix
 #'@param group1 ids
 #'@param group2 ids

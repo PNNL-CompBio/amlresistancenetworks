@@ -9,10 +9,12 @@ clusterSingleDrugEfficacy(
   drugName = "Doramapimod (BIRB 796)",
   meth = "RandomForest",
   data = "proteinLevels",
+  doEnrich = FALSE,
   auc.dat = auc.dat,
   auc.thresh = 100,
   new.results = new.results,
-  data.mat = NULL
+  data.mat = NULL,
+  prefix = ""
 )
 }
 \arguments{

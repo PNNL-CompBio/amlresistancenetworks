@@ -1,0 +1,30 @@
+---
+title: "Figure 1 Data Summary"
+author: "Sara Gosline"
+date: "11/13/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE)
+library(amlresistancenetworks)
+
+if(!exists('dataLoaded')){
+  amlresistancenetworks::loadBeatAMLData()
+  dataLoaded=TRUE
+}
+
+```
+
+## Data Summary
+
+The goal fo this markdown is to summarize the BeatAML data that we have so far. Patient summary, summary of AUC value, and general proteomics/protein data. 
+
+```{r patient cohort}
+
+  res = plotAllAUCs(auc.dat,'AUC')
+  knitr::kable(res)
+  
+```
+
+

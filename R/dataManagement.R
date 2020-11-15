@@ -18,12 +18,16 @@ readAndTidyMetadata<-function(){
   metadata$Sample<-sapply(metadata$`Sample ID`,function(x) paste('Sample',x,sep='_'))
 
   metadata<-metadata%>%
-      tidyr::separate(col='Sample Info',into=c('treatment','cellLine','flask','ligand'),sep=', ',fill="right")%>%
+      tidyr::separate(col='Sample Info',into=c('treatment','cellLine','flask','ligand'),
+                      sep=', ',fill="right")%>%
       dplyr::select(Sample,cellLine,treatment,flask,ligand)
 
   #update cell line
-  cl<-subset(metadata,cellLine=='10M')%>%dplyr::select(Sample,treatment)%>%mutate(cellLine=stringr::str_replace(treatment,'parental ',''))%>%
-      dplyr::select(Sample,cellLine)%>%mutate(treatment='None',ligand='None')
+  cl<-subset(metadata,cellLine=='10M')%>%
+    dplyr::select(Sample,treatment)%>%
+    mutate(cellLine=stringr::str_replace(treatment,'parental ',''))%>%
+      dplyr::select(Sample,cellLine)%>%
+    mutate(treatment='None',ligand='None')
 
   lig.dat<-metadata%>%subset(!is.na(ligand))%>%
     dplyr::select(c(flask,cellLine,ligand))
@@ -345,6 +349,37 @@ getPatientDrugResponses<-function(patientlist){
   return(subset(comb.response,`AML sample`%in%patientlist))
 
 }
+
+
+
+#' getCuratedMutstatus
+#' @export
+#' @import dplyr
+#' @import readxl
+#' @import tidyr
+getCuratedMutStatus<-function(){
+  library(dplyr)
+  syn<-synapseLogin()
+  new.file<-syn$get('syn23538805')$path
+#  exp.3.megafile=syn$get('syn22130786')$path
+  
+  patData<-readxl::read_xlsx(new.file,sheet='wv1to4')%>%
+    dplyr::select(`AML sample`='labId','FLT3-ITD',NPM1,`FLT3-MUT`='FLT3')%>%distinct()%>%
+      tidyr::pivot_longer(-`AML sample`,names_to='variant',values_to='status')%>%
+      tidyr::replace_na(list(status='not_tested'))
+
+  
+# patData<-readxl::read_xlsx(exp.3.megafile,sheet='Clinical Summary')%>%
+#  subset(labId%in%unlist(patients))%>%
+#  select(`AML sample`='labId',contains("FLT3"))%>%
+#  distinct()%>%
+#   pivot_longer(-`AML sample`,values_to='FLT3_Status',names_to='FLT3_Assay')%>%
+#   separate(FLT3_Status,into=c("FLT3_Status","FLT3_Details"),sep=' ',extra='merge')
+  # mutate(Value=tidyr::replace_na(Value,0))
+ synTableStore(patData,'BeatAML Pilot Mutation Status')
+
+}
+ 
 #' getPatientMetadata
 #' @export
 #' @import dplyr
@@ -426,7 +461,8 @@ getPatientBaselines<-function(){
   library(dplyr)
   syn=synapseLogin()
   dat<-read.table(syn$get('syn22130778')$path,sep='\t',header=T)#'../../Projects/CPTAC/exp_3'/PTRC_baseline_global_std_ref_with_genes.txt,sep='\t',header=T)
-  patientProtSamples<-dat%>%tidyr::pivot_longer(cols=c(5:ncol(dat)),names_to='Sample', values_to='LogFoldChange')%>%
+  patientProtSamples<-dat%>%tidyr::pivot_longer(cols=c(5:ncol(dat)),names_to='Sample', 
+                                                values_to='LogFoldChange')%>%
     dplyr::mutate(specId=stringr::str_replace(Sample,"X",""))%>%
     dplyr::mutate(Sample=stringr::str_replace(specId,stringr::fixed("."),"-"))%>%
     dplyr::select(`AML sample`='Sample',Gene, LogFoldChange)%>%
@@ -441,7 +477,8 @@ getPatientBaselines<-function(){
 
   dat2<-read.table(syn$get('syn22130842')$path,sep='\t',header=T)
   secondData<-dat2%>%
-    tidyr::pivot_longer(cols=c(3:ncol(dat2)),names_to='Sample', values_to='LogFoldChange')%>%
+    tidyr::pivot_longer(cols=c(3:ncol(dat2)),names_to='Sample', 
+                        values_to='LogFoldChange')%>%
     dplyr::mutate(specId=stringr::str_replace(Sample,"X",""))%>%
     dplyr::mutate(Sample=stringr::str_replace(specId,stringr::fixed("."),"-"))%>%
     dplyr::select(Barcode='Sample',Gene, LogFoldChange)%>%
@@ -462,7 +499,8 @@ getPatientPhosphoBaselines<-function(){
     dat<-read.table(syn$get('syn22130779')$path,sep='\t',header=T)
 
     patientPhosphoSamples<-dat%>%
-        tidyr::pivot_longer(-c(Entry,Gene,site,Peptide,ids,Entry_name),"Sample",values_to='LogFoldChange')%>%
+        tidyr::pivot_longer(-c(Entry,Gene,site,Peptide,ids,Entry_name),"Sample",
+                            values_to='LogFoldChange')%>%
         dplyr::mutate(specId=stringr::str_replace(Sample,"X",""))%>%
         dplyr::mutate(Sample=stringr::str_replace(specId,stringr::fixed("."),"-"))%>%
         dplyr::select(Sample,Gene, site,Peptide,LogFoldChange)%>%
@@ -494,7 +532,8 @@ getTimeCourseData<-function(){
     dat<-read.csv2(syn$get("syn22130819")$path,
                    sep='\t',header=T,stringsAsFactors = FALSE)
     timeCourseData<-dat%>%
-      tidyr::pivot_longer(cols=c(4:ncol(dat)),names_to='sample', values_to='LogFoldChange')%>%
+      tidyr::pivot_longer(cols=c(4:ncol(dat)),names_to='sample', 
+                          values_to='LogFoldChange')%>%
     #dplyr::mutate(specId=stringr::str_replace(sample,".","-"))%>%
     dplyr::mutate(Sample=stringr::str_replace(sample,stringr::fixed("."),"-"))%>%
     dplyr::select(Sample,Gene, LogFoldChange)%>%
@@ -513,7 +552,8 @@ getTimeCoursePhosphoData<-function(){
   metadata<-getTimeCourseMetadata()
   timeCoursePhospho<-read.csv2(syn$get('syn22130820')$path,
                  sep='\t',header=T,stringsAsFactors = F)%>%
-    tidyr::pivot_longer(-c(Entry,Gene,site,Peptide,ids,Entry.name,Protein),"Sample",values_to='LogFoldChange')%>%
+    tidyr::pivot_longer(-c(Entry,Gene,site,Peptide,ids,Entry.name,Protein),"Sample",
+                        values_to='LogFoldChange')%>%
     dplyr::mutate(specId=stringr::str_replace(Sample,"X",""))%>%
     dplyr::mutate(Sample=stringr::str_replace(specId,stringr::fixed("."),"-"))%>%
     dplyr::select(Sample,Gene, site,Peptide,LogFoldChange)%>%
@@ -542,7 +582,8 @@ getCytokineSensData<-function(){
 
 
   metadata$CellType<-sapply(metadata$CellType,function(x) {
-    switch(x,Late_M='Late MOLM-13',Late_MR='Late MOLM-13 Tr Resistant',M='MOLM-13',MR='MOLM-13 Tr Resistant')})
+    switch(x,Late_M='Late MOLM-13',Late_MR='Late MOLM-13 Tr Resistant',
+           M='MOLM-13',MR='MOLM-13 Tr Resistant')})
 
   #  ifelse(x=='Late_M','Late MOLM-13',ifelse(x=='Late_MR','Late MOLM-13 Tr Resistant',x))})
   metadata$Treatment<-unlist(sapply(metadata$Treatment,function(x){

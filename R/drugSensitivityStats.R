@@ -36,34 +36,30 @@ plotProtsByMetric<-function(sens.data,genelist=c("BCL2","TRIM21","DUSP23"),
 #' @param auc.data
 #' @import pheatmap
 #' @export
-plotAllAUCs<-function(auc.data,to.plot='percAUC'){
-  auc.data%>%
-    dplyr::select(`AML sample`,Condition,percAUC)%>%distinct()%>%
-    ggplot(aes(x=percAUC,fill=Condition))+geom_histogram()+ theme(legend.position = "none")+
-    ggtitle("Distribution of AUC values by drug")
-  ggsave('percAUCdist.pdf')
-  synapseStore('percAUCdist.pdf','syn22130776')
+plotAllAUCs<-function(auc.data,to.plot='AUC'){
+
+
   auc.data%>%
     dplyr::select(`AML sample`,Condition,AUC)%>%distinct()%>%
     ggplot(aes(x=AUC,fill=Condition))+geom_histogram()+ theme(legend.position = "none")+
     ggtitle("Distribution of raw AUC values by drug")
   ggsave('AUCdist.pdf')
-  synapseStore('AUCdist.pdf','syn22130776')
+ # synapseStore('AUCdist.pdf','syn22130776')
   
   library(pheatmap)
-  dat.summ<-pat.data%>%group_by(`AML sample`)%>%summarize(RNA=if_else(all(mRNALevels==0),FALSE,TRUE),
-                                                          proteins=if_else(all(proteinLevels==0),FALSE,TRUE),
-                                                          mutations=if_else(all(geneMutations==0),FALSE,TRUE))
+  dat.summ<-pat.data%>%group_by(`AML sample`)%>%
+      summarize(RNA=if_else(all(mRNALevels==0),FALSE,TRUE),
+               proteins=if_else(all(proteinLevels==0),FALSE,TRUE),
+               mutations=if_else(all(geneMutations==0),FALSE,TRUE))%>%
+    left_join(select(auc.data,c(`AML sample`,`FLT3-ITD`,`FLT3-MUT`,NPM1))%>%distinct())
   
   
   pat.vars<-auc.data%>%
-    dplyr::select(-c(Condition,percAUC,AUC,medAUC))%>%
+    dplyr::select(-c(Condition,percAUC,AUC,medAUC,`FLT3-ITD`,`FLT3-MUT`,NPM1))%>%
 #      `AML sample`,gender,ageAtDiagnosis,vitalStatus,overallSurvival)%>%
     distinct()%>%
     left_join(dat.summ)%>%
     tibble::column_to_rownames("AML sample")
-  
-  print(pat.vars)
   
 
   if('RNA'%in%names(pat.vars))
@@ -96,5 +92,6 @@ plotAllAUCs<-function(auc.data,to.plot='percAUC'){
   pheatmap(auc.mat,annotation_col = pat.vars,clustering_distance_cols='correlation',
            clustering_method='ward',filename = paste0(to.plot,'heatmap.pdf'),cellwidth = 10,cellheight = 10) 
  # synapseStore(paste0(to.plot,'heatmap.pdf'),'syn22130776')
+  return(pat.vars)
 }
 

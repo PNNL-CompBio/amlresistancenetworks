@@ -25,35 +25,7 @@ computeGSEA<-function(genes.with.values,prefix,gsea_FDR=0.01){
                                        collapseMethod="mean", perNum = 1000,
                                        fdrThr = gsea_FDR, nThreads = 2, isOutput = F)
   write.table(go.bp.res.WebGestaltR, paste0("proteomics_", prefix, "_gseaGO_result.txt"), sep="\t", row.names=FALSE, quote = F)
-  
-  # top_gseaGO <- go.bp.res.WebGestaltR %>% 
-  #   filter(FDR < gsea_FDR) %>% 
-  #   dplyr::rename(pathway = description, NES = normalizedEnrichmentScore) %>% 
-  #   arrange(desc(NES)) %>% 
-  #   dplyr::mutate(status = case_when(NES > 0 ~ "Up",
-  #                                    NES < 0 ~ "Down"),
-  #                 status = factor(status, levels = c("Up", "Down"))) %>% 
-  #   #\group_by(status) %>% 
-  #   top_n(30, wt = NES) %>% 
-  #   ungroup() %>% 
-  #   ggplot2::ggplot(aes(x=reorder(pathway, NES), y=NES)) +
-  #   geom_bar(stat='identity', aes(fill=status)) +
-  #   scale_fill_manual(values = c("Up" = "darkred", "Down" = "dodgerblue4")) +
-  #   coord_flip() +
-  #   theme_minimal() +
-  #   theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 18),
-  #         axis.title.x = element_text(size=16),
-  #         axis.title.y = element_blank(), 
-  #         axis.text.x = element_text(size = 14),
-  #         axis.text.y=element_text(size = 14),
-  #         axis.line.y = element_blank(),
-  #         axis.ticks.y = element_blank(),
-  #         legend.position = "none") +
-  #   labs(title = "", y="NES") +#for some reason labs still works with orientation before cord flip so set y
-  #   ggtitle(paste('Up-regulated',prefix))
-  # ggsave(paste0("upRegProts_", prefix,"_gseaGO_plot.pdf"), top_gseaGO, height = 8.5, width = 11, units = "in")
-  # 
-  
+
   all_gseaGO <- go.bp.res.WebGestaltR %>% 
      filter(FDR < gsea_FDR) %>% 
     dplyr::rename(pathway = description, NES = normalizedEnrichmentScore) %>% 
@@ -81,34 +53,7 @@ computeGSEA<-function(genes.with.values,prefix,gsea_FDR=0.01){
     ggplot2::ggtitle(paste('All',prefix))
   ggplot2::ggsave(paste0("allRegProts_", prefix,"_gseaGO_plot.pdf"), all_gseaGO, height = 8.5, width = 11, units = "in")
   
-  
-  # bot_gseaGO <- go.bp.res.WebGestaltR %>% 
-  #   filter(FDR < gsea_FDR) %>% 
-  #   dplyr::rename(pathway = description, NES = normalizedEnrichmentScore) %>% 
-  #   arrange(NES) %>% 
-  #   dplyr::mutate(status = case_when(NES > 0 ~ "Up",
-  #                                    NES < 0 ~ "Down"),
-  #                 status = factor(status, levels = c("Up", "Down"))) %>% 
-    #group_by(status) %>% 
-  #   top_n(40, wt = rev(NES)) %>% 
-  #   ungroup() %>% 
-  #   ggplot2::ggplot(aes(x=reorder(pathway, rev(NES)), y=NES)) +
-  #   geom_bar(stat='identity', aes(fill=status)) +
-  #   scale_fill_manual(values = c("Up" = "darkred", "Down" = "dodgerblue4")) +
-  #   coord_flip() +
-  #   theme_minimal() +
-  #   theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 18),
-  #         axis.title.x = element_text(size=16),
-  #         axis.title.y = element_blank(), 
-  #         axis.text.x = element_text(size = 14),
-  #         axis.text.y=element_text(size = 14),
-  #         axis.line.y = element_blank(),
-  #         axis.ticks.y = element_blank(),
-  #         legend.position = "none") +
-  #   labs(title = "", y="NES") +#for some reason labs still works with orientation before cord flip so set y
-  #   ggtitle(paste('Down-regulated',prefix))
-  # ggsave(paste0("downRegProts_", prefix,"_gseaGO_plot.pdf"), bot_gseaGO, height = 8.5, width = 11, units = "in")
-  # 
+ 
   return(go.bp.res.WebGestaltR) 
 }
 
@@ -248,7 +193,7 @@ plotOldGSEA<-function(genes.with.values,prefix,gsea_FDR=0.05){
 }
 
 #'Runs regular bag of genes enrichment
-#'@export 
+#'@exportre
 #'@import org.Hs.eg.db
 #'@import clusterProfiler
 doRegularGo<-function(genes,bg=NULL){
@@ -258,14 +203,44 @@ doRegularGo<-function(genes,bg=NULL){
     dplyr::rename(Gene='alias_symbol')
   
   eg<-subset(mapping,Gene%in%genes)
+  ret=data.frame(ID='',Description='',pvalue=1.0,p.adjust=1.0)
   
   res<-clusterProfiler::enrichGO(eg$gene_id,'org.Hs.eg.db',keyType='ENTREZID',ont='BP')
     #sprint(res)
-  ret=as.data.frame(res)%>%
-    dplyr::select(ID,Description,pvalue,p.adjust)
+  
+  try(ret<-as.data.frame(res)%>%dplyr::select(ID,Description,pvalue,p.adjust))
   
   
   return(ret)
   
   
 }
+
+#'Runs regular bag of genes enrichment
+#'@export 
+#'@import leapr
+#'clusterProfiler
+doRegularKin<-function(genes,bg=NULL){
+  require(leapr)
+  data('kinasesubstrates')
+  data('phosphodata')##load test data
+  dm<-matrix(0,rown=nrow(phosphodata))
+  rownames(dm)<-rownames(phosphodata)
+  res = leapR(geneset=kinasesubstrates,
+              enrichment_method='enrichment_in_set',
+              datamatrix=genes)
+
+  eg<-subset(mapping,Gene%in%genes)
+  ret=data.frame(ID='',Description='',pvalue=1.0,p.adjust=1.0)
+  
+  res<-clusterProfiler::enrichGO(eg$gene_id,'org.Hs.eg.db',keyType='ENTREZID',ont='BP')
+    #sprint(res)
+  
+  try(ret<-as.data.frame(res)%>%dplyr::select(ID,Description,pvalue,p.adjust))
+  
+  
+  return(ret)
+  
+}
+  
+

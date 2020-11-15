@@ -2,13 +2,19 @@
 % Please edit documentation in R/dataManagement.R
 \name{readAndTidyQuizProtMeasures}
 \alias{readAndTidyQuizProtMeasures}
-\title{reads and tidies protein measurements from quizartinib treatment
+\title{reads and tidies protein measurements
 joins with metadata
 saves tidied data and returns}
 \usage{
 readAndTidyQuizProtMeasures()
+
+readAndTidyQuizProtMeasures()
 }
 \description{
+reads and tidies protein measurements
+joins with metadata
+saves tidied data and returns
+
 reads and tidies protein measurements from quizartinib treatment
 joins with metadata
 saves tidied data and returns

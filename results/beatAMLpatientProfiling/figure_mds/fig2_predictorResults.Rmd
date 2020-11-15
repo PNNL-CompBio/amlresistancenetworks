@@ -1,0 +1,76 @@
+---
+title: "Figure 2 Predictor Summary"
+author: "Sara Gosline"
+date: "11/13/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(amlresistancenetworks)
+
+if(!exists('dataLoaded')){
+  amlresistancenetworks::loadBeatAMLData()
+  dataLoaded=TRUE
+}
+```
+
+## Building of predictors
+
+Building the predictors - LASSO and Logistic regression. We build predictosr using the best performing models from leave-one-out cross validation. 
+
+```{r build predictors, echo=FALSE, warning=FALSE}
+  summary(cars)
+  print("Getting phospho preds")
+  
+  substrate.dat<-pat.phos%>%
+    dplyr::select(`AML sample`='Sample',Gene='site',Phosphosite='LogFoldChange')
+
+  phospho.reg.results<-drugMolRegression(auc.dat,substrate.dat,'Phosphosite')
+
+  phospho.lr.results<-drugMolLogReg(auc.dat,substrate.dat,'Phosphosite')
+  
+  print('getting other preds')
+  logr.preds<-purrr::map_df(list(mRNA='mRNALevels',
+                                 protein='proteinLevels',
+                                     gene='geneMutations'),
+                            ~ drugMolLogReg(auc.dat,pat.data,.x,category='Condition'))%>%
+    rbind(phospho.lr.results)
+  
+  reg.preds<-purrr::map_df(list(mRNA='mRNALevels',
+                                protein='proteinLevels',
+                                gene='geneMutations'),
+                           ~ drugMolRegression(auc.dat,
+                                               pat.data,                                
+                                               .x,
+                                               category='Condition'))%>%
+    rbind(phospho.reg.results)
+
+  ##now let's summarize how many predictors we have for each drug
+  l.sum.tab<-logr.preds%>%subset(numFeatures>1)%>%
+    group_by(Molecular)%>%summarize(LogisticRegPreds=n_distinct(var), logisticError=mean(MSE))
+  
+  sum.tab<-reg.preds%>%subset(numFeatures>1)%>%
+    group_by(Molecular)%>%summarize(LassoRegPreds=n_distinct(var),lassoError=mean(MSE))%>%
+    left_join(l.sum.tab)
+  knitr::kable(sum.tab)
+    
+```
+
+Now we have predictive models for each of the four data types, though not all data types had enough for the LOO cross validation. 
+
+## 
+
+
+```{r best performers, echo=FALSE, warning=FALSE}
+
+library(ggplot2)
+
+logr.preds%>%ggplot(aes(x=numFeatures,y=MSE,col=Molecular))+geom_point()+scale_color_viridis_d()+ggtitle("Logistic Regression Predictor Performance")
+
+
+reg.preds%>%ggplot(aes(x=numFeatures,y=MSE,col=Molecular))+geom_point()+scale_color_viridis_d()+ggtitle("LASSO Regression Predictor Performance")
+```
+
+

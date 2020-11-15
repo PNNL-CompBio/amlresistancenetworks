@@ -32,7 +32,7 @@ drugMolRandomForest<-function(clin.data,
       dplyr::select(`AML sample`,var=category,AUC)%>%
       group_by(`AML sample`,var)%>%
       summarize(meanVal=mean(AUC,na.rm=T))%>%
-      left_join(select(mol.data,c(Gene,`AML sample`,mol.feature)),
+      left_join(dplyr::select(mol.data,c(Gene,`AML sample`,mol.feature)),
                 by='AML sample')
     reg.res<-drug.mol%>%group_by(var)%>%
       group_modify(~ combForest(.x,mol.feature),keep=T)%>%
@@ -64,7 +64,7 @@ drugMolRegression<-function(clin.data,
       dplyr::select(`AML sample`,var=category,AUC)%>%
        group_by(`AML sample`,var)%>%
       summarize(meanVal=mean(AUC,na.rm=T))%>%
-      left_join(select(mol.data,c(Gene,`AML sample`,!!mol.feature)),
+      left_join(dplyr::select(mol.data,c(Gene,`AML sample`,!!mol.feature)),
                 by='AML sample')
   
   
@@ -76,7 +76,7 @@ drugMolRegression<-function(clin.data,
       dplyr::select(`AML sample`,var=category,AUC)%>%
       group_by(`AML sample`,var)%>%
       summarize(meanVal=mean(AUC,na.rm=T))%>%
-      left_join(select(mol.data,c(Gene,`AML sample`,mol.feature)),
+      left_join(dplyr::select(mol.data,c(Gene,`AML sample`,mol.feature)),
                 by='AML sample')
     reg.res<-drug.mol%>%group_by(var)%>%
       group_modify(~ combReg(.x,mol.feature),keep=T)%>%
@@ -102,7 +102,7 @@ drugMolLogReg<-function(clin.data,
       dplyr::select(`AML sample`,var=category,AUC)%>%
       group_by(`AML sample`,var)%>%
       summarize(meanVal=mean(AUC,na.rm=T))%>%
-      left_join(select(mol.data,c(Gene,`AML sample`,!!mol.feature)),
+      left_join(dplyr::select(mol.data,c(Gene,`AML sample`,!!mol.feature)),
                 by='AML sample')%>%
       mutate(sensitive=meanVal<aucThresh)
     
@@ -115,7 +115,7 @@ drugMolLogReg<-function(clin.data,
       dplyr::select(`AML sample`,var=category,AUC)%>%
       group_by(`AML sample`,var)%>%
       summarize(meanVal=mean(AUC,na.rm=T))%>%
-      left_join(select(mol.data,c(Gene,`AML sample`,mol.feature)),
+      left_join(dplyr::select(mol.data,c(Gene,`AML sample`,mol.feature)),
                 by='AML sample')
     reg.res<-drug.mol%>%group_by(var)%>%
       group_modify(~ combDE(.x,mol.feature),keep=T)%>%
@@ -500,6 +500,7 @@ getFeaturesFromString<-function(string,prefix='mRNALevels'){
 clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
                                     meth='RandomForest',
                                     data='proteinLevels',
+                                    doEnrich=FALSE,
                                     auc.dat=auc.dat,
                                     auc.thresh=100,
                                     new.results=new.results,
@@ -550,16 +551,16 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
   try(pheatmap::pheatmap(pat.mat,cellwidth = 10,cellheight=10,annotation_col = drug.dat,
                          clustering_distance_cols = 'euclidean',
                          clustering_method = 'ward.D2',filename=fname))
+  res=fname
+  if(doEnrich && length(rownames(pat.mat))>2){
+    if(data=='')
+      res=doRegularKin(rownames(pat.mat))
+    else
+      res=doRegularGo(rownames(pat.mat))
+  }
   
   # plotMostVarByDrug(drugName,data)
-  return(fname)
+  return(res)
   
 }
 
-#' The goal is to do go enrichment on the genes
-#' selected by each predictor to identify each pathway
-#' @param new.preds summary of predictors
-#' @return data frame of GO terms
-summarizePredictedGeneFunction<-function(new.preds){
-  
-}
