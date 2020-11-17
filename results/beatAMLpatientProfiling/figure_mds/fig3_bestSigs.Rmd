@@ -1,5 +1,5 @@
 ---
-title: "Figure 3 Performance in Cell Lines"
+title: "Figure 3 Candidates signatures from LOO cross validation"
 author: "Sara Gosline"
 date: "11/13/2020"
 output: html_document
@@ -15,6 +15,10 @@ if(!exists('dataLoaded')){
   amlresistancenetworks::loadBeatAMLData()
   dataLoaded=TRUE
 }
+
+##assumes figure 2 was already generated!!!!
+reg.preds<-readRDS('lassoRegPreds.rds')
+log.preds<-readRDS('logRegPreds.rds')
 
 ```
 
@@ -57,7 +61,7 @@ selectDataMatAndPlot<-function(drugName,meth,data,doEnrich=FALSE){
     dplyr::rename(Sample='AML sample')
 
     clusterSingleDrugEfficacy(drugName,meth,data,doEnrich=doEnrich,auc.dat=auc.d,auc.thresh=100,
-                            new.results,data.mat)  
+                            reg.preds,data.mat)  
 }
 
 

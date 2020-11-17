@@ -177,7 +177,10 @@ miniLogR<-function(tab,mol.feature){
     subset(MSE==min(MSE))
   
   #then select how many elements
-  full.res<-glmnet(x=mat,y=yvar,family='binomial',type.measure='mse')
+  full.res<-NULL
+  try(  full.res<-glmnet(x=mat,y=yvar,family='binomial',type.measure='mse'))
+  if(is.null(full.res))
+    return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=nrow(mat)))
   genes=names(which(full.res$beta[,which(full.res$lambda==best.res$lambda)]!=0))
   genelist<-paste(genes,collapse=';')
   #print(paste(best.res$MSE,":",genelist))
@@ -249,7 +252,10 @@ combReg<-function(tab,feature.list=c('proteinLevels','mRNALevels','geneMutations
     subset(MSE==min(MSE))
   
   #then select how many elements
-  full.res<-glmnet(x=comb.mat,y=yvar,type.measure='mse')
+  full.res<-NULL
+  try(  full.res<-glmnet(x=comb.mat,y=yvar,type.measure='mse'))
+  if(is.null(full.res))
+    return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=nrow(comb.mat)))
   genes=names(which(full.res$beta[,which(full.res$lambda==best.res$lambda)]!=0))
   genelist<-paste(genes,collapse=';')
   #print(paste(best.res$MSE,":",genelist))
@@ -522,7 +528,6 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
 
   #data.mat<-data.mat%>%rename(value=data)
     
-  ##ASSUMES full.results is global
   oneRow=subset(new.results,var==drugName)%>%
     subset(method==meth)%>%
     subset(Molecular==data)%>%distinct()

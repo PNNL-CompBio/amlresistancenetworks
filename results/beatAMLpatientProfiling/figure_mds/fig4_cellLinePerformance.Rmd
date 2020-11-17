@@ -16,24 +16,131 @@ if(!exists('dataLoaded')){
   dataLoaded=TRUE
 }
 
+syn=synapseLogin()
+
+## get depmap
+cells<-syn$tableQuery('select distinct Sample from  syn23004114 where ( LogFoldChange<>0 AND transcriptCounts<>0)')$asDataFrame()$Sample
+
+cl.mol.dat<-syn$tableQuery('select * from syn23004114')$asDataFrame()%>%
+  subset(Sample%in%cells)%>%
+  dplyr::rename(mRNALevels='transcriptCounts',proteinLevels='LogFoldChange',
+                geneMutations='numMuts')%>%mutate(Sample=unlist(Sample),Gene=unlist(Gene))
+
+#create manual mapping from AML to cell Line
+drug.mapping <- syn$tableQuery('select * from syn23193914 where PTRC is not NULL')$asDataFrame()
+
+##now match the drugs between cl and tumors
+cl.auc.dat<-syn$tableQuery('select * from syn23004543')$asDataFrame()%>%
+  subset(Metric=='auc')%>%
+  subset(Condition%in%drug.mapping$drugName)%>%
+  mutate(drugName=unlist(Condition),Sample=unlist(Sample))%>%
+  left_join(drug.mapping,by=c('drugName','source'))%>%
+  dplyr::select(Sample,Condition='PTRC',Value,source)%>%
+  subset(Sample%in%cl.mol.dat$Sample)%>%
+  group_by(Sample,Condition,source)%>%summarize(Value=mean(Value))%>%ungroup()
+
+sanger.cl.auc<-cl.auc.dat%>%
+  subset(source=='Sanger')%>%
+  mutate(AUC=(Value*100+50))
+
+ctrp.cl.auc<-cl.auc.dat%>%
+  subset(source=='CTRP')%>%
+  mutate(AUC=Value*10)
+
+
 ```
 
-## R Markdown
+## Rebuild new signatures using all data 
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+Just to be sure we are getting the most out of the patient data we can then build signatures out of all the data and assess their performance on cell line data.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+```{r build predictors, echo=FALSE,warning=FALSE}
 
-```{r cars}
-summary(cars)
+##now train model on AML and eval on depmap data
+reg.preds<-purrr::map_df(list(mRNA='mRNALevels',
+                              protein='proteinLevels',
+                              gene='geneMutations'),
+                         ~ drugMolRegressionEval(auc.dat,
+                                                 pat.data,
+                                                 .x,
+                                                 ctrp.cl.auc,
+                                                 cl.mol.dat,
+                                                 category='Condition'))
+
+
+log.reg.preds<-purrr::map_df(list(protein='proteinLevels',
+                                  mRNA='mRNALevels',
+                              gene='geneMutations'),
+                             ~ drugMolLogRegEval(auc.dat,
+                                                pat.data,
+                                                .x,
+                                               ctrp.cl.auc,
+                                               cl.mol.dat,
+                                               category='Condition'))
+
+##now do the same for Sanger
+##now train model on AML and eval on depmap data
+sang.reg.preds<-purrr::map_df(list(mRNA='mRNALevels',
+                              protein='proteinLevels',
+                              gene='geneMutations'),
+                              ~ drugMolRegressionEval(auc.dat,
+                                pat.data,
+                                .x,
+                                sanger.cl.auc,
+                                cl.mol.dat,
+                              category='Condition'))
+
+sang.log.reg.preds<-purrr::map_df(list(protein='proteinLevels',
+                                  mRNA='mRNALevels',
+                                  gene='geneMutations'),
+                                  ~drugMolLogRegEval(auc.dat,
+                                                    pat.data,
+                                                    .x,
+                                                    sanger.cl.auc,
+                                                    cl.mol.dat,
+                                                    category='Condition'))
+
+logr.preds<-rbind(mutate(log.reg.preds,dataset='CTRP'),mutate(sang.log.reg.preds,dataset='Sanger'))
+lreg.preds<-rbind(mutate(reg.preds,dataset='CTRP'),mutate(sang.reg.preds,dataset='Sanger'))
+
+  ##now let's summarize how many predictors we have for each drug
+  l.sum.tab<-logr.preds%>%subset(numFeatures>1)%>%
+    group_by(Molecular,dataset)%>%summarize(LogisticRegPreds=n_distinct(compound), logisticError=mean(MSE))
+  
+  sum.tab<-lreg.preds%>%subset(numFeatures>1)%>%
+    group_by(Molecular,dataset)%>%summarize(LassoRegPreds=n_distinct(compound),lassoError=mean(MSE))%>%
+    left_join(l.sum.tab)
+  
+  knitr::kable(sum.tab)
+  write.csv(sum.tab,file='table3_perf.csv')
+  
+  ##save both predictions to file
+saveRDS(lreg.preds,'cellLinelassoRegPreds.rds')
+saveRDS(logr.preds,'cellLinelogRegPreds.rds')
+    
+
 ```
 
-## Including Plots
+## Evaluate predictor response
 
-You can also embed plots, for example:
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r cell line  performance, echo=FALSE, warning=FALSE}
+
+library(ggplot2)
+
+p1<-logr.preds%>%
+  ggplot(aes(x=numFeatures,y=MSE,col=Molecular,shape=dataset))+geom_point()+scale_color_viridis_d()+
+  ggtitle("Logistic Cell Line Regression Predictor Performance")
+print(p1)
+
+p2<-lreg.preds%>%
+  ggplot(aes(x=numFeatures,y=MSE,col=Molecular,shape=dataset))+geom_point()+scale_color_viridis_d()+
+  ggtitle("LASSO Cell Line Regression Predictor Performance")
+print(p2)
+
+ggsave('fig4a_cl_logistic.pdf',p1)
+ggsave('fig4b_cl_lasso.pdf',p2)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+Now we have the basic predictive models from AML to cell line data

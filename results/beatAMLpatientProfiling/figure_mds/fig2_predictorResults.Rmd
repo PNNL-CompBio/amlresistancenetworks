@@ -21,7 +21,6 @@ if(!exists('dataLoaded')){
 Building the predictors - LASSO and Logistic regression. We build predictosr using the best performing models from leave-one-out cross validation. 
 
 ```{r build predictors, echo=FALSE, warning=FALSE}
-  summary(cars)
   print("Getting phospho preds")
   
   substrate.dat<-pat.phos%>%
@@ -55,22 +54,35 @@ Building the predictors - LASSO and Logistic regression. We build predictosr usi
     group_by(Molecular)%>%summarize(LassoRegPreds=n_distinct(var),lassoError=mean(MSE))%>%
     left_join(l.sum.tab)
   knitr::kable(sum.tab)
+  write.csv(sum.tab,file='table2_perf.csv')
+  
+  ##save both predictions to file
+saveRDS(reg.preds,'lassoRegPreds.rds')
+saveRDS(logr.preds,'logRegPreds.rds')
     
 ```
 
 Now we have predictive models for each of the four data types, though not all data types had enough for the LOO cross validation. 
 
-## 
+## Plot of overall performers
 
 
 ```{r best performers, echo=FALSE, warning=FALSE}
 
 library(ggplot2)
 
-logr.preds%>%ggplot(aes(x=numFeatures,y=MSE,col=Molecular))+geom_point()+scale_color_viridis_d()+ggtitle("Logistic Regression Predictor Performance")
+p1<-logr.preds%>%
+  ggplot(aes(x=numFeatures,y=MSE,col=Molecular))+geom_point()+scale_color_viridis_d()+
+  ggtitle("Logistic Regression Predictor Performance")
+print(p1)
 
+p2<-reg.preds%>%
+  ggplot(aes(x=numFeatures,y=MSE,col=Molecular))+geom_point()+scale_color_viridis_d()+
+  ggtitle("LASSO Regression Predictor Performance")
+print(p2)
 
-reg.preds%>%ggplot(aes(x=numFeatures,y=MSE,col=Molecular))+geom_point()+scale_color_viridis_d()+ggtitle("LASSO Regression Predictor Performance")
+ggsave('fig2a_logistic.pdf',p1)
+ggsave('fig2b_lasso.pdf',p2)
 ```
 
 

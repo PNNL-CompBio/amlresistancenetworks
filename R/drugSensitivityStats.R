@@ -39,11 +39,12 @@ plotProtsByMetric<-function(sens.data,genelist=c("BCL2","TRIM21","DUSP23"),
 plotAllAUCs<-function(auc.data,to.plot='AUC'){
 
 
-  auc.data%>%
+  p1<-auc.data%>%
     dplyr::select(`AML sample`,Condition,AUC)%>%distinct()%>%
     ggplot(aes(x=AUC,fill=Condition))+geom_histogram()+ theme(legend.position = "none")+
     ggtitle("Distribution of raw AUC values by drug")
-  ggsave('AUCdist.pdf')
+  print(p1)
+  ggsave('AUCdist.pdf',p1)
  # synapseStore('AUCdist.pdf','syn22130776')
   
   library(pheatmap)
@@ -88,7 +89,8 @@ plotAllAUCs<-function(auc.data,to.plot='AUC'){
                        values_fn=pff)%>%
     tibble::column_to_rownames('Drug')%>%
     as.matrix()
-  
+  pheatmap(auc.mat,annotation_col = pat.vars,clustering_distance_cols='correlation',
+           clustering_method='ward',cellwidth = 10,cellheight = 10) 
   pheatmap(auc.mat,annotation_col = pat.vars,clustering_distance_cols='correlation',
            clustering_method='ward',filename = paste0(to.plot,'heatmap.pdf'),cellwidth = 10,cellheight = 10) 
  # synapseStore(paste0(to.plot,'heatmap.pdf'),'syn22130776')

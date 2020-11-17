@@ -24,7 +24,7 @@ The goal fo this markdown is to summarize the BeatAML data that we have so far. 
 
   res = plotAllAUCs(auc.dat,'AUC')
   knitr::kable(res)
-  
+  write.csv(res,'table1.csv')
 ```
 
 
