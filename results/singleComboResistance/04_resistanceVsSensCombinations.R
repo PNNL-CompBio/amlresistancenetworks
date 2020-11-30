@@ -3,9 +3,13 @@
 library(amlresistancenetworks)
 library(dplyr)
 library(ggplot2)
+
+syn <-synapseLogin()
+sens.data<-syn$tableQuery("select * from  syn22156810")$asDataFrame()
+
 # this is the sensitivity data
-sens.data<-readRDS(system.file('gilteritinibSensitivityData.Rds',package='amlresistancenetworks'))
-prot.univ<-unique(sens.data$Gene)
+#sens.data<-readRDS(system.file('gilteritinibSensitivityData.Rds',package='amlresistancenetworks'))
+#prot.univ<-unique(sens.data$Gene)
 
 #'
 #' helper function to assign values to sensitive or resistant depending on a
@@ -178,15 +182,16 @@ computeMutInf<-function(sens.data,matric='AUC'){
 }
 
 
-auc.cor=computeCorVals(sens.data,metric='AUC')
-write.table(auc.cor,file='results/singleComboResistance/correlationWithAUC.csv',sep=',')
+auc.cor=computeCorVals(sens.data,metric='AUC')%>%mutate(Gene=unlist(Gene),metric='AUC')
+#write.table(auc.cor,file='correlationWithAUC.csv',sep=',')
 
-ic50.cor=computeCorVals(sens.data,metric='IC50')
-write.table(ic50.cor,file='results/singleComboResistance/correlationWithIC50.csv',sep=',')
+ic50.cor=computeCorVals(sens.data,metric='IC50')%>%mutate(Gene=unlist(Gene),metric='IC50')
+#write.table(ic50.cor,file='correlationWithIC50.csv',sep=',')
 
+total.cor<-rbind(auc.cor,ic50.cor)
 
 reg1=computeDiffExByVal(sens.data,sens.val=100,res.val=100)
-write.table(reg1,file='results/singleComboResistance/diffExProteinsBySensRes.csv',sep=',')
+#write.table(reg1,file='results/singleComboResistance/diffExProteinsBySensRes.csv',sep=',')
 
 ##now we can experiment with different thresholdls
 #reg2=computeDiffExByThresh(sens.data,sens=75,res=125)

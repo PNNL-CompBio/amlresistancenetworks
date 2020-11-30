@@ -486,6 +486,7 @@ computeAUCCorVals<-function(clin.data,mol.data,mol.feature){
 #' getFeaturesFromString - separates out comma-delimited model features
 #' @param string
 #' @param prefix
+#' @export
 #' @return list of features
 getFeaturesFromString<-function(string,prefix='mRNALevels'){
   stringr::str_remove_all(string,prefix)%>%stringr::str_split(';')%>%unlist()
@@ -509,7 +510,8 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
                                     doEnrich=FALSE,
                                     auc.dat=auc.dat,
                                     auc.thresh=100,
-                                    new.results=new.results,
+                                    genes,
+#                                    new.results=new.results,
                                     data.mat=NULL,
                                     prefix=''){
   
@@ -526,16 +528,7 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
     distinct()%>%
     tibble::column_to_rownames('Sample')
 
-  #data.mat<-data.mat%>%rename(value=data)
-    
-  oneRow=subset(new.results,var==drugName)%>%
-    subset(method==meth)%>%
-    subset(Molecular==data)%>%distinct()
-  
-  genes=getFeaturesFromString(oneRow$genes,data)
-  
-  print(genes)
-  #
+
   pat.mat<-data.mat%>%select('Sample','Gene','value')%>%
     subset(Gene%in%genes)%>%
     subset(`Sample`%in%rownames(drug.dat))%>%
@@ -558,7 +551,7 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
                          clustering_method = 'ward.D2',filename=fname))
   res=fname
   if(doEnrich && length(rownames(pat.mat))>2){
-    if(data=='')
+    if(data=='Phosphosite')
       res=doRegularKin(rownames(pat.mat))
     else
       res=doRegularGo(rownames(pat.mat))

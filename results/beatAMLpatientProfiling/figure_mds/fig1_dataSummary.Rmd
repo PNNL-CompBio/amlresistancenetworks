@@ -5,6 +5,8 @@ date: "11/13/2020"
 output: html_document
 ---
 
+## Get Data
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, warning=FALSE)
 library(amlresistancenetworks)

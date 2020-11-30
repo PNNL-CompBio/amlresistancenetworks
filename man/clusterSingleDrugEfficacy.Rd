@@ -12,7 +12,7 @@ clusterSingleDrugEfficacy(
   doEnrich = FALSE,
   auc.dat = auc.dat,
   auc.thresh = 100,
-  new.results = new.results,
+  genes,
   data.mat = NULL,
   prefix = ""
 )
@@ -28,9 +28,9 @@ clusterSingleDrugEfficacy(
 
 \item{auc.thresh}{Threshold to determine if sample is sensitive}
 
-\item{new.results}{Prediction data frame}
-
 \item{data.mat}{Data frame of data to plot}
+
+\item{new.results}{Prediction data frame}
 }
 \value{
 filename of pdf

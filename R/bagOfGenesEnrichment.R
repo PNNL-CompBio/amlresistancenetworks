@@ -207,10 +207,8 @@ doRegularGo<-function(genes,bg=NULL){
   
   res<-clusterProfiler::enrichGO(eg$gene_id,'org.Hs.eg.db',keyType='ENTREZID',ont='BP')
     #sprint(res)
-  
+  ret<-as.data.frame(list(ID=NULL,Description=NULL,pvalue=NULL,p.adjust=NULL))
   try(ret<-as.data.frame(res)%>%dplyr::select(ID,Description,pvalue,p.adjust))
-  
-  
   return(ret)
   
   
@@ -223,18 +221,22 @@ doRegularGo<-function(genes,bg=NULL){
 doRegularKin<-function(genes,bg=NULL){
   require(leapr)
   data('kinasesubstrates')
-  data('phosphodata')##load test data
-  dm<-matrix(0,rown=nrow(phosphodata))
-  rownames(dm)<-rownames(phosphodata)
+  all.subs<-unique(sapply(kinasesubstrates$matrix,unlist))
+  
+  dm<-matrix(0,length(all.subs))
+  rownames(dm)<-all.subs
+  sgenes<-intersect(toupper(genes),toupper(all.subs))
+  print(paste("Found",length(sgenes),'substrates with known kinases'))
+  ret<-as.data.frame(list(ID=NULL,Description=NULL,pvalue=NULL,p.adjust=NULL))
+  if(length(sgenes)<2)
+    return(ret)
+  
+  dm[sgenes,]<-1
   res = leapR(geneset=kinasesubstrates,
               enrichment_method='enrichment_in_set',
-              datamatrix=genes)
+              datamatrix=sgenesd)
 
-  eg<-subset(mapping,Gene%in%genes)
-  ret=data.frame(ID='',Description='',pvalue=1.0,p.adjust=1.0)
-  
-  res<-clusterProfiler::enrichGO(eg$gene_id,'org.Hs.eg.db',keyType='ENTREZID',ont='BP')
-    #sprint(res)
+
   
   try(ret<-as.data.frame(res)%>%dplyr::select(ID,Description,pvalue,p.adjust))
   

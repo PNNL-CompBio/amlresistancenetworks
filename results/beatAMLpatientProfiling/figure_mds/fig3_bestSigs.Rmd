@@ -37,7 +37,8 @@ From the predictions we can select those results that have the _best_ response, 
 #'@param meth
 #'@param data
 #'@return output of prediction
-selectDataMatAndPlot<-function(drugName,meth,data,doEnrich=FALSE){
+selectDataMatAndPlot<-function(drugName,method,data,genelist,doEnrich=FALSE){
+  print(data)
   #get dimensionality-reduced samples
   if(data%in%c('proteinLevels','mRNALevels','geneMutations') &&!is.null(pat.data))
     data.mat<-pat.data%>%dplyr::rename(value=data,Sample='AML sample')
@@ -60,14 +61,25 @@ selectDataMatAndPlot<-function(drugName,meth,data,doEnrich=FALSE){
     dplyr::select(-c(medAUC,percAUC,overallSurvival,ageAtDiagnosis))%>%
     dplyr::rename(Sample='AML sample')
 
-    clusterSingleDrugEfficacy(drugName,meth,data,doEnrich=doEnrich,auc.dat=auc.d,auc.thresh=100,
-                            reg.preds,data.mat)  
+  genes=getFeaturesFromString(genelist,data)
+
+    clusterSingleDrugEfficacy(drugName,method,data,doEnrich=doEnrich,
+                              auc.dat=auc.d,auc.thresh=100,
+                            genes,data.mat)  
 }
 
-
+  #reg.preds<<-reg.preds
   new.results<-reg.preds%>%subset(numFeatures>0)%>%subset(MSE<1500)%>%  
     mutate(method='LASSO',doEnrich=TRUE)%>%
-  rowwise()%>%mutate(enrich=list(selectDataMatAndPlot(var,method,Molecular,doEnrich)))
+    dplyr::rename(genelist='genes')%>%
+   rowwise()%>%
+    mutate(enrich=paste(selectDataMatAndPlot(var,method,Molecular,genelist,doEnrich)$Description,collapse=','))%>%
+    rowwise()%>%
+    mutate(features=paste(getFeaturesFromString(genelist),collapse=','))%>%
+    dplyr::select(Drug='var',MSE,features,dataType='Molecular',enrich)
+
+  
+  knitr::kable(new.results)
 ```
 
 ## best signatures for logistic resgression
@@ -75,9 +87,18 @@ selectDataMatAndPlot<-function(drugName,meth,data,doEnrich=FALSE){
 You can also embed plots, for example:
 
 ```{r logr preds, echo=FALSE, warning=FALSE}
- other.results<-logr.preds%>%subset(numFeatures>0)%>%subset(MSE<0.21)
-  mutate(doEnrich=TRUE)%>%
-  rowwise()%>%mutate(enrich=list(selectDataMatAndPlot(var,method,Molecular,doEnrich)))
+
+  other.results<-log.preds%>%subset(numFeatures>0)%>%subset(MSE<0.21)%>%  
+    mutate(method='LogisticRegression',doEnrich=TRUE)%>%
+    dplyr::rename(genelist='genes')%>%
+   rowwise()%>%
+   mutate(enrich=paste(selectDataMatAndPlot(var,method,Molecular,genelist,doEnrich)$Description,collapse=','))%>%
+    rowwise()%>%
+    mutate(features=paste(getFeaturesFromString(genelist),collapse=','))%>%
+    dplyr::select(Drug='var',MSE,features,dataType='Molecular',enrich)
+
+
+knitr::kable(other.results)
 
 ```
 

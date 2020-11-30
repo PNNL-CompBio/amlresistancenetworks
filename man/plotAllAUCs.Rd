@@ -5,7 +5,7 @@
 \title{plotall AUCS with clinical data
 what are we measuring here}
 \usage{
-plotAllAUCs(auc.data, to.plot = "percAUC")
+plotAllAUCs(auc.data, to.plot = "AUC")
 }
 \description{
 plotall AUCS with clinical data
