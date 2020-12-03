@@ -38,7 +38,7 @@ From the predictions we can select those results that have the _best_ response, 
 #'@param data
 #'@return output of prediction
 selectDataMatAndPlot<-function(drugName,method,data,genelist,doEnrich=FALSE){
-  print(data)
+ 
   #get dimensionality-reduced samples
   if(data%in%c('proteinLevels','mRNALevels','geneMutations') &&!is.null(pat.data))
     data.mat<-pat.data%>%dplyr::rename(value=data,Sample='AML sample')
@@ -75,8 +75,9 @@ selectDataMatAndPlot<-function(drugName,method,data,genelist,doEnrich=FALSE){
    rowwise()%>%
     mutate(enrich=paste(selectDataMatAndPlot(var,method,Molecular,genelist,doEnrich)$Description,collapse=','))%>%
     rowwise()%>%
-    mutate(features=paste(getFeaturesFromString(genelist),collapse=','))%>%
-    dplyr::select(Drug='var',MSE,features,dataType='Molecular',enrich)
+    mutate(features=paste(getFeaturesFromString(genelist,Molecular),collapse=','))%>%
+    dplyr::select(Drug='var',MSE,features,dataType='Molecular',enrich)%>%
+    arrange(MSE)
 
   
   knitr::kable(new.results)
@@ -88,17 +89,22 @@ You can also embed plots, for example:
 
 ```{r logr preds, echo=FALSE, warning=FALSE}
 
-  other.results<-log.preds%>%subset(numFeatures>0)%>%subset(MSE<0.21)%>%  
+  other.results<-log.preds%>%subset(numFeatures>2)%>%subset(MSE<0.21)%>%  
     mutate(method='LogisticRegression',doEnrich=TRUE)%>%
     dplyr::rename(genelist='genes')%>%
    rowwise()%>%
    mutate(enrich=paste(selectDataMatAndPlot(var,method,Molecular,genelist,doEnrich)$Description,collapse=','))%>%
     rowwise()%>%
-    mutate(features=paste(getFeaturesFromString(genelist),collapse=','))%>%
-    dplyr::select(Drug='var',MSE,features,dataType='Molecular',enrich)
+    mutate(features=paste(getFeaturesFromString(genelist,Molecular),collapse=','))%>%
+    dplyr::select(Drug='var',MSE,features,dataType='Molecular',enrich)%>%
+  arrange(MSE)
 
 
 knitr::kable(other.results)
+full.results<-rbind(mutate(new.results,Model='LASSO'),
+                    mutate(other.results,Model='Logistic'))
+
+write.csv(full.results,'table3_bestSigs.csv')
 
 ```
 

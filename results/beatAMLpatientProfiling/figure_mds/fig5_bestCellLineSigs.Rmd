@@ -1,0 +1,135 @@
+---
+title: "Figure 5 Best cell line signatures"
+author: "Sara Gosline"
+date: "12/1/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+library(amlresistancenetworks)
+
+if(!exists('dataLoaded')){
+  amlresistancenetworks::loadBeatAMLData()
+  dataLoaded=TRUE
+}
+
+##assumes figure 2 was already generated!!!!
+reg.preds<-readRDS('cellLinelassoRegPreds.rds')%>%
+  mutate(compound=as.character(compound),Molecular=as.character(Molecular))
+log.preds<-readRDS('cellLinelogRegPreds.rds')%>%
+  mutate(compound=as.character(compound),Molecular=as.character(Molecular))
+
+
+syn=synapseLogin()
+
+## get depmap
+cells<-syn$tableQuery('select distinct Sample from  syn23004114 where ( LogFoldChange<>0 AND transcriptCounts<>0)')$asDataFrame()$Sample
+
+cl.mol.dat<-syn$tableQuery('select * from syn23004114')$asDataFrame()%>%
+  subset(Sample%in%cells)%>%
+  dplyr::rename(mRNALevels='transcriptCounts',proteinLevels='LogFoldChange',
+                geneMutations='numMuts')%>%mutate(Sample=unlist(Sample),Gene=unlist(Gene))
+
+#create manual mapping from AML to cell Line
+drug.mapping <- syn$tableQuery('select * from syn23193914 where PTRC is not NULL')$asDataFrame()
+
+##now match the drugs between cl and tumors
+cl.auc.dat<-syn$tableQuery('select * from syn23004543')$asDataFrame()%>%
+  subset(Metric=='auc')%>%
+  subset(Condition%in%drug.mapping$drugName)%>%
+  mutate(drugName=unlist(Condition),Sample=unlist(Sample))%>%
+  left_join(drug.mapping,by=c('drugName','source'))%>%
+  dplyr::select(Sample,Condition='PTRC',Value,source)%>%
+  subset(Sample%in%cl.mol.dat$Sample)%>%
+  group_by(Sample,Condition,source)%>%summarize(Value=mean(Value))%>%ungroup()
+
+sanger.cl.auc<-cl.auc.dat%>%
+  subset(source=='Sanger')%>%
+  mutate(AUC=(Value*100+50))
+
+ctrp.cl.auc<-cl.auc.dat%>%
+  subset(source=='CTRP')%>%
+  mutate(AUC=Value*10)
+
+```
+
+## Best signatures from LASSO
+
+From the predictions we can select those results that have the _best_ response, and plot those below. 
+
+```{r plotting functions}
+#these functions just enable plotting on cell line data
+selectCellDataMatAndPlot<-function(compound,method,Molecular,
+                                   genelist, doEnrich, dataset){
+  
+  #print(paste(c(compound,method,Molecular)))
+  
+  dat.mat<-dplyr::rename(cl.mol.dat,value=Molecular)
+  if(dataset=='CTRP') 
+    c.auc.dat<- dplyr::select(ctrp.cl.auc,-c(Value,source))
+  else
+    c.auc.dat<- dplyr::select(sanger.cl.auc,-c(Value,source))
+  
+    
+  genes=getFeaturesFromString(genelist,Molecular)
+
+  clusterSingleDrugEfficacy(drugName=compound,
+                            meth=method,
+                            data=Molecular,
+                            doEnrich=doEnrich,
+                            auc.dat=c.auc.dat,
+                            auc.thresh=100,
+                            genes=genes,
+                            data.mat=dat.mat,
+                            prefix=dataset)  
+    
+
+}
+```
+
+Next we can compare the *best*-performing signatures on the cell line data.
+
+```{r lasso preds,warning=FALSE,echo=FALSE}
+  new.results<-reg.preds%>%subset(numFeatures>2)%>%subset(testMSE<1800)%>%  
+    mutate(method='LASSO',doEnrich=TRUE)%>%
+    dplyr::rename(genelist='genes')%>%
+   rowwise()%>%
+    mutate(enrich=paste(selectCellDataMatAndPlot(compound,method,Molecular,genelist,doEnrich,dataset)$Description,collapse=','))%>%
+    rowwise()%>%
+    mutate(features=paste(getFeaturesFromString(genelist,Molecular),collapse=','))%>%
+    dplyr::select(dataset,Drug='compound',testMSE,features,dataType='Molecular',enrich)%>%
+    arrange(testMSE)
+
+  
+  knitr::kable(new.results)
+```
+
+## best signatures for logistic regression
+
+Here we use another threshold, that of 0.3, to evaluate the best signatures using a logistic regression.
+
+```{r logr preds, echo=FALSE, warning=FALSE}
+
+  other.results<-log.preds%>%subset(numFeatures>2)%>%subset(testMSE<0.45)%>%  
+    mutate(method='LogisticRegression',doEnrich=TRUE)%>%
+    dplyr::rename(genelist='genes')%>%
+   rowwise()%>%
+   mutate(enrich=paste(selectCellDataMatAndPlot(compound,method,Molecular,genelist,doEnrich,dataset)$Description,collapse=','))%>%
+    rowwise()%>%
+    mutate(features=paste(getFeaturesFromString(genelist,Molecular),collapse=','))%>%
+    dplyr::select(dataset,Drug='compound',testMSE,features,dataType='Molecular',enrich)%>%
+  arrange(testMSE)
+
+
+knitr::kable(other.results)
+full.results<-rbind(mutate(new.results,Model='LASSO'),
+                    mutate(other.results,Model='Logistic'))
+
+write.csv(full.results,'table5_bestCellLineSigs.csv')
+
+```
+
+

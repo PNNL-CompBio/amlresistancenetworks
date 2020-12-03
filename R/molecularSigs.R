@@ -511,7 +511,6 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
                                     auc.dat=auc.dat,
                                     auc.thresh=100,
                                     genes,
-#                                    new.results=new.results,
                                     data.mat=NULL,
                                     prefix=''){
   
@@ -520,14 +519,12 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
   
   fname=paste0(prefix,gsub(' ','',drugName),'_',meth,'selected_',data,'preds.pdf')
   print(fname)
-  
 
   drug.dat<-subset(auc.dat,Condition==drugName)%>%
     mutate(sensitive=if_else(AUC<auc.thresh,'Sensitive','Resistant'))%>%
     dplyr::select(AUC,sensitive,Sample)%>%
     distinct()%>%
     tibble::column_to_rownames('Sample')
-
 
   pat.mat<-data.mat%>%select('Sample','Gene','value')%>%
     subset(Gene%in%genes)%>%
@@ -537,10 +534,13 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
                 values_fill =list(value=0.0),
                 values_fn=list(value=mean))%>%
     tibble::column_to_rownames('Gene')%>%as.matrix()
-  
-  zvals<-which(apply(pat.mat,2,var)==0)
-  if(length(zvals>0))
-    pat.mat<-pat.mat[,-zvals]
+
+  res=data.frame(ID='',Description='',pvalue=1.0,p.adjust=1.0) 
+  #zvals<-which(apply(pat.mat,2,var)==0)
+  #if(length(zvals>0))
+  #  pat.mat<-pat.mat[,-zvals]
+  if(nrow(pat.mat)<3)
+    return(res)
   #print(pat.mat)
   #cluster all selections
   if(data=='mRNALevels')
@@ -549,7 +549,7 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
   try(pheatmap::pheatmap(pat.mat,cellwidth = 10,cellheight=10,annotation_col = drug.dat,
                          clustering_distance_cols = 'euclidean',
                          clustering_method = 'ward.D2',filename=fname))
-  res=fname
+
   if(doEnrich && length(rownames(pat.mat))>2){
     if(data=='Phosphosite')
       res=doRegularKin(rownames(pat.mat))

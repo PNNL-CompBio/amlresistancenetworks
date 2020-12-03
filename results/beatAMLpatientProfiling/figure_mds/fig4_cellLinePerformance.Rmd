@@ -112,7 +112,7 @@ lreg.preds<-rbind(mutate(reg.preds,dataset='CTRP'),mutate(sang.reg.preds,dataset
     left_join(l.sum.tab)
   
   knitr::kable(sum.tab)
-  write.csv(sum.tab,file='table3_perf.csv')
+  write.csv(sum.tab,file='table4_cellLineperf.csv')
   
   ##save both predictions to file
 saveRDS(lreg.preds,'cellLinelassoRegPreds.rds')
@@ -128,13 +128,15 @@ saveRDS(logr.preds,'cellLinelogRegPreds.rds')
 
 library(ggplot2)
 
-p1<-logr.preds%>%
-  ggplot(aes(x=numFeatures,y=MSE,col=Molecular,shape=dataset))+geom_point()+scale_color_viridis_d()+
+p1<-logr.preds%>%subset(numFeatures>1)%>%
+  ggplot(aes(x=numFeatures,y=MSE,col=Molecular))+geom_point()+scale_color_viridis_d()+
+  facet_grid(~dataset)+
   ggtitle("Logistic Cell Line Regression Predictor Performance")
 print(p1)
 
-p2<-lreg.preds%>%
-  ggplot(aes(x=numFeatures,y=MSE,col=Molecular,shape=dataset))+geom_point()+scale_color_viridis_d()+
+p2<-lreg.preds%>%subset(numFeatures>1)%>%
+  ggplot(aes(x=numFeatures,y=MSE,col=Molecular))+geom_point()+scale_color_viridis_d()+
+  facet_grid(~dataset)+
   ggtitle("LASSO Cell Line Regression Predictor Performance")
 print(p2)
 
