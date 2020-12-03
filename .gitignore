@@ -8,4 +8,8 @@
 *.tsv
 *.gml
 *.tiff
-*.txt
+*.txt$
+*rds
+*html
+*pkl
+*cys
