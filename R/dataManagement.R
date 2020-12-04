@@ -65,29 +65,22 @@ readAndTidyQuizMetadata<-function(){
   fin<-res%>%
     tidyr::separate(col=`Sample Name`,into=c('tmpCellLine','Flask'),sep=', ')%>%
     dplyr::mutate(treatment='None')
-
-
-  pfin<-subset(fin,is.na(Flask))%>%
-    dplyr::select(Sample,treatment)%>%
-    dplyr::mutate(cellLine='MOLM14')
-
-  lig<-fin%>%
-    dplyr::select(Flask,tmpLigand='Ligand')%>%distinct()%>%
-    subset(!is.na(tmpLigand))%>%
+  
+  
+  ligs<-fin%>%select(Flask,Ligand)%>%
+    subset(!is.na(Ligand))%>%distinct()
+  
+    
+  pfin <- fin%>%
+    select(Sample,tmpCellLine,Flask)%>%
+    left_join(ligs)%>%
+    replace_na(list(Ligand='None'))%>%
+    select(-Flask)%>%
     rowwise()%>%
-    mutate(Ligand=stringr::str_replace(tmpLigand,'FLT3 ligand','FLT3'))%>%
-    dplyr::select(Flask,Ligand)
-
-
-  tnfin<-subset(fin,!is.na(Flask))%>%
-      dplyr::select(Sample,Flask)%>%
-      mutate(cellLine='MOLM14')%>%
-      left_join(lig,by='Flask')%>%
-    dplyr::select(Sample,cellLine,treatment='Ligand')%>%mutate(treatment='Quizartinib')
-
-  fin<-rbind(tnfin,pfin)
-
-  return(fin)
+    mutate(cellLine=stringr::str_replace(tmpCellLine,' Parental .+',''))%>%
+    select(-tmpCellLine)
+  
+    return(pfin)
 
 }
 
@@ -96,7 +89,6 @@ readAndTidyQuizMetadata<-function(){
 #' saves tidied data and returns
 #' @export
 #' @require dplyr
-#
 readAndTidyQuizProtMeasures<-function(){
   metadata<-readAndTidyQuizMetadata()
   syn=synapseLogin()
@@ -179,22 +171,6 @@ readAndTidyPhosphoProtMeasures<-function(){
 
   synTableStore(gilt.phospho.data,'Gilteritinib Resistance Phosphoproteomics Data')
   return(gilt.phospho.data)
-
-}
-
-#' reads and tidies protein measurements from quizartinib treatment
-#' joins with metadata
-#' saves tidied data and returns
-#' @export
-#' @require dplyr
-#' @require tidyr
-#
-readAndTidyQuizProtMeasures<-function(){
-  metadata<-readAndTidyQuizMetadata()
-  library(tidyr)
-  quiz.data<-tidyr::pivot_longer(dat,-c(Entry_name,Gene),"Sample")%>%
-      dplyr::left_join(metadata,by='Sample')
-  return(quiz.data)
 
 }
 

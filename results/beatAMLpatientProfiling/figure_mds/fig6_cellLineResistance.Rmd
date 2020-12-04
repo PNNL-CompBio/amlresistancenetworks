@@ -20,43 +20,73 @@ log.preds<-readRDS('logRegPreds.rds')%>%
 full.preds<-rbind(reg.preds,log.preds)%>%
   rowwise()
 
-spreadAndSelect<-function(df,genes,Molecular){
-  genelist<-getFeaturesFromString(genes,Molecular)
-  sdf<-
-  mat<-df%>%
-    select(Gene,LogRatio,sample)%>%
-    subset(Gene%in%genelist)%>%
-    tidyr::pivot_wider(values_from=LogRatio,namesFrom=sample)
-  
-}
 
 ```
 
 ## Cell Line resistance to drugs
 
-As AML cells become resistant to drugs they undergo genetic, transcriptomic and proteomic changes that give rise to drug resistance. We have cultured two cell lines in the presence of Trametinib and Quizartinib and can evaluate the patient-derived signatures in these cell lines. 
+As AML cells become resistant to drugs they undergo genetic, transcriptomic and proteomic changes that give rise to drug resistance. We have cultured two cell lines in the presence of Trametinib and Quizartinib and can evaluate the patient-derived signatures in these cell lines.
 
 
 
-```{r collect cell line data}
+```{r collect cell line data, echo=FALSE,warning=FALSE}
 tramProtData<-amlresistancenetworks::querySynapseTable('syn22986326')%>%subset(!is.nan(LogRatio))%>%
   mutate(Gene=unlist(Gene))%>%
-  mutate(Molecular='proteinlevels')
+  mutate(Molecular='proteinLevels')
  
 tramPhosData<-amlresistancenetworks::querySynapseTable('syn22986341')%>%subset(!is.nan(LogRatio))%>%
   mutate(Gene=unlist(Gene))%>%
   mutate(site=unlist(site))%>%
   mutate(Molecular='Phosphosite')
 
-full.prot<-tramPhosData%>%
-  select(Gene='site',LogRatio,sample,CellType,Molecular)%>%
-  rbind(select(tramProtData,c(Gene,LogRatio,sample,CellType,Molecular)))
-
-
-tram.preds<-subset(full.preds,var=="Trametinib (GSK1120212)")
+full.tram.prot<-tramPhosData%>%
+  select(Gene='site',LogRatio,sample,CellType,Molecular,Treatment)%>%
+  rbind(select(tramProtData,c(Gene,LogRatio,sample,CellType,Molecular,Treatment)))
 
 
 
+quizProtData<-amlresistancenetworks::querySynapseTable('syn23595222')%>%subset(!is.nan(value))%>%
+  mutate(Gene=unlist(Gene))%>%
+  mutate(Molecular='proteinLevels')
+ 
+quizPhosData<-amlresistancenetworks::querySynapseTable('syn23595223')%>%subset(!is.nan(value))%>%
+  mutate(Gene=unlist(Gene))%>%
+  mutate(site=unlist(site))%>%
+  mutate(Molecular='Phosphosite')
+
+full.quiz.prot<-quizPhosData%>%
+  select(Gene='site',LogRatio='value',sample='Sample',CellType='cellLine',Molecular,Treatment='Ligand')%>%
+  rbind(select(quizProtData,c(Gene,LogRatio='value',sample='Sample',CellType='cellLine',Molecular,Treatment='Ligand')))
+
+
+```
+
+```{r plotting code}
+#' spreadAndSelect
+#' General plotting function
+spreadAndSelect<-function(df,genes,mol, method,var){
+  library(pheatmap)
+  fname=paste0(method,'_preds_of_',var,'_with_',mol,'.pdf')
+  print(fname)
+  genelist<-getFeaturesFromString(genes,mol)
+  #print(genelist)
+  sdf<-subset(df,Molecular==mol)
+  print(sdf)
+  mat<-sdf%>%
+    select(Gene,LogRatio,sample)%>%
+    replace_na(list(LogRatio=0.0))%>%
+    subset(Gene%in%genelist)%>%
+    tidyr::pivot_wider(values_from=LogRatio,names_from=sample,
+                        values_fn=list(LogRatio=sum),values_fill=list(LogRatio=0.0))%>%
+    tibble::column_to_rownames('Gene')
+  print(dim(mat))
+  annotes<-sdf%>%
+    select(CellType,sample,Treatment)%>%distinct()%>%
+    tibble::column_to_rownames('sample')
+  print(annotes)
+  pheatmap(mat,annotation_col=annotes, cellheight=10,cell_width=10,filename=fname)
+  return(fname)
+}
 ```
 
 ## Trametinib Analysis
@@ -64,13 +94,23 @@ tram.preds<-subset(full.preds,var=="Trametinib (GSK1120212)")
 
 
 ```{r trametinib, echo=FALSE}
-plot(pressure)
+tram.preds<-subset(full.preds,var=="Trametinib (GSK1120212)")
+
+pred.plots<-tram.preds%>%subset(numFeatures>0)%>%
+  mutate(df=list(full.tram.prot))%>%
+  rename(mol=Molecular)%>%
+  mutate(plotfile=spreadAndSelect(df,genes,mol,method,var))
 ```
 
 
 ## Quizartinib Analysis
 
 ```{r quizartinib, echo=FALSE}
+quiz.preds<-subset(full.preds,var=="Quizartinib (AC220)")
+pred.plots<-quiz.preds%>%subset(numFeatures>0)%>%
+  mutate(df=list(full.quiz.prot))%>%
+  rename(mol=Molecular)%>%
+  mutate(plotfile=spreadAndSelect(df,genes,mol,method,var))
 
 ```
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

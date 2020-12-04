@@ -13,22 +13,16 @@ The individual project files are listed in the [./results/] directory. These are
 All data for this project is stored on [Synapse](http://synapse.org/ptrc). To gain access to the data you must request access until it is made available for publication.
 
 ### BEAT AML Proteogenomic Pilot project.
+This project is the primary driver of methods development, as it uses diverse omics measurements to ascertain the impact that proteomics can have in drug response prognosis.
 
 ### Cell Line Time Course Data
+Data collection underway.
 
 ### Elements of Early vs. Late Resistance
-
-### Single vs. Combination drugs
+This manuscript, by Joshi et al, has been submitted for publication.
 
 ### Effects of Cytokines on drug resistance
+This project led by the Agarwal lab is currently in process.
 
-## Package analyses
 
-Included in this package are general functions that can be applied to different projects. Can we link to properly formatted help files?
 
-### Drug Sensitivity Statistics
-### Drug signature detection
-### Dimensionality reduction approaches
-### General plotting functions
-### Synapse utilities
-### Post-hoc pathway enrichment
