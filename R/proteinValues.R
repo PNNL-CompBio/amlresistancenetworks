@@ -29,7 +29,7 @@ plotSingleProtein<-function(gene,df,prefix=''){
 #'limmaTwoFactorDEAnalysis
 #'uses Osama's code to compute de from limma
 #'@author Osama
-#'@import limma
+#'@import BiocManager
 #'@export
 #'@param data matrix
 #'@param group1 ids
@@ -48,7 +48,11 @@ limmaTwoFactorDEAnalysis <- function(dat, sampleIDs.group1, sampleIDs.group2) {
   #http://www.biostat.jhsph.edu/~kkammers/software/CVproteomics/R_guide.html
   #http://genomicsclass.github.io/book/pages/using_limma.html
   #https://wiki.bits.vib.be/index.php/Tutorial:_Testing_for_differential_expression_I
-  library(limma)
+  if(!require('limma')){
+    BiocManager::install('limma')
+    
+    library(limma)
+}
   fac <- factor(rep(c(2,1), c(length(sampleIDs.group2), length(sampleIDs.group1))))
   design <- model.matrix(~fac)
   fit <- lmFit(dat[,c(sampleIDs.group2, sampleIDs.group1)], design)

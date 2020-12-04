@@ -8,7 +8,7 @@ Depends:
 License: MIT
 LazyData: true
 RoxygenNote: 7.1.1
-Imports: clusterProfiler, cowplot, dplyr, ggplot2, ggridges,
-    glmnet, gridExtra, KSEAapp, leapr, limma, org.Hs.eg.db,
-    PCSF, pheatmap, purrr, randomForest, readr, readxl,
+Imports: cowplot, dplyr, ggplot2, ggridges,
+    glmnet, gridExtra, KSEAapp, BiocManager, devtools,
+    pheatmap, purrr, randomForest, readr, readxl,
     reticulate, stringr, tidyr, WebGestaltR

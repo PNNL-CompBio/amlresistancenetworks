@@ -1,12 +1,14 @@
 ##move network-related analyses here
 
 
-#' @import PCSF
+#' @import devtools
 #' @export
 #' 
 computeProteinNetwork<-function(all.vals,nrand=100){
-  require(PCSF)
-  
+  if(!require('PCSF')){
+    devtools::install_github('sgosline/PCSF')
+    require('PCSF')
+  }
   data("STRING")
   print(head(all.vals))
   ppi <- construct_interactome(STRING)

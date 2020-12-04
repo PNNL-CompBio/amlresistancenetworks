@@ -123,26 +123,25 @@ computeKSEA<-function(genes.with.values,ksea_FDR=0.05,prefix=''){
 
 #' Old plot using clusterProfiler
 #' @export 
-#' @import org.Hs.eg.db
-#' @import clusterProfiler
+#' @import BiocManager
+
 plotOldGSEA<-function(genes.with.values,prefix,gsea_FDR=0.05){
-  require(org.Hs.eg.db)
- # mapping<-as.data.frame(org.Hs.egALIAS2EG)%>%
-#    dplyr::rename(Gene='alias_symbol')
-  
-#  genes.with.values<-genes.with.values%>%
-#    dplyr::left_join(mapping,by='Gene')%>%
-#    arrange(desc(value))
+  if(!require('org.Hs.eg.db')){
+    BiocManager::install('org.Hs.eg.db')
+    require(org.Hs.eg.db)
+  }
+  if(!require('clusterProfiler')){
+    BiocManager::install('clusterProfiler')
+    require('clusterProfiler')
+  }
+
   genes.with.values<-arrange(genes.with.values,desc(value))
  # print(head(genes.with.values))
   genelist=genes.with.values$value
   names(genelist)=genes.with.values$Gene
   print(head(genelist))
   genelist<-sort(genelist,decreasing=TRUE)
-  # symbs<-names(genelist)[!is.na(genelist)]
-  # xx <- as.list(org.Hs.egALIAS2EG)
-  # ents<-unlist(sapply(intersect(names(xx),symbs), function(x) xx[[x]]))
-  # print(ents)
+
   
   gr<-clusterProfiler::gseGO(unlist(genelist),ont="BP",keyType="SYMBOL",
                              OrgDb=org.Hs.eg.db,pAdjustMethod = 'BH',pvalueCutoff = 0.5)#,eps=1e-10)
@@ -193,11 +192,19 @@ plotOldGSEA<-function(genes.with.values,prefix,gsea_FDR=0.05){
 }
 
 #'Runs regular bag of genes enrichment
-#'@exportre
-#'@import org.Hs.eg.db
-#'@import clusterProfiler
+#'@export
+#'@import BiocManager
 doRegularGo<-function(genes,bg=NULL){
-  require(org.Hs.eg.db)
+  if(!require('org.Hs.eg.db')){
+    BiocManager::install('org.Hs.eg.db')
+    require(org.Hs.eg.db)
+  }
+  if(!require('clusterProfiler')){
+    BiocManager::install('clusterProfiler')
+    require('clusterProfiler')
+  }
+
+
   #genes<-unique(as.character(genes.df$Gene))
   mapping<-as.data.frame(org.Hs.egALIAS2EG)%>%
     dplyr::rename(Gene='alias_symbol')
@@ -216,10 +223,14 @@ doRegularGo<-function(genes,bg=NULL){
 
 #'Runs regular bag of genes enrichment
 #'@export 
-#'@import leapr
-#'clusterProfiler
+#'@import devtools
+
 doRegularKin<-function(genes,bg=NULL){
-  require(leapr)
+  if(!require('leapr')){
+    devtools::install('biodataganache/leapr')
+    require('leapr')
+      }
+
   data('kinasesubstrates')
   all.subs<-unique(sapply(kinasesubstrates$matrix,unlist))
   
