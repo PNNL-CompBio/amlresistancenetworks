@@ -69,7 +69,7 @@ readAndTidyQuizMetadata<-function(){
 
   pfin<-subset(fin,is.na(Flask))%>%
     dplyr::select(Sample,treatment)%>%
-    dplyr::mutate(cellLine='MOLM14',Ligand='None')
+    dplyr::mutate(cellLine='MOLM14')
 
   lig<-fin%>%
     dplyr::select(Flask,tmpLigand='Ligand')%>%distinct()%>%
@@ -102,9 +102,11 @@ readAndTidyQuizProtMeasures<-function(){
   syn=synapseLogin()
   dat<-read.table(syn$get('syn22136310')$path,sep='\t',header=T)
   library(tidyr)
-  quiz.data<-tidyr::pivot_longer(dat,-c(Protein,Gene),"Sample")%>%
+  quiz.data<-tidyr::pivot_longer(dat,-c(Entry_name,Gene),"Sample")%>%
+    subset(Gene!="")%>%
     dplyr::left_join(metadata,by='Sample')%>%
-    mutate(value=tidyr::replace_na(value,0))
+    mutate(value=tidyr::replace_na(value,0))%>%
+    mutate(Gene=as.character(Gene))
 
   synTableStore(quiz.data,'Quizartinib Resistance Proteomics Data')
   
@@ -125,9 +127,11 @@ readAndTidyQuizPhosphoProtMeasures<-function(){
   dat<-read.table(syn$get('syn23407326')$path,sep='\t',header=T)
   library(tidyr)
   quiz.phospho.data<-dat%>%
-    tidyr::pivot_longer(-c(Protein,Gene,site,Peptide),"Sample")%>%
+    tidyr::pivot_longer(-c(Entry_name,Gene,site,Peptide),"Sample")%>%
     dplyr::left_join(metadata,by='Sample')%>%
-    mutate(value=tidyr::replace_na(value,0))
+    mutate(value=tidyr::replace_na(value,0))%>%
+    mutate(site=as.character(site))%>%
+    mutate(Gene=as.character(Gene))
   # subset(!is.na(value))
   
   synTableStore(quiz.phospho.data,'Quizartinib Resistance Phosphoproteomics Data')

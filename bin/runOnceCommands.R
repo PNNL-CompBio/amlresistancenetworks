@@ -2,6 +2,9 @@
 
 library(amlresistancenetworks)
 
+readAndTidyQuizProtMeasures()
+readAndTidyQuizPhosphoProtMeasures()
+
 ##this data is for the time course study
 getTimeCoursePhosphoData()
 getTimeCourseData()
@@ -26,3 +29,4 @@ getPatientMetadata()
 getPatientMolecularData()
 
 ##add in agarwal data
+ 

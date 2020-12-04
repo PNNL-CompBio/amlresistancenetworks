@@ -7,11 +7,28 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(amlresistancenetworks)
+library(dplyr)
 ##assumes figure 2 was already generated!!!!
 reg.preds<-readRDS('lassoRegPreds.rds')%>%
-  subset(var%in%c("Quizartinib (AC220)","Trametinib (GSK1120212)"))
+  subset(var%in%c("Quizartinib (AC220)","Trametinib (GSK1120212)"))%>%
+  subset(Molecular%in%c('proteinLevels','Phosphosite'))%>%mutate(method='LASSO')
 log.preds<-readRDS('logRegPreds.rds')%>%
-   subset(var%in%c("Quizartinib (AC220)","Trametinib (GSK1120212)"))
+   subset(var%in%c("Quizartinib (AC220)","Trametinib (GSK1120212)"))%>%
+    subset(Molecular%in%c('proteinLevels','Phosphosite'))%>%mutate(method='Logistic')
+
+full.preds<-rbind(reg.preds,log.preds)%>%
+  rowwise()
+
+spreadAndSelect<-function(df,genes,Molecular){
+  genelist<-getFeaturesFromString(genes,Molecular)
+  sdf<-
+  mat<-df%>%
+    select(Gene,LogRatio,sample)%>%
+    subset(Gene%in%genelist)%>%
+    tidyr::pivot_wider(values_from=LogRatio,namesFrom=sample)
+  
+}
 
 ```
 
@@ -22,12 +39,24 @@ As AML cells become resistant to drugs they undergo genetic, transcriptomic and 
 
 
 ```{r collect cell line data}
-tramProtData<-amlresistancenetworks::querySynapseTable('syn22217037')%>%subset(!is.nan(LogRatio))%>%
-  mutate(Gene=unlist(Gene))
-
-tramPhosData<-amlresistancenetworks::querySynapseTable('syn22217040')%>%subset(!is.nan(LogRatio))%>%
+tramProtData<-amlresistancenetworks::querySynapseTable('syn22986326')%>%subset(!is.nan(LogRatio))%>%
   mutate(Gene=unlist(Gene))%>%
-  mutate(site=unlist(site))
+  mutate(Molecular='proteinlevels')
+ 
+tramPhosData<-amlresistancenetworks::querySynapseTable('syn22986341')%>%subset(!is.nan(LogRatio))%>%
+  mutate(Gene=unlist(Gene))%>%
+  mutate(site=unlist(site))%>%
+  mutate(Molecular='Phosphosite')
+
+full.prot<-tramPhosData%>%
+  select(Gene='site',LogRatio,sample,CellType,Molecular)%>%
+  rbind(select(tramProtData,c(Gene,LogRatio,sample,CellType,Molecular)))
+
+
+tram.preds<-subset(full.preds,var=="Trametinib (GSK1120212)")
+
+
+
 ```
 
 ## Trametinib Analysis
