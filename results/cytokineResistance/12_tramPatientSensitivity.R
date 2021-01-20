@@ -25,6 +25,7 @@ otherPhosData<-querySynapseTable('syn22255396')%>%
   mutate(Condition=paste(treatment,timePoint,sep='_'))
 
 clinvars<-phosData%>%dplyr::select(Sample='sample',CellType,TimePoint,Treatment)%>%distinct()
+
 kindat<-mapPhosphoToKinase(dplyr::rename(phosData,Sample='sample', LogFoldChange='LogRatio'))
 
 protMat<-protData%>%dplyr::select(sample,Gene,LogRatio)%>%

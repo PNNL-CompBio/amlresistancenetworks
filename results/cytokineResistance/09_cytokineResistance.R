@@ -22,7 +22,10 @@ otherPhosData<-querySynapseTable('syn22255396')%>%
   mutate(Condition=paste(treatment,timePoint,sep='_'))
 
 
-clinvars<-phosData%>%dplyr::select(Sample='sample',CellType,TimePoint,Treatment)%>%distinct()
+clinvars<-phosData%>%
+  dplyr::select(Sample='sample',CellType,TimePoint,Treatment)%>%
+  distinct()
+
 kindat<-mapPhosphoToKinase(dplyr::rename(phosData,Sample='sample', LogFoldChange='LogRatio'))
 
 parental<-mapPhosphoToKinase(dplyr::rename(filter(phosData,CellType=='MOLM-13'),Sample='sample', LogFoldChange='LogRatio'))
@@ -30,8 +33,11 @@ parental<-mapPhosphoToKinase(dplyr::rename(filter(phosData,CellType=='MOLM-13'),
 
 
 ##what are we doing again?
-summary<-protData%>%dplyr::select(sample,CellType,TimePoint,Treatment)%>%distinct()%>%
+summary<-protData%>%
+  dplyr::select(sample,CellType,TimePoint,Treatment)%>%
+  distinct()%>%
   mutate(conditionName=stringr::str_c(CellType,TimePoint,Treatment,sep='_'))
+
 print(summary)
 
 
@@ -78,19 +84,32 @@ plotAllData<-function(dat.table){
 plotKinDat<-function(kindat,prefix='all'){
   library(pheatmap)
   ##create matrix of kinase scores
-  mat <-kindat%>%ungroup()%>%tidyr::pivot_wider(-c(meanNKINscore,numSubstr),
-                                                values_from=meanLFC,
+  mat <-kindat%>%
+    ungroup()%>%
+    tidyr::pivot_wider(-c(meanNKINscore,numSubstr),
+                                              values_from=meanLFC,
                                                 names_from=Sample,
                                                 values_fn=list(meanLFC=mean))%>%
     tibble::column_to_rownames('Kinase')
-  kinAts<-kindat%>%ungroup()%>%dplyr::select(Kinase,numSubstr)%>%distinct()%>%
-    group_by(Kinase)%>%summarize(substrates=mean(numSubstr))%>%
-  tibble::column_to_rownames('Kinase')
   
-  sampAts<-phosData%>%dplyr::select(sample,CellType,TimePoint,Treatment)%>%distinct()%>%tibble::column_to_rownames('sample')
+  kinAts<-kindat%>%
+    ungroup()%>%
+    dplyr::select(Kinase,numSubstr)%>%
+    distinct()%>%
+    group_by(Kinase)%>%
+    summarize(substrates=mean(numSubstr))%>%
+    tibble::column_to_rownames('Kinase')
+  
+  sampAts<-phosData%>%
+    dplyr::select(sample,CellType,TimePoint,Treatment)%>%
+    distinct()%>%
+    tibble::column_to_rownames('sample')
+  
   sampAts$TimePoint=as.factor(sampAts$TimePoint)
+  
   vars=names(sort(apply(mat,1,var),decreasing=T)[1:150])
- pheatmap(mat[vars,],cellwidth = 8,cellheight=8,clustering_distance_cols = 'correlation',
+ 
+  pheatmap(mat[vars,],cellwidth = 8,cellheight=8,clustering_distance_cols = 'correlation',
           clustering_distance_rows = 'correlation',
           annotation_row = kinAts,annotation_col=sampAts,
           file=paste0(prefix,'cytokineKinaseHeatmap.pdf'),height=20,width=8) 

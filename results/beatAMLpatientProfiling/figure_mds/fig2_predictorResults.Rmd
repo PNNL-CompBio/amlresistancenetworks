@@ -9,7 +9,8 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 
 library(amlresistancenetworks)
-
+library(wesanderson)
+pal<-wes_palette('Darjeeling1')
 if(!exists('dataLoaded')){
   amlresistancenetworks::loadBeatAMLData()
   dataLoaded=TRUE
@@ -18,7 +19,7 @@ if(!exists('dataLoaded')){
 
 ## Building of predictors
 
-Building the predictors - LASSO and Logistic regression. We build predictosr using the best performing models from leave-one-out cross validation. 
+Building the predictors - LASSO and Logistic regression. We build predictors using the best performing models from leave-one-out cross validation. 
 
 ```{r build predictors, echo=FALSE, warning=FALSE}
   print("Getting phospho preds")
@@ -31,15 +32,17 @@ Building the predictors - LASSO and Logistic regression. We build predictosr usi
   phospho.lr.results<-drugMolLogReg(auc.dat,substrate.dat,'Phosphosite')
   
   print('getting other preds')
-  logr.preds<-purrr::map_df(list(mRNA='mRNALevels',
-                                 protein='proteinLevels',
-                                     gene='geneMutations'),
+  logr.preds<-purrr::map_df(list(binGene='binaryMutations',
+                                  mRNA='mRNALevels',
+                                 protein='proteinLevels'),
+                                 #    gene='geneMutations'),                                
                             ~ drugMolLogReg(auc.dat,pat.data,.x,category='Condition'))%>%
     rbind(phospho.lr.results)
   
   reg.preds<-purrr::map_df(list(mRNA='mRNALevels',
                                 protein='proteinLevels',
-                                gene='geneMutations'),
+                               # gene='geneMutations',
+                                binGene='binaryMutations'),
                            ~ drugMolRegression(auc.dat,
                                                pat.data,                                
                                                .x,
@@ -47,12 +50,13 @@ Building the predictors - LASSO and Logistic regression. We build predictosr usi
     rbind(phospho.reg.results)
 
   ##now let's summarize how many predictors we have for each drug
-  l.sum.tab<-logr.preds%>%subset(numFeatures>1)%>%
-    group_by(Molecular)%>%summarize(LogisticRegPreds=n_distinct(var), logisticError=mean(MSE))
+  l.sum.tab<-logr.preds%>%subset(numFeatures>0)%>%
+    group_by(Molecular)%>%summarize(NumberModels=n_distinct(var),Error=mean(MSE),SamplesUsed=mean(numSamples,na.rm=T))%>%mutate(Type='Logistic')
   
-  sum.tab<-reg.preds%>%subset(numFeatures>1)%>%
-    group_by(Molecular)%>%summarize(LassoRegPreds=n_distinct(var),lassoError=mean(MSE))%>%
-    left_join(l.sum.tab)
+  sum.tab<-reg.preds%>%subset(numFeatures>0)%>%
+    group_by(Molecular)%>%
+    summarize(NumberModels=n_distinct(var),Error=mean(MSE), SamplesUsed=mean(numSamples,na.rm=T))%>%mutate(Type='LASSO')%>%
+    rbind(l.sum.tab)
   knitr::kable(sum.tab)
   write.csv(sum.tab,file='table2_perf.csv')
   
@@ -64,6 +68,20 @@ saveRDS(logr.preds,'logRegPreds.rds')
 
 Now we have predictive models for each of the four data types, though not all data types had enough for the LOO cross validation. 
 
+## Plot model summary
+```{r plot model performance}
+
+reg.preds<-sum.tab%>%subset(Type=='LASSO')%>%
+  dplyr::select(Molecular,NumberModels)%>%distinct()%>%
+  right_join(reg.preds)
+
+logr.preds<-sum.tab%>%subset(Type=='Logistic')%>%
+  dplyr::select(Molecular,NumberModels)%>%distinct()%>%
+  right_join(logr.preds)
+
+
+```
+
 ## Plot of overall performers
 
 
@@ -71,13 +89,23 @@ Now we have predictive models for each of the four data types, though not all da
 
 library(ggplot2)
 
-p1<-logr.preds%>%
-  ggplot(aes(x=numFeatures,y=MSE,col=Molecular))+geom_point()+scale_color_viridis_d()+
+p1<-logr.preds%>%subset(numFeatures>0)%>%
+ ggplot(aes(y=MSE,x=Molecular,fill=Molecular))+
+          geom_violin(aes(alpha=0.5))+
+          geom_jitter(aes(color=Molecular,size=numFeatures))+
+  scale_color_manual(values=pal)+
+  scale_fill_manual(values=pal)+
+    #scale_fill_viridis_d()+
+  #scale_color_viridis_d()+
   ggtitle("Logistic Regression Predictor Performance")
 print(p1)
 
-p2<-reg.preds%>%
-  ggplot(aes(x=numFeatures,y=MSE,col=Molecular))+geom_point()+scale_color_viridis_d()+
+p2<-reg.preds%>%subset(numFeatures>0)%>%
+ggplot(aes(y=MSE,x=Molecular,fill=Molecular))+
+          geom_violin(aes(alpha=0.5))+
+          geom_jitter(aes(color=Molecular,size=numFeatures))+
+  scale_color_manual(values=pal)+
+  scale_fill_manual(values=pal)+
   ggtitle("LASSO Regression Predictor Performance")
 print(p2)
 

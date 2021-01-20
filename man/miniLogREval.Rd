@@ -2,15 +2,19 @@
 % Please edit documentation in R/trainAndTestMolSigs.R
 \name{miniLogREval}
 \alias{miniLogREval}
-\title{miniDE
-Carries out differential expressiona nalysis using an AUC of 100}
+\title{miniLogReval: Assesses the performance of building a logistic regression model on one test of 
+data `trainTab` and assessing it on a second `testTab`}
 \usage{
 miniLogREval(trainTab, testTab, mol.feature)
 }
 \arguments{
+\item{trainTab}{- a tabular form of data with three columns}
+
+\item{testTab}{- a tabular form of data with three columns}
+
 \item{mol.features}{}
 }
 \description{
-miniDE
-Carries out differential expressiona nalysis using an AUC of 100
+miniLogReval: Assesses the performance of building a logistic regression model on one test of 
+data `trainTab` and assessing it on a second `testTab`
 }

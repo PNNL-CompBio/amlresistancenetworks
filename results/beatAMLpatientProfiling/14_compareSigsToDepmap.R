@@ -25,7 +25,7 @@ formatCTRPData<-function(){
   auc<-read.csv(syn$get('syn22989927')$path,sep='\t')%>%
     left_join(drugs,by='master_cpd_id')%>%
     left_join(mapping,by='experiment_id')
-  auc%>%subset(ccle_primary_hist=='haematopoietic_neoplasm')%>%
+  auc%>%#subset(ccle_primary_hist=='haematopoietic_neoplasm')%>%
     dplyr::select(Sample='ccl_name',Condition='cpd_name',auc='area_under_curve')%>%
     left_join(cell_line)%>%
     tidyr::pivot_longer(cols='auc',names_to='Metric',values_to='Value')
@@ -53,25 +53,27 @@ getStoreCellLineData<-function(){
   drugDat<-rbind(formatSangerData()%>%dplyr::mutate(source='Sanger'),
                  formatCTRPData()%>%dplyr::mutate(source='CTRP'))%>%
     tidyr::replace_na(list(age=0,Value=0))
-  library("depmap")
+ # library("depmap")
   library("ExperimentHub")
   eh <- ExperimentHub()
   
   #then get sdrug, gene, protein, x
-  sampdata<-eh[['EH3086']]%>%
-    subset(lineage=='leukemia')
+  sampdata<-eh[['EH3086']]#%>%
+    #subset(lineage=='leukemia')
   #moresamps<-eh[['EH2266']]
 #Taking the latest one for now
 #expr<-eh[['EH2264']]%>%
 #  subset(depmap_id%in%sampdata$depmap_id)
 #moreexpr<-eh[['EH2554']]%>%
 #  subset(depmap_id%in%sampdata$depmap_id)
-  
+  red.samp<-sampdata%>%
+    select(depmap_id,stripped_cell_line_name,lineage)%>%
+    distinct()
 evenmoreexp<-eh[['EH3084']]%>%
-  subset(depmap_id%in%sampdata$depmap_id)%>%
-  left_join(sampdata)%>%
+  subset(depmap_id%in%red.samp$depmap_id)%>%
+  left_join(red.samp)%>%
   dplyr::select(Gene='gene_name',transcriptCounts='expression',
-                fullsamp='stripped_cell_line_name')%>%
+                fullsamp='stripped_cell_line_name',lineage)%>%
   tidyr::separate(fullsamp,'_',into=c("Sample","rest"))%>%
   dplyr::select(-c(rest))
 
@@ -80,29 +82,37 @@ evenmoreexp<-eh[['EH3084']]%>%
 #moremuts<-eh[['EH2555']]%>%
 #  subset(depmap_id%in%sampdata$depmap_id)
 evenmoremuts<-eh[['EH3085']]%>%
-  subset(depmap_id%in%sampdata$depmap_id)%>%left_join(sampdata)%>%
-  dplyr::select(Gene='gene_name',Sample='stripped_cell_line_name',var_annotation)%>%
+  dplyr::filter(depmap_id%in%red.samp$depmap_id)%>%left_join(red.samp)%>%
+  dplyr::select(Gene='gene_name',Sample='stripped_cell_line_name',lineage,var_annotation)%>%
   group_by(Gene,Sample)%>%
   dplyr::mutate(numMuts=n())%>%dplyr::select(-var_annotation)
 
 
 #now the proteomics
 prots<-read.csv(syn$get('syn22975106')$path)
-hemcols<-colnames(prots)[grep('HAEMA',colnames(prots))]
+noncols<-c("Protein_Id",'Description','Group_ID','Uniprot','Uniprot_Acc','Gene_Symbol')
+pepcols<-colnames(prots)[grep('Peptides',colnames(prots))]
+allcols<-setdiff(colnames(prots),union(pepcols,noncols))
+#hemcols<-colnames(prots)#[grep('HAEMA',colnames(prots))]
 othercols<-c('Gene_Symbol')
-prot.data<-prots%>%dplyr::select(c(othercols,hemcols))%>%
-  tidyr::pivot_longer(cols=hemcols,values_to='LogFoldChange',names_to='fullsamp')%>%
+
+prot.data<-prots%>%dplyr::select(c(othercols,allcols))%>%
+  tidyr::pivot_longer(cols=allcols,values_to='LogFoldChange',names_to='fullsamp')%>%
   dplyr::rename(Gene='Gene_Symbol')%>%
   tidyr::separate(fullsamp,'_',into=c("Sample","rest"))%>%
   dplyr::select(-c(rest))
 
 
-all.mol<-full_join(evenmoremuts,evenmoreexp,by=c('Gene','Sample'))%>%
+all.mol<-full_join(evenmoremuts,evenmoreexp,by=c('Gene','Sample','lineage'))%>%
   full_join(prot.data,by=c("Gene","Sample"))%>%
   tidyr::replace_na(list(numMuts=0,LogFoldChange=0,transcriptCounts=0))
 #now we need to merge them into a single table and store them
-  synTableStore(all.mol,'Cell Line Molecular Data',parentId='syn22128879')
-  synTableStore(drugDat,'Cell Line Drug Data',parentId='syn22128879')
+breakpoint=15000000
+mol1<-all.mol[1:breakpoint,]
+mol2<-all.mol[breakpoint+1:nrow(all.mol),]
+synTableStore(mol1,'All Cell Line Molecular Data',parentId='syn22128879')
+synTableStore(mol2,'All Cell Line Molecular Data',parentId='syn22128879')
+#  synTableStore(drugDat,'Full Cell Line Drug Data',parentId='syn22128879')
 
 }
 
@@ -113,6 +123,46 @@ if(!exists('data.loaded')||!data.loaded){
   data.loaded=TRUE
 }
 syn=synapseLogin()
+
+
+selectDataMatAndPlotCTRP<-function(compound,method,Molecular){
+  print(paste(c(compound,method,Molecular)))
+  if(Molecular=='proteomicNetworkDistance')
+    dat.mat<-rename(cell.net.df,value=Molecular)
+  else
+    dat.mat<-rename(cl.mol.dat,value=Molecular)
+  amlresistancenetworks::clusterSingleDrugEfficacy(drugName=compound,
+                                    meth=method,
+                                      data=Molecular,
+                                      auc.dat=select(ctrp.cl.auc,-c(Value,source)),
+                                      auc.thresh=100,
+                                        new.results=rename(ctrp.full.res,var='compound'),
+                                      data.mat=dat.mat,
+                                    prefix='CTRP')
+
+}
+
+
+selectDataMatAndPlotSanger<-function(compound,method,Molecular){
+  print(paste(c(compound,method,Molecular)))
+  if(Molecular=='proteomicNetworkDistance')
+    dat.mat<-rename(cell.net.df,value=Molecular)
+  else
+    dat.mat<-rename(cl.mol.dat,value=Molecular)
+  
+  amlresistancenetworks::clusterSingleDrugEfficacy(drugName=compound,
+                                                   meth=method,
+                                                   data=Molecular,
+                                                   auc.dat=select(sanger.cl.auc,-c(Value,source)),
+                                                   auc.thresh=100,
+                                                   new.results=rename(sanger.full.res,var='compound'),
+                                                   data.mat=dat.mat,
+                                                   prefix='Sanger')
+  
+}
+
+
+runAnalysis<-function(){
 
 ## get depmap
 cells<-syn$tableQuery('select distinct Sample from  syn23004114 where ( LogFoldChange<>0 AND transcriptCounts<>0)')$asDataFrame()$Sample
@@ -153,9 +203,9 @@ full.sum<-mol.sum%>%full_join(drug.sum)
 
 cell.net <-querySynapseTable("syn23481350")
   filtered = cell.net%>% 
-    filter(net2_type=='community')%>%
-    filter(hyp1=='patients')%>%
-    filter(hyp2=='panCan')
+    dplyr::filter(net2_type=='community')%>%
+    dplyr::filter(hyp1=='patients')%>%
+    dplyr::filter(hyp2=='panCan')
 
 cell.net.df<<-filtered%>%
     select(Community='net2',distance,Sample='net1')%>%
@@ -195,31 +245,14 @@ log.reg.preds<-purrr::map_df(list(protein='proteinLevels',
                                                                          category='Condition'))%>%
   mutate(testMSE=unlist(testMSE)*10000)
 ##i think we have all the results now, we can join them
+
 ctrp.full.res<-rbind(mutate(log.reg.preds,method='LogisticRegression'), 
                 mutate(reg.preds,method='LassoRegression'),
                 mutate(pn.reg.results,method='LassoRegression'),
-                mutate(pn.lr.results,method='LogisticRegression'))%>%
+                mutate(pn.lr.results,method='LogisticRegression'))
 
-selectDataMatAndPlotCTRP<-function(compound,method,Molecular){
-  print(paste(c(compound,method,Molecular)))
-  if(Molecular=='proteomicNetworkDistance')
-    dat.mat<-rename(cell.net.df,value=Molecular)
-  else
-    dat.mat<-rename(cl.mol.dat,value=Molecular)
-  amlresistancenetworks::clusterSingleDrugEfficacy(drugName=compound,
-                                    meth=method,
-                                      data=Molecular,
-                                      auc.dat=select(ctrp.cl.auc,-c(Value,source)),
-                                      auc.thresh=100,
-                                        new.results=rename(ctrp.full.res,var='compound'),
-                                      data.mat=dat.mat,
-                                    prefix='CTRP')
 
-}
 
-ctrp.full.res%>%
-  subset(numFeatures>1)%>%
-  rowwise()%>%mutate(selectDataMatAndPlotCTRP(compound,method,Molecular))
 
 ##now do the same for Sanger
 ##now train model on AML and eval on depmap data
@@ -254,24 +287,16 @@ sanger.full.res<-rbind(mutate(log.reg.preds,method='LogisticRegression'),
                           mutate(pn.reg.results,method='LassoRegression'),
                 mutate(pn.lr.results,method='LogisticRegression'))%>%
   mutate(compound=as.character(compound),Molecular=as.character(Molecular))
-
-selectDataMatAndPlotSanger<-function(compound,method,Molecular){
-  print(paste(c(compound,method,Molecular)))
-  if(Molecular=='proteomicNetworkDistance')
-    dat.mat<-rename(cell.net.df,value=Molecular)
-  else
-    dat.mat<-rename(cl.mol.dat,value=Molecular)
-  
-  amlresistancenetworks::clusterSingleDrugEfficacy(drugName=compound,
-                                                   meth=method,
-                                                   data=Molecular,
-                                                   auc.dat=select(sanger.cl.auc,-c(Value,source)),
-                                                   auc.thresh=100,
-                                                   new.results=rename(sanger.full.res,var='compound'),
-                                                   data.mat=dat.mat,
-                                                   prefix='Sanger')
-  
 }
+
+
+
+plotAnalysis<-function(){
+  
+  
+ctrp.full.res%>%
+  subset(numFeatures>1)%>%
+  rowwise()%>%mutate(selectDataMatAndPlotCTRP(compound,method,Molecular))
 
 sanger.full.res%>%
   subset(numFeatures>1)%>%
@@ -296,4 +321,4 @@ ggsave('cellLinepredictorDotPlot.png',p2,width=10,height=10)
 p3<-ggplot(new.results,aes(x=method,y=testMSE,fill=Molecular))+geom_boxplot()+
   facet_grid(source~.)+scale_y_log10()+scale_color_viridis_d()
 ggsave('cellLinedataComparison.png',p3,width=10)
-
+}

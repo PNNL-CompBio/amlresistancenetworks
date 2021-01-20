@@ -10,7 +10,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 
 library(amlresistancenetworks)
-
+library(wesanderson)
+pal<-wes_palette("Darjeeling1")
 if(!exists('dataLoaded')){
   amlresistancenetworks::loadBeatAMLData()
   dataLoaded=TRUE
@@ -40,7 +41,7 @@ From the predictions we can select those results that have the _best_ response, 
 selectDataMatAndPlot<-function(drugName,method,data,genelist,doEnrich=FALSE){
  
   #get dimensionality-reduced samples
-  if(data%in%c('proteinLevels','mRNALevels','geneMutations') &&!is.null(pat.data))
+  if(data%in%c('proteinLevels','mRNALevels','geneMutations','binaryMutations') &&!is.null(pat.data))
     data.mat<-pat.data%>%dplyr::rename(value=data,Sample='AML sample')
   else if(data=='Latent Variable'&&!is.null(lv.df))
     data.mat<-lv.df%>%dplyr::rename(Gene='Latent_Variable',Sample='AML_sample',value='Loading')
@@ -62,8 +63,7 @@ selectDataMatAndPlot<-function(drugName,method,data,genelist,doEnrich=FALSE){
     dplyr::rename(Sample='AML sample')
 
   genes=getFeaturesFromString(genelist,data)
-
-    clusterSingleDrugEfficacy(drugName,method,data,doEnrich=doEnrich,
+  clusterSingleDrugEfficacy(drugName,method,data,doEnrich=doEnrich,
                               auc.dat=auc.d,auc.thresh=100,
                             genes,data.mat)  
 }
@@ -104,7 +104,7 @@ knitr::kable(other.results)
 full.results<-rbind(mutate(new.results,Model='LASSO'),
                     mutate(other.results,Model='Logistic'))
 
-write.csv(full.results,'table3_bestSigs.csv')
+write.csv(full.results,'supp_table3_bestSigs.csv')
 
 ```
 

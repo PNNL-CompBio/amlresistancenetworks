@@ -81,6 +81,7 @@ miniRegMod<-function(trainTab,mol.feature){
   names(yvar)<-tmp$`AML sample`
   yvar<-unlist(yvar[rownames(mat)])
   cv.res=cv.glmnet(x=mat,y=yvar,type.measure='mse')
+  
   best.res<-data.frame(lambda=cv.res$lambda,MSE=cv.res$cvm)%>%
     subset(MSE==min(MSE))
   
@@ -92,30 +93,34 @@ miniRegMod<-function(trainTab,mol.feature){
   
 }
 
-#' miniReg
-#' Runs lasso regression on a single feature from tabular data
-#' @param tab with column names `AML sample`,meanVal,Gene, and whatever the value of 'mol.feature' is.
+#' miniRegEval
+#' Runs lasso regression on a single feature from tabular data and evaluates on a second set of data.
+#' This is a little more complicated than LOO
+#' analysis because we have to check for shared feature names
+#' @param trainTab with column names `AML sample`,meanVal,Gene, and whatever the value of `mol.feature` is.
+#' @param testTab with column names `Sample`, meanVal, Gene, and whatever the value of `mol.feature` is
+#' @param mol.feature The molecular feature to be evaluated
 #' @export 
 #' @return a data.frame with three values/columns: MSE, numFeatures, and Genes
 miniRegEval<-function(trainTab,testTab,mol.feature){
   library(glmnet)
-  set.seed(1010101)
-  #first build our feature matrix
+  set.seed(10101)
+  
+  #first build our feature matrix and our test matrix
   mat<-buildFeatureMatrix(trainTab,mol.feature)
   tmat<-buildFeatureMatrix(testTab,mol.feature,'Sample')
+  
+  ##dummy output in case of failure
   ret.df<-data.frame(MSE=0,testMSE=0,resCor=0,numFeatures=0,genes='',numSamples=nrow(mat))
-  #print(mat)
+
   if(is.null(dim(mat)))
     return(ret.df)
-  
+  ##check for non-informative features
   cm<-apply(mat,1,mean)
   vm<-apply(mat,1,var)
   zvals<-union(which(cm==0),which(vm==0))
   if(length(zvals)>0)
     mat<-mat[-zvals,]
-  
-  print(paste("Found",length(zvals),'patients with no',
-              mol.feature,'data across',ncol(mat),'features'))
   
   zcols<-apply(mat,2,var)
   zvals<-which(zcols==0)
@@ -126,6 +131,9 @@ miniRegEval<-function(trainTab,testTab,mol.feature){
   if(ncol(mat)<5 || nrow(mat)<5)
     return(ret.df)
   
+  print(paste("Found",length(zvals),'patients with no',
+              mol.feature,'data across',ncol(mat),'features'))
+
   #now collect our y output variable for training
   tmp<-trainTab%>%
     dplyr::select(meanVal,`AML sample`)%>%
@@ -141,8 +149,9 @@ miniRegEval<-function(trainTab,testTab,mol.feature){
   tyvar<-ttmp$meanVal
   names(tyvar)<-ttmp$Sample
   tyvar<-unlist(tyvar[rownames(tmat)])
-  #use CV to get maximum AUC
   
+  
+  #use CV to get minimum MSE error
   cv.res=cv.glmnet(x=mat,y=yvar,type.measure='mse')
   best.res<-data.frame(lambda=cv.res$lambda,MSE=cv.res$cvm)%>%
     subset(MSE==min(MSE))
@@ -157,6 +166,8 @@ miniRegEval<-function(trainTab,testTab,mol.feature){
     print(paste(colnames(tmat)[1:10],collapse=';'))
     return(ret.df)
   }
+  
+  ##remove features that aren't shared
   tmat<-tmat[,shared]
   if(length(missing)>0){
     newmat<-matrix(nrow=nrow(tmat),ncol=length(missing),data=0)
@@ -164,21 +175,21 @@ miniRegEval<-function(trainTab,testTab,mol.feature){
     tmat<-cbind(tmat,newmat)
   }
    
-  #then select how many elements
+  #then build the full model
   full.res<-glmnet(x=mat,y=yvar,type.measure='mse')
   
+  ##these are the genes that minimize the MSE
   genes=NULL
   try(genes<-names(which(full.res$beta[,which(full.res$lambda==best.res$lambda)]!=0)))
 
   if(is.null(genes))
     return(ret.df)
-  
-  
-  genelist<-paste(genes,collapse=';')
+  genelist<-paste(genes,collapse=';')  
+
+  ## get the prediction onto the new matrix (to assess correlation)
   t.res<-predict(full.res,newx=tmat,s=best.res$lambda)
-  
-  head(t.res)
-  head(tyvar)
+
+  #use the assess function to get a new MSE
   res=assess.glmnet(full.res,newx=tmat,newy=tyvar,s=best.res$lambda)$mse
   
   res.cor=cor(t.res[,1],tyvar,method='spearman',use='pairwise.complete.obs')
@@ -231,31 +242,32 @@ drugMolLogRegEval<-function(clin.data,
   
 }
 
-#' miniDE
-#' Carries out differential expressiona nalysis using an AUC of 100
-#' @param tab
+#' miniLogReval: Assesses the performance of building a logistic regression model on one test of 
+#' data `trainTab` and assessing it on a second `testTab`
+#' @param trainTab - a tabular form of data with three columns
+#' @param testTab - a tabular form of data with three columns 
 #' @param mol.features
 #' 
 miniLogREval<-function(trainTab,testTab,mol.feature){
-#  irst build our feature matrix
+#  first build our feature matrix
   library(glmnet)
-  
+    set.seed(101010101)
+
  mat<-buildFeatureMatrix(trainTab,mol.feature)
  tmat<-buildFeatureMatrix(testTab,mol.feature,'Sample')
-  #print(mat)
+
+ #empty data frame
  ret.df<-data.frame(MSE=0,testMSE=0,resCor=0,numFeatures=0,genes='',numSamples=nrow(mat))
  
   if(is.null(dim(mat)))
     return(ret.df)
     
+ #remove uninformiatve features
   cm<-apply(mat,1,mean)
   vm<-apply(mat,1,var)
   zvals<-union(which(cm==0),which(vm==0))
   if(length(zvals)>0)
     mat<-mat[-zvals,]
-    
-  print(paste("Found",length(zvals),'patients with no',mol.feature,
-              'data across',ncol(mat),'features'))
   
   zcols<-apply(mat,2,var)
   zvals<-which(zcols==0)
@@ -265,8 +277,11 @@ miniLogREval<-function(trainTab,testTab,mol.feature){
     
    if(ncol(mat)<5 || nrow(mat)<5)
       return(ret.df)
-    
-    #now collect our y output variable
+   
+      
+  print(paste("Found",length(zvals),'patients with no',mol.feature,
+              'data across',ncol(mat),'features')) 
+    #now collect our y output variables
   tmp<-trainTab%>%
      dplyr::select(sensitive,`AML sample`)%>%
      distinct()
@@ -304,14 +319,12 @@ miniLogREval<-function(trainTab,testTab,mol.feature){
     tmat<-cbind(tmat,newmat)
   }
 
-  
-  #use CV to get maximum AUC
+  #use CV to get minimum MSE
   cv.res<-NULL
   try(cv.res<-cv.glmnet(x=mat,y=yvar,family='binomial',
                         type.measure='mse',nfolds=length(yvar)))
   if(is.null(cv.res))
     return(ret.df)
-  
   
   best.res<-data.frame(lambda=cv.res$lambda,MSE=cv.res$cvm)%>%
     subset(MSE==min(MSE))
@@ -327,8 +340,7 @@ miniLogREval<-function(trainTab,testTab,mol.feature){
 
   genelist<-paste(genes,collapse=';')
   t.res<-predict(full.res,newx=tmat,family='binomial',s=best.res$lambda)
-  #head(t.res)
-  #head(tyvar)
+
   res=0
   try(res<-assess.glmnet(full.res,newx=tmat,newy=tyvar,s=best.res$lambda)$mse)
   #res.cor=cor(t.res[,1],tyvar,method='spearman',use='pairwise.complete.obs')
@@ -336,8 +348,6 @@ miniLogREval<-function(trainTab,testTab,mol.feature){
   try(res.cor<-cor(t.res[,1],tyvar,method='spearman',use='pairwise.complete.obs'))
   print(paste(best.res$MSE,":",res,':',res.cor))
   
-  
-    #print(paste(best.res$MSE,":",genelist))
   return(data.frame(MSE=best.res$MSE,testMSE=res,resCor=res.cor,numFeatures=length(genes),genes=as.character(genelist),
                     numSamples=length(yvar)))
 }
@@ -363,8 +373,7 @@ combForestEval<-function(tab,feature.list=c('proteinLevels','mRNAlevels','geneMu
   yvar<-unlist(yvar[rownames(comb.mat)])
                
   rf<-randomForest(comb.mat,yvar)
-  # rf.pred<-predict(rf,mat)
-  # mse=mean((rf.pred-yvar)^2)
+
   return(data.frame(MSE=min(rf$mse),
                     numFeatures=length(which(rf$importance!=0)),
                     genes=paste(names(rf$importance)[which(rf$importance!=0)],collapse=';',),
@@ -381,13 +390,6 @@ combForestEval<-function(tab,feature.list=c('proteinLevels','mRNAlevels','geneMu
 combRegEval<-function(tab,feature.list=c('proteinLevels','mRNALevels','geneMutations')){
   
    comb.mat<-do.call('cbind',lapply(feature.list,function(x) buildFeatureMatrix(tab,x)))
-   
-   
-  # cm<-apply(comb.mat,1,mean)
-  # zvals<-which(cm==0)
-  # if(length(zvals)>0)
-  #   comb.mat<-comb.mat[-zvals,]
-   
    
   if(ncol(comb.mat)<5 || nrow(comb.mat)<5)
     return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=nrow(comb.mat)))

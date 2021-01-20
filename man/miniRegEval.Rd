@@ -2,18 +2,26 @@
 % Please edit documentation in R/trainAndTestMolSigs.R
 \name{miniRegEval}
 \alias{miniRegEval}
-\title{miniReg
-Runs lasso regression on a single feature from tabular data}
+\title{miniRegEval
+Runs lasso regression on a single feature from tabular data and evaluates on a second set of data.
+This is a little more complicated than LOO
+analysis because we have to check for shared feature names}
 \usage{
 miniRegEval(trainTab, testTab, mol.feature)
 }
 \arguments{
-\item{tab}{with column names `AML sample`,meanVal,Gene, and whatever the value of 'mol.feature' is.}
+\item{trainTab}{with column names `AML sample`,meanVal,Gene, and whatever the value of `mol.feature` is.}
+
+\item{testTab}{with column names `Sample`, meanVal, Gene, and whatever the value of `mol.feature` is}
+
+\item{mol.feature}{The molecular feature to be evaluated}
 }
 \value{
 a data.frame with three values/columns: MSE, numFeatures, and Genes
 }
 \description{
-miniReg
-Runs lasso regression on a single feature from tabular data
+miniRegEval
+Runs lasso regression on a single feature from tabular data and evaluates on a second set of data.
+This is a little more complicated than LOO
+analysis because we have to check for shared feature names
 }

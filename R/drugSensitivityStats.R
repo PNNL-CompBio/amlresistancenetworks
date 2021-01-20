@@ -38,30 +38,36 @@ plotProtsByMetric<-function(sens.data,genelist=c("BCL2","TRIM21","DUSP23"),
 #' @export
 plotAllAUCs<-function(auc.data,to.plot='AUC'){
 
-
-  p1<-auc.data%>%
+  library(wesanderson)
+  
+  pal<-wes_palette('Darjeeling1',length(unique(auc.data$Condition)),type='continuous')
+    p1<-auc.data%>%
     dplyr::select(`AML sample`,Condition,AUC)%>%distinct()%>%
     ggplot(aes(x=AUC,fill=Condition))+geom_histogram()+ theme(legend.position = "none")+
-    ggtitle("Distribution of raw AUC values by drug")
+    ggtitle("Distribution of raw AUC values by drug")+scale_fill_manual(values=pal)
   print(p1)
   ggsave('AUCdist.pdf',p1)
  # synapseStore('AUCdist.pdf','syn22130776')
   
-  library(pheatmap)
+    library(pheatmap)
   dat.summ<-pat.data%>%group_by(`AML sample`)%>%
       summarize(RNA=if_else(all(mRNALevels==0),FALSE,TRUE),
                proteins=if_else(all(proteinLevels==0),FALSE,TRUE),
                mutations=if_else(all(geneMutations==0),FALSE,TRUE))%>%
-    left_join(select(auc.data,c(`AML sample`,`FLT3-ITD`,`FLT3-MUT`,NPM1))%>%distinct())
+    mutate(phosphoSite=`AML sample`%in%pat.phos$Sample)%>%
+    left_join(select(auc.data,c(`AML sample`))%>%distinct())
   
-  
+  print(dat.summ)
   pat.vars<-auc.data%>%
-    dplyr::select(-c(Condition,percAUC,AUC,medAUC,`FLT3-ITD`,`FLT3-MUT`,NPM1))%>%
+    select(`AML sample`,overallSurvival)%>%
+  #  dplyr::select(-c(Condition,percAUC,AUC,medAUC))%>%
 #      `AML sample`,gender,ageAtDiagnosis,vitalStatus,overallSurvival)%>%
     distinct()%>%
     left_join(dat.summ)%>%
     tibble::column_to_rownames("AML sample")
   
+  annote.colors<-lapply(names(select(pat.vars,-overallSurvival)),function(x) c(`FALSE`='darkgrey',`TRUE`='white'))
+  names(annote.colors)<-setdiff(names(pat.vars),'overallSurvival')
 
   if('RNA'%in%names(pat.vars))
     pat.vars$RNA<-as.factor(pat.vars$RNA)
@@ -69,8 +75,8 @@ plotAllAUCs<-function(auc.data,to.plot='AUC'){
     pat.vars$mutations<-as.factor(pat.vars$mutations)
   if('proteins'%in%names(pat.vars))
     pat.vars$proteins<-as.factor(pat.vars$proteins)
-  if('phosphoSites'%in%names(pat.vars))
-    pat.vars$phosphoSites<-as.factor(pat.vars$phosphoSites)
+  if('phosphoSite'%in%names(pat.vars))
+    pat.vars$phosphoSite<-as.factor(pat.vars$phosphoSite)
   
   drug.vars<-auc.data%>%
     dplyr::select(Drug='Condition')%>%
@@ -90,9 +96,10 @@ plotAllAUCs<-function(auc.data,to.plot='AUC'){
     tibble::column_to_rownames('Drug')%>%
     as.matrix()
   pheatmap(auc.mat,annotation_col = pat.vars,clustering_distance_cols='correlation',
-           clustering_method='ward',cellwidth = 10,cellheight = 10) 
+           clustering_method='ward',cellwidth = 10,cellheight = 10, color=pal,annotation_colors=annote.colors) 
   pheatmap(auc.mat,annotation_col = pat.vars,clustering_distance_cols='correlation',
-           clustering_method='ward',filename = paste0(to.plot,'heatmap.pdf'),cellwidth = 10,cellheight = 10) 
+           clustering_method='ward',filename = paste0(to.plot,'heatmap.pdf'),cellwidth = 10,cellheight = 10,
+           color=pal,annotation_colors=annote.colors) 
  # synapseStore(paste0(to.plot,'heatmap.pdf'),'syn22130776')
   return(pat.vars)
 }

@@ -62,7 +62,7 @@ computeKSEA<-function(genes.with.values,ksea_FDR=0.05,prefix=''){
   
   #' * KSEA using not only the known substrates in PSP but also the predicted substrates in NetworKIN
   res<-KSEA.Complete(KSDB, inputdfforKSEA, NetworKIN=FALSE, NetworKIN.cutoff=5, m.cutoff=5, p.cutoff=ksea_FDR)
-  file.rename("KSEA Bar Plot.tiff",paste0(prefix,'_KSEABarPlot.tiff'))
+  file.remove("KSEA Bar Plot.tiff")#,paste0(prefix,'_KSEABarPlot.tiff'))
   subs <- read.csv("Kinase-Substrate Links.csv")
   #make own plot of KSEA results
   res_ksea <- readr::read_csv("KSEA Kinase Scores.csv")
@@ -92,7 +92,10 @@ computeKSEA<-function(genes.with.values,ksea_FDR=0.05,prefix=''){
   
   ##join results
   #kin_res
-  res_ksea<-res_ksea%>%rename(`aveSubstrateLog2FC`='log2FC')%>%left_join(subs,by='Kinase.Gene')
+  res_ksea<-res_ksea%>%
+    rename(`aveSubstrateLog2FC`='log2FC')%>%
+    left_join(subs,by='Kinase.Gene')
+  
   ggsave(paste0(prefix,"fig_KSEA.pdf"), plot_KSEA, height = 8.5, width = 11, units = "in")
   write.table(res_ksea,paste0(prefix,'_kseaRes.csv'),sep=',')
   return(res_ksea)
@@ -139,6 +142,7 @@ phosMat<-phosData%>%dplyr::select(sample,site,LogRatio)%>%
                      values_fn=list(LogRatio=mean),values_fill=list(LogRatio=0.0))%>%
   tibble::column_to_rownames('site')
 
+kindat<-mapPhosphoToKinase(dplyr::rename(phosData,LogFoldChange='LogRatio')%>%rename(Sample='sample'))
 
 ##
 #' @param dat.table
@@ -177,7 +181,7 @@ doAllKSEAplots<-function(condList,pdat=phosData){
       tibble::rownames_to_column('site')%>%
       left_join(gene.to.site)%>%
       dplyr::select(Gene,Peptide,residue,value='logFC',p_adj='adj.P.Val')%>%
-      computeKSEA(.,prefix=clName,0.05)%>%
+      amlresistancenetworks::computeKSEA(.,prefix=clName,0.05)%>%
       mutate(Condition=clName)%>%
       as.data.frame()
   })
@@ -190,73 +194,80 @@ doAllKSEAplots<-function(condList,pdat=phosData){
   cowplot::plot_grid(plotlist=plots,labels=c("Bulk Proteomics",'Phosphoprotomics'),nrow=2)
   ggsave('pcaOfSamples.png')
   
-  clinvars = c("sample","cellLine","treatment","ligand")
+
+    amlresistancenetworks::plotKinDat(kindat,phosData,
+                                    idcol='sample',prefix='giltResistance',
+                                    vars=c("sample","cellLine","ligand"))
+
+    clinvars = c("sample","cellLine","treatment","ligand")
   ##what are we doing again?
   summary<-protData%>%dplyr::select(clinvars)%>%distinct()%>%rowwise()%>%
     mutate(Condition=stringr::str_c(cellLine,treatment,ligand,sep='_'))
   print(summary)
   
-   earlyLateProt<-list(early_late_flt3 =limmaTwoFactorDEAnalysis(protMat,
+   plotKinDat(kindat,phosData,'giltResistance',idcol='sample',c('cellLine','treatment','ligand','sample'))
+  
+   earlyLateProt<-list(gilt_late_early_flt3 =limmaTwoFactorDEAnalysis(protMat,
                                                         filter(summary,Condition=='MOLM14_Early Gilteritinib_FLT3')$sample,
                                                         filter(summary,Condition=='MOLM14_Late Gilteritinib_FLT3')$sample),
-                      early_late_fgf=limmaTwoFactorDEAnalysis(protMat,
+                      gilt_late_early_fgf=limmaTwoFactorDEAnalysis(protMat,
                                                       filter(summary,Condition=='MOLM14_Early Gilteritinib_FGF2')$sample,
                                                       filter(summary,Condition=='MOLM14_Late Gilteritinib_FGF2')$sample),
-                      early_late_combined=limmaTwoFactorDEAnalysis(protMat,
+                      gilt_late_early_combined=limmaTwoFactorDEAnalysis(protMat,
                                                            filter(summary,Condition%in%c('MOLM14_Early Gilteritinib_FGF2','MOLM14_Early Gilteritinib_FLT3',
                                                                                          'MV411_Early Gilteritinib_FLT3','MV411_Early Gilteritinib_FGF2'))$sample,
                                                            filter(summary,Condition%in%c('MOLM14_Late Gilteritinib_FGF2','MOLM14_Late Gilteritinib_FLT3',
                                                                                          'MV411_Late Gilteritinib_FGF2','MV411_Late Gilteritinib_FLT3'))$sample))
   
   
-earlyLateMolmPhos<-list(early_flt3_molm14 =limmaTwoFactorDEAnalysis(phosMat,
+earlyLateMolmPhos<-list(gilt_early_flt3_molm14 =limmaTwoFactorDEAnalysis(phosMat,
                                                     filter(summary,Condition=='MOLM14_None_None')$sample,
                                                     filter(summary,Condition=='MOLM14_Early Gilteritinib_FLT3')$sample),
-                 early_fgf_molm14=limmaTwoFactorDEAnalysis(phosMat,
+                 gilt_early_fgf_molm14=limmaTwoFactorDEAnalysis(phosMat,
                                                   filter(summary,Condition=='MOLM14_None_None')$sample,
                                                   filter(summary,Condition=='MOLM14_Early Gilteritinib_FGF2')$sample),
-                 late_flt3_molm14=limmaTwoFactorDEAnalysis(phosMat,
+                 gilt_late_flt3_molm14=limmaTwoFactorDEAnalysis(phosMat,
                                                   filter(summary,Condition%in%c('MOLM14_None_None'))$sample,
                                                   filter(summary,Condition%in%c('MOLM14_Late Gilteritinib_FLT3'))$sample),
-                 late_fgf_molm14=limmaTwoFactorDEAnalysis(phosMat,
+                  gilt_late_fgf_molm14=limmaTwoFactorDEAnalysis(phosMat,
                                                     filter(summary,Condition%in%c('MOLM14_None_None'))$sample,
                                                     filter(summary,Condition%in%c('MOLM14_Late Gilteritinib_FGF2'))$sample),
-                early_vs_late_fgf_moml14=limmaTwoFactorDEAnalysis(phosMat,
+                 gilt_late_vs_early_fgf_moml14=limmaTwoFactorDEAnalysis(phosMat,
                                                                         filter(summary,Condition%in%c('MOLM14_Early Gilteritinib_FGF2'))$sample,
                                                                         filter(summary,Condition%in%c('MOLM14_Late Gilteritinib_FGF2'))$sample),
-                 early_vs_late_flt3_molm14=limmaTwoFactorDEAnalysis(phosMat,
+                  gilt_late_vs_early_flt3_molm14=limmaTwoFactorDEAnalysis(phosMat,
                                                                     filter(summary,Condition%in%c('MOLM14_Early Gilteritinib_FLT3'))$sample,
                                                                           filter(summary,Condition%in%c('MOLM14_Late Gilteritinib_FLT3'))$sample))
 
 
-earlyLateMv411Phos<-list(early_flt3_mv411 =limmaTwoFactorDEAnalysis(phosMat,
+earlyLateMv411Phos<-list( gilt_early_flt3_mv411 =limmaTwoFactorDEAnalysis(phosMat,
                                                              filter(summary,Condition=='MV411_None_None')$sample,
                                                              filter(summary,Condition=='MV411_Early Gilteritinib_FLT3')$sample),
-                        early_fgf_mv411=limmaTwoFactorDEAnalysis(phosMat,
+                         gilt_early_fgf_mv411=limmaTwoFactorDEAnalysis(phosMat,
                                                            filter(summary,Condition=='MV411_None_None')$sample,
                                                            filter(summary,Condition=='MV411_Early Gilteritinib_FGF2')$sample),
-                        late_flt3_mv411=limmaTwoFactorDEAnalysis(phosMat,
+                         gilt_late_flt3_mv411=limmaTwoFactorDEAnalysis(phosMat,
                                                            filter(summary,Condition%in%c('MV411_None_None'))$sample,
                                                            filter(summary,Condition%in%c('MV411_Late Gilteritinib_FLT3'))$sample),
-                        late_fgf_mv411=limmaTwoFactorDEAnalysis(phosMat,
+                         gilt_late_fgf_mv411=limmaTwoFactorDEAnalysis(phosMat,
                                                           filter(summary,Condition%in%c('MV411_None_None'))$sample,
                                                           filter(summary,Condition%in%c('MV411_Late Gilteritinib_FGF2'))$sample),
-                        early_vs_late_fgf_mv411=limmaTwoFactorDEAnalysis(phosMat,
+                         gilt_late_vs_early_fgf_mv411=limmaTwoFactorDEAnalysis(phosMat,
                                                                         filter(summary,Condition%in%c('MV411_Early Gilteritinib_FGF2'))$sample,
                                                                         filter(summary,Condition%in%c('MV411_Late Gilteritinib_FGF2'))$sample),
-                        early_vs_late_flt3_mv411=limmaTwoFactorDEAnalysis(phosMat,
+                         gilt_late_vs_early_flt3_mv411=limmaTwoFactorDEAnalysis(phosMat,
                                                                           filter(summary,Condition%in%c('MV411_Early Gilteritinib_FLT3'))$sample,
                                                                           filter(summary,Condition%in%c('MV411_Late Gilteritinib_FLT3'))$sample))
 
-earlyLateCombPhos<-list(early_vs_parental_comb =limmaTwoFactorDEAnalysis(phosMat,
+earlyLateCombPhos<-list( gilt_early_vs_parental_comb =limmaTwoFactorDEAnalysis(phosMat,
                                                               filter(summary,Condition%in%c("MV411_None_None","MOLM14_None_None"))$sample,
                                                               filter(summary,Condition%in%c('MOLM14_Early Gilteritinib_FLT3','MV411_Early Gilteritinib_FLT3',
                                                                                             'MOLM14_Early Gilteritinib_FGF2','MV411_Early Gilteritinib_FGF2'))$sample),
-                    late_vs_parental_comb=limmaTwoFactorDEAnalysis(phosMat,
+                     gilt_late_vs_parental_comb=limmaTwoFactorDEAnalysis(phosMat,
                                                             filter(summary,Condition%in%c("MV411_None_None","MOLM14_None_None"))$sample,
                                                             filter(summary,Condition%in%c('MOLM14_Late Gilteritinib_FLT3','MV411_Late Gilteritinib_FLT3',
                                                                                           'MOLM14_Late Gilteritinib_FGF2','MV411_Late Gilteritinib_FGF2'))$sample),
-                    early_vs_late_comb=limmaTwoFactorDEAnalysis(phosMat,
+                     gilt_late_vs_early_comb=limmaTwoFactorDEAnalysis(phosMat,
                                                filter(summary,Condition%in%c('MOLM14_Early Gilteritinib_FLT3','MV411_Early Gilteritinib_FLT3',
                                                                              'MOLM14_Early Gilteritinib_FGF2','MV411_Early Gilteritinib_FGF2'))$sample,
                                                filter(summary,Condition%in%c('MOLM14_Late Gilteritinib_FLT3','MV411_Late Gilteritinib_FLT3',
@@ -264,9 +275,18 @@ earlyLateCombPhos<-list(early_vs_parental_comb =limmaTwoFactorDEAnalysis(phosMat
 
 
   
-doAllKSEAplots(earlyLateCombPhos)
+ph2<-doAllKSEAplots(earlyLateCombPhos)
 
 ph3<-doAllKSEAplots(earlyLateMv411Phos)
 
-ph3<-doAllKSEAplots(earlyLateMolmPhos)
+ph4<-doAllKSEAplots(earlyLateMolmPhos)
 
+##plot single kinase/substrate expression of mapk3, mapk1, and mapk8
+p5<-kindat%>%
+  left_join(dplyr::rename(summary,Sample='sample'))%>%
+  subset(Kinase%in%c('NRAS','AURKB'))%>%
+  ggplot(aes(x=as.factor(ligand),y=meanLFC,fill=treatment))+
+  geom_boxplot()+
+  facet_grid(~Kinase)+scale_fill_viridis_d()+facet_grid(~cellLine)+
+  ggtitle("Estimated Kinase Activity")
+ggsave('estimatedGiltAurbActivity.png',p5,width=10)

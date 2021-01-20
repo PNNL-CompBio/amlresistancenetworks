@@ -45,8 +45,9 @@ loadBeatAMLMolecularData<-function(){
   orig.data<-orig.data%>%rename(proteinLevels='LogFoldChange')%>%
     rename(mRNALevels='transcriptCounts')%>%
     rename(geneMutations='Tumor VAF')%>%
-    mutate(Gene=unlist(Gene))
-
+    mutate(Gene=unlist(Gene))%>%rowwise()%>%
+    mutate(binaryMutations=ifelse(geneMutations==0,0,1))
+  
   pat.data<<-querySynapseTable("syn22314121")%>%
     subset(Treatment=='Vehicle')%>%
     subset(`Cell number`>=10000000)%>%
@@ -57,6 +58,7 @@ loadBeatAMLMolecularData<-function(){
     select(-LogFoldChange)%>%
     mutate(mRNALevels=tidyr::replace_na(mRNALevels,0))%>%
     mutate(geneMutations=tidyr::replace_na(geneMutations,0))%>%
+        mutate(binaryMutations=tidyr::replace_na(binaryMutations,0))%>%
  # mutate(countMetric=unlist(countMetric))%>%
    distinct()
   
@@ -201,5 +203,12 @@ loadBeatAMLData<-function(){
   loadBeatAMLMolecularData()
   loadBeatAMLClinicalDrugData()
   res<-plotAllPatients(auc.dat,pat.data,pat.phos)
+  
+  full.pats<<-res%>%
+    rowwise()%>%
+    mutate(fullData=(as.character(RNA)=="TRUE" && as.character(proteins)=="TRUE"
+                     && as.character(mutations)=="TRUE" && as.character(phosphoSites)=="TRUE"))%>%
+    subset(fullData==TRUE)%>%
+    select(`AML sample`)
   
 }

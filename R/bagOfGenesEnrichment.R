@@ -212,7 +212,7 @@ doRegularGo<-function(genes,bg=NULL){
   eg<-subset(mapping,Gene%in%genes)
   ret=data.frame(ID='',Description='',pvalue=1.0,p.adjust=1.0)
   
-  res<-clusterProfiler::enrichGO(eg$gene_id,'org.Hs.eg.db',keyType='ENTREZID',ont='BP')
+  try(res<-clusterProfiler::enrichGO(eg$gene_id,'org.Hs.eg.db',keyType='ENTREZID',ont='BP'))
     #sprint(res)
   ret<-as.data.frame(list(ID=NULL,Description=NULL,pvalue=NULL,p.adjust=NULL))
   try(ret<-as.data.frame(res)%>%dplyr::select(ID,Description,pvalue,p.adjust))
@@ -243,9 +243,9 @@ doRegularKin<-function(genes,bg=NULL){
     return(ret)
   
   dm[sgenes,]<-1
-  res = leapR(geneset=kinasesubstrates,
+  try(res <- leapR(geneset=kinasesubstrates,
               enrichment_method='enrichment_in_set',
-              datamatrix=sgenesd)
+              datamatrix=sgenesd))
 
 
   

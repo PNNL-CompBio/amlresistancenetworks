@@ -221,6 +221,13 @@ earlyLatePhos<-list(early_late_flt3 =limmaTwoFactorDEAnalysis(phosMat,
                  early_late_combined=limmaTwoFactorDEAnalysis(phosMat,
                                                   filter(summary,Condition%in%c('MOLM14_Early Gilteritinib_FGF2','MOLM14_Early Gilteritinib_FLT3'))$sample,
                                                   filter(summary,Condition%in%c('MOLM14_Late Gilteritinib_FGF2','MOLM14_Late Gilteritinib_FLT3'))$sample))
+earlyLateCombM13Phos<-list(early_both_m13_comb =limmaTwoFactorDEAnalysis(phosMat,
+                                                                  filter(summary,Condition%in%c("MOLM14_None_None"))$sample,
+                                                                  filter(summary,Condition%in%c('MOLM14_Early Gilteritinib_FLT3','MOLM14_Early Gilteritinib_FGF2'))$sample),
+                        late_both_m13_comb=limmaTwoFactorDEAnalysis(phosMat,
+                                                                filter(summary,Condition%in%c("MOLM14_None_None"))$sample,
+                                                                filter(summary,Condition%in%c('MOLM14_Late Gilteritinib_FLT3','MOLM14_Late Gilteritinib_FGF2'))$sample))
+#early_late_both_combined=limmaTwoFactorDEAnalysis(phosMat,
 
 earlyLateCombPhos<-list(early_both_comb =limmaTwoFactorDEAnalysis(phosMat,
                                                               filter(summary,Condition%in%c("MV411_None_None","MOLM14_None_None"))$sample,
@@ -240,8 +247,11 @@ doAllKSEAplots(earlyLateCombPhos)
 p3<-plotConditionsInFlow(earlyLatePhos,title='Early Late Phos',0.05)
 ggsave('earlyLatePhos.png',p3,width=11,height=6)
 ph3<-doAllKSEAplots(earlyLatePhos)
-nets<-ph3%>%mutate(Condition=stringr::str_c(Condition,'_phos'))%>%
-  runNetworksFromDF()
+#nets<-ph3%>%mutate(Condition=stringr::str_c(Condition,'_phos'))%>%
+#xs  runNetworksFromDF()
+
+ph5<-doAllKSEAplots(earlyLateCombM13Phos)
+
 
 p4<-plotConditionsInFlow(earlyLateProt,title='Early Late Prot',0.05)
 ggsave('earlyLateProt.png',p4,width=11,height=6)
@@ -249,9 +259,9 @@ ph4<-doAllGOplots(ph3)
 
 resdf<-do.call(rbind,lapply(names(earlyLateProt),function(x) data.frame(earlyLateProt[[x]],Condition=x)))
 
-pnets<-resdf%>%mutate(Condition=stringr::str_c(Condition,'_prot'))%>%
-  dplyr::rename(p.value='adj.P.Val')%>%
-  runNetworksFromDF(.,gene.col='featureID',weight.col='logFC',condition.col='Condition',extra.col=c('AveExpr','t','B','P.Value'),signif=0.01)
+#pnets<-resdf%>%mutate(Condition=stringr::str_c(Condition,'_prot'))%>%
+#  dplyr::rename(p.value='adj.P.Val')%>%
+#  runNetworksFromDF(.,gene.col='featureID',weight.col='logFC',condition.col='Condition',extra.col=c('AveExpr','t','B','P.Value'),signif=0.01)
 
 
 #mcp1Resistnetworks<-runNetworksFromDF(ph3)

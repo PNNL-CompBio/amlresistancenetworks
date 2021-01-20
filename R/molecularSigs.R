@@ -133,20 +133,20 @@ drugMolLogReg<-function(clin.data,
 miniLogR<-function(tab,mol.feature){
 #  irst build our feature matrix
   library(glmnet)
-  
+  set.seed(10101)
+
  mat<-buildFeatureMatrix(tab,mol.feature)
   #print(mat)
   if(is.null(dim(mat)))
     return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=0))
-    
+  
+ ##remove uninformative features, make sure we have enough at the end of it (at least 5)  
   cm<-apply(mat,1,mean)
   vm<-apply(mat,1,var)
   zvals<-union(which(cm==0),which(vm==0))
   if(length(zvals)>0)
     mat<-mat[-zvals,]
     
-  print(paste("Found",length(zvals),'patients with no',mol.feature,'data across',ncol(mat),'features'))
-  
   zcols<-apply(mat,2,var)
   zvals<-which(zcols==0)
    #sprint(zvals)
@@ -155,17 +155,19 @@ miniLogR<-function(tab,mol.feature){
     
    if(ncol(mat)<5 || nrow(mat)<5)
       return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=nrow(mat)))
-    
-    #now collect our y output variable
+  
+  print(paste("Found",length(zvals),'patients with no',mol.feature,'data across',ncol(mat),'features'))    
+
+  #now collect our y output variable - AUC
   tmp<-tab%>%
      dplyr::select(sensitive,`AML sample`)%>%
      distinct()
   yvar<-tmp$sensitive
-  #print(yvar)
+
   names(yvar)<-tmp$`AML sample`
   yvar<-unlist(yvar[rownames(mat)])
   
-  #use CV to get maximum AUC
+  #use CV to get minimum error
   cv.res<-NULL
   try(cv.res<-cv.glmnet(x=mat,y=yvar,family='binomial',
                         type.measure='mse',nfolds=length(yvar)))
@@ -178,12 +180,13 @@ miniLogR<-function(tab,mol.feature){
   
   #then select how many elements
   full.res<-NULL
-  try(  full.res<-glmnet(x=mat,y=yvar,family='binomial',type.measure='mse'))
+  try(full.res<-glmnet(x=mat,y=yvar,family='binomial',type.measure='mse'))
   if(is.null(full.res))
     return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=nrow(mat)))
+  
   genes=names(which(full.res$beta[,which(full.res$lambda==best.res$lambda)]!=0))
   genelist<-paste(genes,collapse=';')
-  #print(paste(best.res$MSE,":",genelist))
+
   return(data.frame(MSE=best.res$MSE,numFeatures=length(genes),genes=genelist,
                     numSamples=length(yvar)))
 }
@@ -346,20 +349,22 @@ miniForest<-function(tab,mol.feature,quant=0.995){
 #' @return a data.frame with three values/columns: MSE, numFeatures, and Genes
 miniReg<-function(tab,mol.feature){
   library(glmnet)
-  
+#  set.seed(1010101)
+  set.seed(101010101)
+
   #first build our feature matrix
  mat<-buildFeatureMatrix(tab,mol.feature)
  #print(mat)
  if(is.null(dim(mat)))
    return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=0))
  
+ ##remove uninformative values that can mess up regression
  cm<-apply(mat,1,mean)
  vm<-apply(mat,1,var)
  zvals<-union(which(cm==0),which(vm==0))
  if(length(zvals)>0)
    mat<-mat[-zvals,]
  
- print(paste("Found",length(zvals),'patients with no',mol.feature,'data across',ncol(mat),'features'))
  
  zcols<-apply(mat,2,var)
  zvals<-which(zcols==0)
@@ -367,10 +372,14 @@ miniReg<-function(tab,mol.feature){
  if(length(zvals)>0)
    mat<-mat[,-zvals]
  
+  ##let's assume we have 5 values shared!!!
   if(ncol(mat)<5 || nrow(mat)<5)
       return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=nrow(mat)))
+ 
+  print(paste("Found",length(zvals),'patients with no',mol.feature,'data across',ncol(mat),'features'))
 
-  #now collect our y output variable
+  
+  #now collect our y output variable - AUC
   tmp<-tab%>%
      dplyr::select(meanVal,`AML sample`)%>%
       distinct()
@@ -378,7 +387,7 @@ miniReg<-function(tab,mol.feature){
   names(yvar)<-tmp$`AML sample`
   yvar<-unlist(yvar[rownames(mat)])
   
-  #use CV to get maximum AUC
+  #use CV to get minimum error
   cv.res=cv.glmnet(x=mat,y=yvar,type.measure='mse')
   best.res<-data.frame(lambda=cv.res$lambda,MSE=cv.res$cvm)%>%
     subset(MSE==min(MSE))
@@ -516,13 +525,15 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
   
   ##get gene,transcript, protein predictor
   library(pheatmap)
+  library(wesanderson)
+  pal<-wes_palette('Darjeeling1',100,type='continuous')
   
   fname=paste0(prefix,gsub(' ','',drugName),'_',meth,'selected_',data,'preds.pdf')
   print(fname)
 
   drug.dat<-subset(auc.dat,Condition==drugName)%>%
-    mutate(sensitive=if_else(AUC<auc.thresh,'Sensitive','Resistant'))%>%
-    dplyr::select(AUC,sensitive,Sample)%>%
+    mutate(SampleResponse=if_else(AUC<auc.thresh,'Sensitive','Resistant'))%>%
+    dplyr::select(AUC,SampleResponse,Sample)%>%
     distinct()%>%
     tibble::column_to_rownames('Sample')
 
@@ -535,6 +546,10 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
                 values_fn=list(value=mean))%>%
     tibble::column_to_rownames('Gene')%>%as.matrix()
 
+  annote.colors<-list(SampleResponse=c(Sensitive='darkgrey',Resistant='white'))
+ # names(annote.colors)<-setdiff(names(pat.vars),'overallSurvival')
+
+  
   res=data.frame(ID='',Description='',pvalue=1.0,p.adjust=1.0) 
   #zvals<-which(apply(pat.mat,2,var)==0)
   #if(length(zvals>0))
@@ -547,7 +562,7 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
     pat.mat<-log10(pat.mat+0.01)
   
   try(pheatmap::pheatmap(pat.mat,cellwidth = 10,cellheight=10,annotation_col = drug.dat,
-                         clustering_distance_cols = 'euclidean',
+                         clustering_distance_cols = 'euclidean', color=pal,annotation_colors=annote.colors,
                          clustering_method = 'ward.D2',filename=fname))
 
   if(doEnrich && length(rownames(pat.mat))>2){

@@ -28,16 +28,27 @@ syn=synapseLogin()
 ## get depmap
 cells<-syn$tableQuery('select distinct Sample from  syn23004114 where ( LogFoldChange<>0 AND transcriptCounts<>0)')$asDataFrame()$Sample
 
+all.cells<-syn$tableQuery('select distinct Sample from syn23674921 where ( LogFoldChange<>0 AND transcriptCounts<>0)')$asDataFrame()$Sample
+
+#cl.mol.dat<-syn$tableQuery('select * from syn23674921')$asDataFrame()%>%
+  #syn23004114')$asDataFrame()%>%
+#  subset(Sample%in%all.cells)%>%
+#
 cl.mol.dat<-syn$tableQuery('select * from syn23004114')$asDataFrame()%>%
   subset(Sample%in%cells)%>%
   dplyr::rename(mRNALevels='transcriptCounts',proteinLevels='LogFoldChange',
-                geneMutations='numMuts')%>%mutate(Sample=unlist(Sample),Gene=unlist(Gene))
+                geneMutations='numMuts')%>%
+  mutate(Sample=unlist(Sample),Gene=unlist(Gene))%>%
+    rowwise()%>%
+  mutate(binaryMutations=ifelse(geneMutations==0,0,1))%>%
+        mutate(binaryMutations=tidyr::replace_na(binaryMutations,0))
+
 
 #create manual mapping from AML to cell Line
 drug.mapping <- syn$tableQuery('select * from syn23193914 where PTRC is not NULL')$asDataFrame()
 
 ##now match the drugs between cl and tumors
-cl.auc.dat<-syn$tableQuery('select * from syn23004543')$asDataFrame()%>%
+cl.auc.dat<-syn$tableQuery('select * from syn23680639')$asDataFrame()%>%
   subset(Metric=='auc')%>%
   subset(Condition%in%drug.mapping$drugName)%>%
   mutate(drugName=unlist(Condition),Sample=unlist(Sample))%>%
@@ -93,7 +104,8 @@ selectCellDataMatAndPlot<-function(compound,method,Molecular,
 Next we can compare the *best*-performing signatures on the cell line data.
 
 ```{r lasso preds,warning=FALSE,echo=FALSE}
-  new.results<-reg.preds%>%subset(numFeatures>2)%>%subset(testMSE<1800)%>%  
+  new.results<-reg.preds%>%
+  subset(testMSE<1800)%>%  
     mutate(method='LASSO',doEnrich=TRUE)%>%
     dplyr::rename(genelist='genes')%>%
    rowwise()%>%
@@ -103,8 +115,8 @@ Next we can compare the *best*-performing signatures on the cell line data.
     dplyr::select(dataset,Drug='compound',testMSE,features,dataType='Molecular',enrich)%>%
     arrange(testMSE)
 
-  
-  knitr::kable(new.results)
+
+ knitr::kable(new.results)
 ```
 
 ## best signatures for logistic regression
@@ -132,4 +144,38 @@ write.csv(full.results,'table5_bestCellLineSigs.csv')
 
 ```
 
+Now just look at just Trametinib and Quizartinib
+
+Moving forward we want to see which results are most robust, so turn to the cell line data
+```{r lasso results}
+ lasso.results<-reg.preds%>%subset(numFeatures>2)%>%
+  subset(compound%in%c('Trametinib (GSK1120212)','Quizartinib (AC220)'))%>%
+  #subset(testMSE<1800)%>%  
+    mutate(method='LASSO',doEnrich=TRUE)%>%
+    dplyr::rename(genelist='genes')%>%
+   rowwise()%>%
+    mutate(enrich=paste(selectCellDataMatAndPlot(compound,method,Molecular,genelist,doEnrich,dataset)$Description,collapse=','))%>%
+    rowwise()%>%
+    mutate(features=paste(getFeaturesFromString(genelist,Molecular),collapse=','))%>%
+    dplyr::select(dataset,Drug='compound',testMSE,features,dataType='Molecular',enrich)%>%
+    arrange(testMSE)
+
+  knitr::kable(lasso.results)
+```
+LASSO results are not great, maybe logistic is better. 
+```{r logistic results}
+ log.results<-log.preds%>%subset(numFeatures>2)%>%
+  subset(compound%in%c('Trametinib (GSK1120212)','Quizartinib (AC220)'))%>%
+  #subset(testMSE<1800)%>%  
+    mutate(method='Logistic',doEnrich=TRUE)%>%
+    dplyr::rename(genelist='genes')%>%
+   rowwise()%>%
+    mutate(enrich=paste(selectCellDataMatAndPlot(compound,method,Molecular,genelist,doEnrich,dataset)$Description,collapse=','))%>%
+    rowwise()%>%
+    mutate(features=paste(getFeaturesFromString(genelist,Molecular),collapse=','))%>%
+    dplyr::select(dataset,Drug='compound',testMSE,features,dataType='Molecular',enrich)%>%
+    arrange(testMSE)
+
+  knitr::kable(log.results)
+```
 

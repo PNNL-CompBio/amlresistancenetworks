@@ -1,0 +1,104 @@
+---
+title: "Figure 2 Predictor Summary"
+author: "Sara Gosline"
+date: "11/13/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(amlresistancenetworks)
+library(wesanderson)
+pal<-wes_palette('Darjeeling1')
+if(!exists('dataLoaded')){
+  amlresistancenetworks::loadBeatAMLData()
+  dataLoaded=TRUE
+}
+
+red.auc<-auc.dat%>%subset(`AML sample`%in%full.pats$`AML sample`)
+red.pat<-pat.data%>%subset(`AML sample`%in%full.pats$`AML sample`)
+red.phos<-pat.phos%>%subset(Sample%in%full.pats$`AML sample`)
+
+```
+
+## Building of square
+
+Building the predictors - LASSO and Logistic regression. We build predictosr using the best performing models from leave-one-out cross validation. 
+
+```{r build predictors, echo=FALSE, warning=FALSE}
+  print("Getting phospho preds")
+  
+  substrate.dat<-red.phos%>%
+    dplyr::select(`AML sample`='Sample',Gene='site',Phosphosite='LogFoldChange')
+
+  phospho.reg.results<-drugMolRegression(red.auc,substrate.dat,'Phosphosite')
+
+  phospho.lr.results<-drugMolLogReg(red.auc,substrate.dat,'Phosphosite')
+  
+  print('getting other preds')
+  logr.preds<-purrr::map_df(list(mRNA='mRNALevels',
+                                 protein='proteinLevels',
+                                     #gene='geneMutations',
+                               binGene='binaryMutations'),
+                            ~ drugMolLogReg(red.auc,red.pat,.x,category='Condition'))%>%
+    rbind(phospho.lr.results)
+  
+  reg.preds<-purrr::map_df(list(mRNA='mRNALevels',
+                                protein='proteinLevels',
+                              #  gene='geneMutations',
+                               binGene='binaryMutations'),
+                           ~ drugMolRegression(red.auc,
+                                               red.pat,                                
+                                               .x,
+                                               category='Condition'))%>%
+    rbind(phospho.reg.results)
+
+  ##now let's summarize how many predictors we have for each drug
+ l.sum.tab<-logr.preds%>%subset(numFeatures>1)%>%
+    group_by(Molecular)%>%summarize(LogisticRegPreds=n_distinct(var), logisticError=mean(MSE),logisticSamples=mean(numSamples,na.rm=T))
+  
+  sum.tab<-reg.preds%>%subset(numFeatures>1)%>%
+    group_by(Molecular)%>%summarize(LassoRegPreds=n_distinct(var),lassoError=mean(MSE), lassoSamples=mean(numSamples,na.rm=T))%>%
+    left_join(l.sum.tab)
+  knitr::kable(sum.tab)
+  write.csv(sum.tab,file='supp_table2_perf.csv')
+  
+  ##save both predictions to file
+saveRDS(reg.preds,'reducedLassoRegPreds.rds')
+saveRDS(logr.preds,'reducedLogRegPreds.rds')
+    
+```
+
+Now we have predictive models for each of the four data types, though not all data types had enough for the LOO cross validation. 
+
+## Plot of overall performers
+
+
+```{r best performers, echo=FALSE, warning=FALSE}
+
+library(ggplot2)
+
+p1<-logr.preds%>%subset(numFeatures>0)%>%
+ ggplot(aes(y=MSE,x=Molecular,fill=Molecular))+
+          geom_violin(aes(alpha=0.5))+
+          geom_jitter(aes(color=Molecular,size=numFeatures))+
+  scale_color_manual(values=pal)+
+  scale_fill_manual(values=pal)+
+    ggtitle("Logistic Regression Predictor Performance")
+print(p1)
+
+p2<-reg.preds%>%subset(numFeatures>0)%>%
+ ggplot(aes(y=MSE,x=Molecular,fill=Molecular))+
+          geom_violin(aes(alpha=0.5))+
+          geom_jitter(aes(color=Molecular,size=numFeatures))+
+  scale_color_manual(values=pal)+
+  scale_fill_manual(values=pal)+
+    ggtitle("LASSO Regression Predictor Performance")
+print(p2)
+
+ggsave('suppFig2a_logistic.pdf',p1)
+ggsave('suppFig2b_lasso.pdf',p2)
+```
+
+

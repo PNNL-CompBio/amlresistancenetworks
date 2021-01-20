@@ -266,3 +266,44 @@ mapPhosphoToKinase<-function(pat.phos){
     rename(Kinase='GENE')
   return(pat.kin.scores)
 }
+
+#'plotKinDat
+#'@param kindat - output of `mapPhospoToKinase`
+#'@param phosData - tidied phospho data
+#'@param prefix - string for file
+#'@param idcol- name of sample identifier
+#'@param vars - sample-specific 
+#'@export
+#'@import pheatmap
+plotKinDat<-function(kindat,phosData=phosData,prefix='all',
+                     idcol='Sample',vars=c('Sample','cellLine','Ligand')){
+  library(pheatmap)
+  ##create matrix of kinase scores
+  mat <-kindat%>%
+    ungroup()%>%
+    tidyr::pivot_wider(-c(meanNKINscore,numSubstr),
+                                                values_from=meanLFC,
+                                                names_from=Sample,
+                                                values_fn=list(meanLFC=mean))%>%
+    tibble::column_to_rownames('Kinase')
+  kinAts<-kindat%>%
+    ungroup()%>%
+    dplyr::select(Kinase,numSubstr)%>%
+    distinct()%>%
+    group_by(Kinase)%>%
+    summarize(substrates=mean(numSubstr))%>%
+  tibble::column_to_rownames('Kinase')
+  
+  sampAts<-phosData%>%
+    dplyr::select(vars)%>%
+    distinct()%>%
+    tibble::column_to_rownames(idcol)
+  #sampAts$TimePoint=as.factor(sampAts$TimePoint)
+  vars=names(sort(apply(mat,1,var),decreasing=T)[1:200])
+ pheatmap(mat[vars,],cellwidth = 8,cellheight=8,clustering_distance_cols = 'correlation',
+          clustering_distance_rows = 'correlation',
+          annotation_row = kinAts,annotation_col=sampAts,
+          file=paste0(prefix,'KinaseHeatmap.pdf'),height=25,width=8) 
+}
+
+

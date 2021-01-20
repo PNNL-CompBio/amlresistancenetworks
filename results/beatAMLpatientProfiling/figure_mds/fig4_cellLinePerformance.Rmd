@@ -10,27 +10,37 @@ knitr::opts_chunk$set(echo = TRUE)
 
 
 library(amlresistancenetworks)
-
+library(wesanderson)
 if(!exists('dataLoaded')){
   amlresistancenetworks::loadBeatAMLData()
   dataLoaded=TRUE
 }
 
+
+pal<-wes_palette('Darjeeling1')
 syn=synapseLogin()
 
 ## get depmap
 cells<-syn$tableQuery('select distinct Sample from  syn23004114 where ( LogFoldChange<>0 AND transcriptCounts<>0)')$asDataFrame()$Sample
+all.cells<-syn$tableQuery('select distinct Sample from syn23674921 where ( LogFoldChange<>0 AND transcriptCounts<>0)')$asDataFrame()$Sample
 
+#cl.mol.dat<-syn$tableQuery('select * from syn23674921')$asDataFrame()%>%
 cl.mol.dat<-syn$tableQuery('select * from syn23004114')$asDataFrame()%>%
+# subset(Sample%in%all.cells)%>%
   subset(Sample%in%cells)%>%
-  dplyr::rename(mRNALevels='transcriptCounts',proteinLevels='LogFoldChange',
-                geneMutations='numMuts')%>%mutate(Sample=unlist(Sample),Gene=unlist(Gene))
+  dplyr::rename(mRNALevels='transcriptCounts',proteinLevels='LogFoldChange')%>%
+  mutate(geneMutations=numMuts/max(numMuts))%>%
+  mutate(Sample=unlist(Sample),Gene=unlist(Gene))%>%
+  rowwise()%>%
+  mutate(binaryMutations=ifelse(numMuts==0,0,1))%>%
+        mutate(binaryMutations=tidyr::replace_na(binaryMutations,0))
+
 
 #create manual mapping from AML to cell Line
 drug.mapping <- syn$tableQuery('select * from syn23193914 where PTRC is not NULL')$asDataFrame()
 
 ##now match the drugs between cl and tumors
-cl.auc.dat<-syn$tableQuery('select * from syn23004543')$asDataFrame()%>%
+cl.auc.dat<-syn$tableQuery('select * from syn23680639')$asDataFrame()%>%
   subset(Metric=='auc')%>%
   subset(Condition%in%drug.mapping$drugName)%>%
   mutate(drugName=unlist(Condition),Sample=unlist(Sample))%>%
@@ -47,7 +57,19 @@ ctrp.cl.auc<-cl.auc.dat%>%
   subset(source=='CTRP')%>%
   mutate(AUC=Value*10)
 
+#res<-cl.mol.dat%>%group_by(Sample)%>%
+#  summarize(proteins=any(proteinLevels>0),RNA=any(mRNALevels>0),mutations=any(geneMutations>0))
 
+  full.drg<-cl.auc.dat%>%
+      select(Sample,Drug='Condition',source)%>%
+    distinct()%>%
+    group_by(Drug,source)%>%
+    summarize(`Cell Lines`=n_distinct(Sample))%>%
+  pivot_wider(names_from=source,values_from=`Cell Lines`,values_fill=list(`Cell Lines`=0))
+
+              
+  knitr::kable(full.drg)
+  write.csv(full.drg,'table4.csv')
 ```
 
 ## Rebuild new signatures using all data 
@@ -59,7 +81,8 @@ Just to be sure we are getting the most out of the patient data we can then buil
 ##now train model on AML and eval on depmap data
 reg.preds<-purrr::map_df(list(mRNA='mRNALevels',
                               protein='proteinLevels',
-                              gene='geneMutations'),
+                            #  gene='geneMutations',
+                               binGene='binaryMutations'),
                          ~ drugMolRegressionEval(auc.dat,
                                                  pat.data,
                                                  .x,
@@ -70,7 +93,8 @@ reg.preds<-purrr::map_df(list(mRNA='mRNALevels',
 
 log.reg.preds<-purrr::map_df(list(protein='proteinLevels',
                                   mRNA='mRNALevels',
-                              gene='geneMutations'),
+                           #   gene='geneMutations',
+                              binGene='binaryMutations'),
                              ~ drugMolLogRegEval(auc.dat,
                                                 pat.data,
                                                 .x,
@@ -82,7 +106,8 @@ log.reg.preds<-purrr::map_df(list(protein='proteinLevels',
 ##now train model on AML and eval on depmap data
 sang.reg.preds<-purrr::map_df(list(mRNA='mRNALevels',
                               protein='proteinLevels',
-                              gene='geneMutations'),
+                         #     gene='geneMutations',
+                               binGene='binaryMutations'),
                               ~ drugMolRegressionEval(auc.dat,
                                 pat.data,
                                 .x,
@@ -92,7 +117,8 @@ sang.reg.preds<-purrr::map_df(list(mRNA='mRNALevels',
 
 sang.log.reg.preds<-purrr::map_df(list(protein='proteinLevels',
                                   mRNA='mRNALevels',
-                                  gene='geneMutations'),
+                         #         gene='geneMutations',
+                               binGene='binaryMutations'),
                                   ~drugMolLogRegEval(auc.dat,
                                                     pat.data,
                                                     .x,
@@ -100,19 +126,23 @@ sang.log.reg.preds<-purrr::map_df(list(protein='proteinLevels',
                                                     cl.mol.dat,
                                                     category='Condition'))
 
-logr.preds<-rbind(mutate(log.reg.preds,dataset='CTRP'),mutate(sang.log.reg.preds,dataset='Sanger'))
-lreg.preds<-rbind(mutate(reg.preds,dataset='CTRP'),mutate(sang.reg.preds,dataset='Sanger'))
+logr.preds<-rbind(mutate(log.reg.preds,dataset='CTRP'),
+                  mutate(sang.log.reg.preds,dataset='Sanger'))
+lreg.preds<-rbind(mutate(reg.preds,dataset='CTRP'),
+                  mutate(sang.reg.preds,dataset='Sanger'))
 
   ##now let's summarize how many predictors we have for each drug
   l.sum.tab<-logr.preds%>%subset(numFeatures>1)%>%
-    group_by(Molecular,dataset)%>%summarize(LogisticRegPreds=n_distinct(compound), logisticError=mean(MSE))
+    group_by(Molecular,dataset)%>%
+    summarize(LogisticRegPreds=n_distinct(compound), logisticError=mean(MSE))
   
   sum.tab<-lreg.preds%>%subset(numFeatures>1)%>%
-    group_by(Molecular,dataset)%>%summarize(LassoRegPreds=n_distinct(compound),lassoError=mean(MSE))%>%
+    group_by(Molecular,dataset)%>%
+    summarize(LassoRegPreds=n_distinct(compound),lassoError=mean(MSE))%>%
     left_join(l.sum.tab)
   
   knitr::kable(sum.tab)
-  write.csv(sum.tab,file='table4_cellLineperf.csv')
+  write.csv(sum.tab,file='table5_cellLineperf.csv')
   
   ##save both predictions to file
 saveRDS(lreg.preds,'cellLinelassoRegPreds.rds')
@@ -128,14 +158,25 @@ saveRDS(logr.preds,'cellLinelogRegPreds.rds')
 
 library(ggplot2)
 
-p1<-logr.preds%>%subset(numFeatures>1)%>%
-  ggplot(aes(x=numFeatures,y=MSE,col=Molecular))+geom_point()+scale_color_viridis_d()+
+  
+p1<-logr.preds%>%subset(numFeatures>0)%>%
+  ggplot(aes(y=MSE,x=Molecular,fill=Molecular))+
+          geom_violin(aes(alpha=0.8))+
+          geom_jitter(aes(color=Molecular,size=numFeatures))+
+  scale_color_manual(values=pal)+
+scale_fill_manual(values=pal)+
+  #  scale_fill_viridis_d()+
+  #scale_color_viridis_d()+
   facet_grid(~dataset)+
   ggtitle("Logistic Cell Line Regression Predictor Performance")
 print(p1)
 
-p2<-lreg.preds%>%subset(numFeatures>1)%>%
-  ggplot(aes(x=numFeatures,y=MSE,col=Molecular))+geom_point()+scale_color_viridis_d()+
+p2<-lreg.preds%>%subset(numFeatures>0)%>%
+  ggplot(aes(y=MSE,x=Molecular,fill=Molecular))+
+          geom_violin(aes(alpha=0.5))+
+          geom_jitter(aes(color=Molecular,size=numFeatures))+
+  scale_color_manual(values=pal)+
+scale_fill_manual(values=pal)+
   facet_grid(~dataset)+
   ggtitle("LASSO Cell Line Regression Predictor Performance")
 print(p2)
