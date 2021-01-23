@@ -292,6 +292,7 @@ plotKinDat<-function(kindat,phosData=phosData,prefix='all',
     distinct()%>%
     group_by(Kinase)%>%
     summarize(substrates=mean(numSubstr))%>%
+    tibble::remove_rownames()%>%
   tibble::column_to_rownames('Kinase')
   
   sampAts<-phosData%>%
