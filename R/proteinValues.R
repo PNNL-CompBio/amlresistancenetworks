@@ -298,6 +298,7 @@ plotKinDat<-function(kindat,phosData=phosData,prefix='all',
   sampAts<-phosData%>%
     dplyr::select(vars)%>%
     distinct()%>%
+    tibble::remove_rownames()%>%
     tibble::column_to_rownames(idcol)
   #sampAts$TimePoint=as.factor(sampAts$TimePoint)
   vars=names(sort(apply(mat,1,var),decreasing=T)[1:200])
