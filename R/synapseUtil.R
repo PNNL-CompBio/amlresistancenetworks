@@ -74,7 +74,6 @@ synTableUpdate<-function(tab,synid){
   fpath=write.table(tab,file='tmp.csv',sep=',',row.names = FALSE,quote=FALSE)
   ntab = synapse$Table(synid,'tmp.csv')
   
-  
   syn=synapse$login()
   rows = syn$tableQuery(paste("select * from",synid))
   syn$delete(rows)

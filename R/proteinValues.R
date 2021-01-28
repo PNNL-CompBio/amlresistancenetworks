@@ -273,10 +273,12 @@ mapPhosphoToKinase<-function(pat.phos){
 #'@param prefix - string for file
 #'@param idcol- name of sample identifier
 #'@param vars - sample-specific 
+#'@param genelist - select genes to plot
 #'@export
 #'@import pheatmap
 plotKinDat<-function(kindat,phosData=phosData,prefix='all',
-                     idcol='Sample',vars=c('Sample','cellLine','Ligand')){
+                     idcol='Sample',vars=c('Sample','cellLine','Ligand'),
+                     genelist=c()){
   library(pheatmap)
   ##create matrix of kinase scores
   mat <-kindat%>%

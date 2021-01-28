@@ -9,7 +9,8 @@ plotKinDat(
   phosData = phosData,
   prefix = "all",
   idcol = "Sample",
-  vars = c("Sample", "cellLine", "Ligand")
+  vars = c("Sample", "cellLine", "Ligand"),
+  genelist = c()
 )
 }
 \arguments{
@@ -20,6 +21,8 @@ plotKinDat(
 \item{prefix}{- string for file}
 
 \item{vars}{- sample-specific}
+
+\item{genelist}{- select genes to plot}
 
 \item{idcol-}{name of sample identifier}
 }
