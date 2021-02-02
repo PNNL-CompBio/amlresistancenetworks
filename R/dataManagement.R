@@ -221,7 +221,7 @@ readAndTidySensProtMeasure<-function(){
 #' reads and tidies experiment 11 metadata
 #' @require dplyr
 #' @require readxl
-#'
+#' @export
 readAndTidySensMetadata<-function(){
   syn=synapseLogin()
   samp.names<-readxl::read_xlsx(syn$get('syn22130839')$path)%>%
