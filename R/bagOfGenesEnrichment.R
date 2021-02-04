@@ -271,11 +271,12 @@ doRegularKin<-function(genes,bg=NULL){
   try(res <- leapR(geneset=kslist,
               enrichment_method='enrichment_in_sets',targets=sgenes))
 
-  print(head(res))
+  #print(head(res))
   #print(res)
   
   ret<-as.data.frame(res)%>%
     tibble::rownames_to_column('Kinase')%>%
+    subset(ingroup_n>0)%>%
     dplyr::select(ID='Kinase',NumSubs='ingroup_n',pvalue,p.adjust='BH_pvalue')%>%rowwise()%>%
     mutate(Description=paste0(ID,': ',NumSubs,' targets'))%>%
     select(-NumSubs)

@@ -4,8 +4,15 @@
 
 #' computePhosphoNetwork
 #' maps kinase activity to proteins in a sum
+#' @param phos.vals named list of phosphosite values
+#' @param prot.vals named list of protein values
+#' @param nrand number of randomizations
+#' @param beta beta value
+#' @param fname
 #' @import devtools
-computePhosphoNetwork<-function(all.vals,nrand=100){
+#' @export
+computePhosphoNetwork<-function(phos.vals=c(),prot.vals=c(),nrand=100,beta=2,fname){
+  
     #read kinase substrate database stored in data folder
   KSDB <- read.csv(system.file('PSP&NetworKIN_Kinase_Substrate_Dataset_July2016.csv',
                                package='amlresistancenetworks'),stringsAsFactors = FALSE)
@@ -13,21 +20,27 @@ computePhosphoNetwork<-function(all.vals,nrand=100){
     rowwise()%>%
     mutate(subval=paste(SUB_GENE,SUB_MOD_RSD,sep='-'))
   
-
-  ##now we need to fix the gene list, since it's not going to match    
-  sgenes<-data.frame(genes=genes)%>%
-    separate(genes, into=c('gene','mod'),sep='-')%>%
-    mutate(modlist=strsplit(mod,split='s|t|y'))%>%
-    apply(1,function(x) paste(x$gene,x$modlist,sep='-'))%>%
-    unlist()%>%unique()
-
-    if(!require('PCSF')){
+  
+  if(!require('PCSF')){
     devtools::install_github('sgosline/PCSF')
     require('PCSF')
     }
    data("STRING")
+   ##add phospho data to STRING
+   if(length(phos.vals)>0){
+     mval<-mean(STRING$cost)
+     adf<-apply(kdat,1,function(x)
+       data.frame(from=c(x[['GENE']],x[['subval']]),to=c(x[['subval']],x[['SUB_GENE']]),
+        cost=c(mval*1.5,mval/4)))%>%
+       do.call(rbind,.)
+   }else{
+     adf<-data.frame()
+   } 
+  
+   ppi <- construct_interactome(rbind(STRING,adf))
    
-   ppi <- construct_interactome(STRING)
+   ##now run the code
+   terms=c(phos.vals,prot.vals)
    subnet<-NULL
    try(
      subnet <- PCSF_rand(ppi,abs(terms), n=nrand, r=0.2,w = 4, b = beta, mu = 0.0005)
@@ -36,9 +49,42 @@ computePhosphoNetwork<-function(all.vals,nrand=100){
    if(is.null(subnet))
      return("")
   
+  lfcs<-terms[match(names(V(subnet)),names(terms))]
+  lfcs[is.na(lfcs)]<-0.0
+  
+  types<-rep('proteins',length(names(V(subnet))))
+  names(types)<-names(V(subnet))
+  types[intersect(names(V(subnet)),names(phos.vals))]<-'phosphosite'
+  subnet<-igraph::set.vertex.attribute(subnet,'logFoldChange',value=lfcs)
+  subnet<-igraph::set.vertex.attribute(subnet,'nodeType',value=types)
+  subnet<-igraph::set.edge.attribute(subnet,'interactionType',value='protein-protein interaction')
+  
+#  if('Substrate.Gene'%in%colnames(all.vals)){
+#    ksi <-all.vals%>%
+#      dplyr::select(Gene,Substrate.Gene,Source,log2FC)%>%distinct()
+#  edgelist<-c()
+#  ksi$Substrate.Gene<-as.character(ksi$Substrate.Gene)
+#  ksi<-subset(ksi,Gene%in%names(V(subnet)))
+#  for(i in 1:nrow(ksi))
+#    edgelist<-c(edgelist,ksi[i,c('Gene','Substrate.Gene')])
+#  newnodes<-setdiff(unlist(edgelist),names(V(subnet)))
+#  subnet<-igraph::add_vertices(subnet,nv=length(newnodes),name=unlist(newnodes),
+#                               type='Substrate',logFoldChange=0.0,prize=0)
+#  subnet <-igraph::add_edges(subnet,unlist(edgelist),attr=list(interactionType='kinase-substrate interaction',
+#                                                      source=as.character(ksi$Source),
+#                                                      weight=abs(as.numeric(ksi$log2FC))))
+#  }
+
+  
+  write_graph(subnet,format='gml',file=paste0(fname,'.gml'))
+  return(paste0(fname,'.gml'))
+  #subnet
 }
 
+#' computeProteinNetwork
 #' @import devtools
+#' @param data.frame all.vals with required values
+#' @param nrand number of randomizations
 #' @export
 #' 
 computeProteinNetwork<-function(all.vals,nrand=100){
@@ -98,14 +144,7 @@ computeProteinNetwork<-function(all.vals,nrand=100){
                                                       source=as.character(ksi$Source),
                                                       weight=abs(as.numeric(ksi$log2FC))))
   }
- # subset<-igraph::set.vertex.attribute(subnet,'Significant',value=sogs)
-  
-  # if(!is.null(phos.vals)){
-  #   lpc<-phos.vals$value[match(names(V(subnet)),all.vals$Gene)]
-  #   lpc[is.na(lpc)]<-0.0
-  #   subnet<-igraph::set.vertex.attribute(subnet,'phosphoLogFoldChange',index=V(subnet),value=lpc)
-  #   
-  # }
+
   
   write_graph(subnet,format='gml',file=paste0(condname,'.gml'))
   return(paste0(condname,'.gml'))
