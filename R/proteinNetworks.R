@@ -6,6 +6,35 @@
 #' maps kinase activity to proteins in a sum
 #' @import devtools
 computePhosphoNetwork<-function(all.vals,nrand=100){
+    #read kinase substrate database stored in data folder
+  KSDB <- read.csv(system.file('PSP&NetworKIN_Kinase_Substrate_Dataset_July2016.csv',
+                               package='amlresistancenetworks'),stringsAsFactors = FALSE)
+  kdat<-KSDB%>%group_by(GENE)%>%select(SUB_GENE,SUB_MOD_RSD)%>%
+    rowwise()%>%
+    mutate(subval=paste(SUB_GENE,SUB_MOD_RSD,sep='-'))
+  
+
+  ##now we need to fix the gene list, since it's not going to match    
+  sgenes<-data.frame(genes=genes)%>%
+    separate(genes, into=c('gene','mod'),sep='-')%>%
+    mutate(modlist=strsplit(mod,split='s|t|y'))%>%
+    apply(1,function(x) paste(x$gene,x$modlist,sep='-'))%>%
+    unlist()%>%unique()
+
+    if(!require('PCSF')){
+    devtools::install_github('sgosline/PCSF')
+    require('PCSF')
+    }
+   data("STRING")
+   
+   ppi <- construct_interactome(STRING)
+   subnet<-NULL
+   try(
+     subnet <- PCSF_rand(ppi,abs(terms), n=nrand, r=0.2,w = 4, b = beta, mu = 0.0005)
+   )
+   
+   if(is.null(subnet))
+     return("")
   
 }
 
