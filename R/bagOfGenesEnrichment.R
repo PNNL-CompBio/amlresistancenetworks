@@ -248,7 +248,8 @@ doRegularKin<-function(genes,bg=NULL){
   maxlen <- max(lengths(klist))
   kmat <- do.call(cbind,lapply(klist, function(lst) c(lst, rep(NA, maxlen - length(lst)))))
                   
-  kslist<-list(names=names(klist),desc=paste(names(klist),'substrates'),sizes=lapply(klist,length),matrix=kmat)
+  kslist<-list(names=names(klist),desc=paste(names(klist),'substrates'),
+               sizes=unlist(lapply(klist,length)),matrix=t(kmat))
 
 
   ##now we need to fix the gene list, since it's not going to match    
@@ -261,18 +262,23 @@ doRegularKin<-function(genes,bg=NULL){
   
   print(paste("Found",length(sgenes),'substrates with known kinases'))
   
-  ret<-as.data.frame(list(Kinase=NULL,NumSubs=NULL,pvalue=NULL,p.adjust=NULL))
+  ret<-as.data.frame(list(ID=NULL,Description=NULL,pvalue=NULL,p.adjust=NULL))
+
+  #ret<-as.data.frame(list(Kinase=NULL,NumSubs=NULL,pvalue=NULL,p.adjust=NULL))
   if(length(sgenes)<2)
     return(ret)
 
   try(res <- leapR(geneset=kslist,
               enrichment_method='enrichment_in_sets',targets=sgenes))
 
+  print(head(res))
   #print(res)
   
   ret<-as.data.frame(res)%>%
     tibble::rownames_to_column('Kinase')%>%
-    dplyr::select(Kinase,NumSubs='ingroup_n',pvalue,p.adjust='BH_pvalue')
+    dplyr::select(ID='Kinase',NumSubs='ingroup_n',pvalue,p.adjust='BH_pvalue')%>%rowwise()%>%
+    mutate(Description=paste0(ID,': ',NumSubs,' targets'))%>%
+    select(-NumSubs)
   
   
   return(ret)
