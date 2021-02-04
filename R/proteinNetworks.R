@@ -1,6 +1,14 @@
 ##move network-related analyses here
 
 
+
+#' computePhosphoNetwork
+#' maps kinase activity to proteins in a sum
+#' @import devtools
+computePhosphoNetwork<-function(all.vals,nrand=100){
+  
+}
+
 #' @import devtools
 #' @export
 #' 
@@ -10,6 +18,7 @@ computeProteinNetwork<-function(all.vals,nrand=100){
     require('PCSF')
   }
   data("STRING")
+  
   print(head(all.vals))
   ppi <- construct_interactome(STRING)
   

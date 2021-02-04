@@ -79,10 +79,12 @@ computeKSEA<-function(genes.with.values,ksea_FDR=0.05,prefix=''){
                                FC=2^(genes.with.values$value), stringsAsFactors = F)
   
   #read kinase substrate database stored in data folder
-  KSDB <- read.csv(system.file('PSP&NetworKIN_Kinase_Substrate_Dataset_July2016.csv',package='amlresistancenetworks'),stringsAsFactors = FALSE)
+  KSDB <- read.csv(system.file('PSP&NetworKIN_Kinase_Substrate_Dataset_July2016.csv',
+                               package='amlresistancenetworks'),stringsAsFactors = FALSE)
   
   #' * KSEA using not only the known substrates in PSP but also the predicted substrates in NetworKIN
-  res<-KSEA.Complete(KSDB, inputdfforKSEA, NetworKIN=FALSE, NetworKIN.cutoff=5, m.cutoff=5, p.cutoff=ksea_FDR)
+  res<-KSEA.Complete(KSDB, inputdfforKSEA, NetworKIN=FALSE, NetworKIN.cutoff=5, m.cutoff=5,
+                     p.cutoff=ksea_FDR)
   file.rename("KSEA Bar Plot.tiff",paste0(prefix,'_KSEABarPlot.tiff'))
   subs <- read.csv("Kinase-Substrate Links.csv")
   #make own plot of KSEA results
@@ -226,30 +228,51 @@ doRegularGo<-function(genes,bg=NULL){
 #'@import devtools
 
 doRegularKin<-function(genes,bg=NULL){
+  require(dplyr)
   if(!require('leapr')){
     devtools::install('biodataganache/leapr')
     require('leapr')
       }
 
-  data('kinasesubstrates')
-  all.subs<-unique(sapply(kinasesubstrates$matrix,unlist))
+   #read kinase substrate database stored in data folder
+  KSDB <- read.csv(system.file('PSP&NetworKIN_Kinase_Substrate_Dataset_July2016.csv',
+                               package='amlresistancenetworks'),stringsAsFactors = FALSE)
+
+  kdat<-KSDB%>%group_by(GENE)%>%select(SUB_GENE,SUB_MOD_RSD)%>%
+    rowwise()%>%
+    mutate(subval=paste(SUB_GENE,SUB_MOD_RSD,sep='-'))
   
-  dm<-matrix(0,length(all.subs))
-  rownames(dm)<-all.subs
-  sgenes<-intersect(toupper(genes),toupper(all.subs))
+  klist<-lapply(unique(kdat$GENE),function(x) unique(unlist(kdat[which(kdat$GENE==x),'subval'])))
+  names(klist)<-unique(kdat$GENE)
+
+  maxlen <- max(lengths(klist))
+  kmat <- do.call(cbind,lapply(klist, function(lst) c(lst, rep(NA, maxlen - length(lst)))))
+                  
+  kslist<-list(names=names(klist),desc=paste(names(klist),'substrates'),sizes=lapply(klist,length),matrix=kmat)
+
+
+  ##now we need to fix the gene list, since it's not going to match    
+  sgenes<-data.frame(genes=genes)%>%
+    separate(genes, into=c('gene','mod'),sep='-')%>%
+    mutate(modlist=strsplit(mod,split='s|t|y'))%>%
+    apply(1,function(x) paste(x$gene,x$modlist,sep='-'))%>%
+    unlist()%>%unique()
+  
+  
   print(paste("Found",length(sgenes),'substrates with known kinases'))
-  ret<-as.data.frame(list(ID=NULL,Description=NULL,pvalue=NULL,p.adjust=NULL))
+  
+  ret<-as.data.frame(list(Kinase=NULL,NumSubs=NULL,pvalue=NULL,p.adjust=NULL))
   if(length(sgenes)<2)
     return(ret)
-  
-  dm[sgenes,]<-1
-  try(res <- leapR(geneset=kinasesubstrates,
-              enrichment_method='enrichment_in_set',
-              datamatrix=sgenesd))
 
+  try(res <- leapR(geneset=kslist,
+              enrichment_method='enrichment_in_sets',targets=sgenes))
 
+  #print(res)
   
-  try(ret<-as.data.frame(res)%>%dplyr::select(ID,Description,pvalue,p.adjust))
+  ret<-as.data.frame(res)%>%
+    tibble::rownames_to_column('Kinase')%>%
+    dplyr::select(Kinase,NumSubs='ingroup_n',pvalue,p.adjust='BH_pvalue')
   
   
   return(ret)
