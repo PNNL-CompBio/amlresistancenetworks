@@ -1,7 +1,8 @@
 ##load data from files into rdata files
 #this file should only be modified rarely when new data are to be added
 
-
+library(amlresistancenetworks)
+library(dplyr)
 
 #' reads in metadata from excel spreadsheet and tidies it
 #' @require readxl
@@ -11,8 +12,9 @@
 
 readAndTidyMetadata<-function(){
   syn=synapseLogin()
-  metadata<-readxl::read_xlsx(syn$get('syn22136312')$path)%>%
-    stringr::string_replace()
+  metadata<-readxl::read_xlsx(syn$get('syn22136312')$path)
+  #%>%
+  #  stringr::str_replace()
 
   #update sample
   metadata$Sample<-sapply(metadata$`Sample ID`,function(x) paste('Sample',x,sep='_'))
@@ -87,7 +89,6 @@ readAndTidyQuizMetadata<-function(){
 #' reads and tidies protein measurements
 #' joins with metadata
 #' saves tidied data and returns
-#' @export
 #' @require dplyr
 readAndTidyQuizProtMeasures<-function(){
   metadata<-readAndTidyQuizMetadata()
@@ -109,8 +110,8 @@ readAndTidyQuizProtMeasures<-function(){
 
 #' reads and tidies phosphoprotein measurements
 #' joins with metadata
-#' saves tidied data and returns
-#' @export
+#' saves tidied data and 
+#' 
 #' @require dplyr
 #
 readAndTidyQuizPhosphoProtMeasures<-function(){
@@ -134,7 +135,6 @@ readAndTidyQuizPhosphoProtMeasures<-function(){
 #' reads and tidies protein measurements
 #' joins with metadata
 #' saves tidied data and returns
-#' @export
 #' @require dplyr
 #
 readAndTidyProtMeasures<-function(){
@@ -155,7 +155,6 @@ readAndTidyProtMeasures<-function(){
 #' reads and tidies phosphoprotein measurements
 #' joins with metadata
 #' saves tidied data and returns
-#' @export
 #' @require dplyr
 #
 readAndTidyPhosphoProtMeasures<-function(){
@@ -175,12 +174,33 @@ readAndTidyPhosphoProtMeasures<-function(){
 }
 
 
+#' reads and tidies uncorrected phosphoprotein measurements
+#' joins with metadata
+#' saves tidied data and returns
+#' @require dplyr
+#
+readAndTidyUncorrectedQuizPhosphoMeasures<-function(){
+ metadata<-readAndTidyQuizMetadata()
+  syn=synapseLogin()
+  dat<-read.table(syn$get('syn24305006')$path,sep='\t',header=T)
+  library(tidyr)
+  gilt.phospho.data<-dat%>%
+    tidyr::pivot_longer(-c(Entry_name,Gene,site,Peptide),"Sample")%>%
+    dplyr::left_join(metadata,by='Sample')%>%
+    mutate(value=tidyr::replace_na(value,0))
+   # subset(!is.na(value))
+
+  synTableStore(gilt.phospho.data,'Quizartinib Resistance Phosphoproteomics Unnormalized')
+  return(gilt.phospho.data)
+
+}
+
+
 
 
 #' reads and tidies phosphototeomic data for experimnet 11
 #' @require dplyr
 #' @require tidyr
-#' @export
 readAndTidySensPhosMeasures<-function(){
   metadata<-readAndTidySensMetadata()
   syn<-synapseLogin()
@@ -199,7 +219,6 @@ readAndTidySensPhosMeasures<-function(){
 #' reads and tidies bulk proteomic data for experiment 11
 #' @require dplyr
 #' @require tidyr
-#' @export
 #'
 readAndTidySensProtMeasure<-function(){
   metadata<-readAndTidySensMetadata()
@@ -221,7 +240,6 @@ readAndTidySensProtMeasure<-function(){
 #' reads and tidies experiment 11 metadata
 #' @require dplyr
 #' @require readxl
-#' @export
 readAndTidySensMetadata<-function(){
   syn=synapseLogin()
   samp.names<-readxl::read_xlsx(syn$get('syn22130839')$path)%>%
@@ -264,7 +282,6 @@ getTimeCourseMetadata<-function(){
 
 #' getTimecourseData
 #' @require dplyr
-#' @export
 getTimeCourseData<-function(){
     library(dplyr)
     syn=synapseLogin()
@@ -284,7 +301,6 @@ getTimeCourseData<-function(){
 
 }
 
-#' @export
 #' @import dplyr
 getTimeCoursePhosphoData<-function(){
   library(dplyr)
@@ -310,7 +326,6 @@ getTimeCoursePhosphoData<-function(){
 #' gets cytokine sensitivity data and metadata in one call
 #' @import dplyr
 #' @import readxl
-#' @export
 getCytokineSensData<-function(){
   library(dplyr)
   syn<-synapseLogin()
@@ -364,4 +379,39 @@ getCytokineSensData<-function(){
 }
 
 
+updateCytokinePhospho<-function(){
+    library(dplyr)
+  syn<-synapseLogin()
+  metadata<-readxl::read_xlsx(syn$get('syn22175391')$path)%>%
+    mutate(sample=stringr::str_replace(`Sample name (DMS)`,'PTRC_Ex15_',''))%>%
+    dplyr::select(sample,CellType,TimePoint,Treatment)%>%
+    subset(!is.na(sample))
+
+
+
+  metadata$CellType<-sapply(metadata$CellType,function(x) {
+    switch(x,Late_M='Late MOLM-13',Late_MR='Late MOLM-13 Tr Resistant',
+           M='MOLM-13',MR='MOLM-13 Tr Resistant')})
+
+  #  ifelse(x=='Late_M','Late MOLM-13',ifelse(x=='Late_MR','Late MOLM-13 Tr Resistant',x))})
+  metadata$Treatment<-unlist(sapply(metadata$Treatment,function(x){
+    switch(x,M='MCP-1',T='Trametinib',TW='Trametinib Withdrawn',none="none",`T+M`='Trametinib+MCP-1')}))
+
+    phdat<-read.csv2(syn$get('syn24305135')$path,sep='\t')%>%
+    tidyr::pivot_longer(-c(Protein,Gene,site,Peptide),
+                        names_to='tsamp',values_to='LogRatio')%>%
+    mutate(sample=stringr::str_replace(tsamp,'X',''))%>%
+    dplyr::select(-tsamp)%>%
+    left_join(metadata)
+
+      phdat2<-read.csv2(syn$get('')$path,sep='\t')%>% ##TBD
+      tidyr::pivot_longer(-c(Protein,Gene,site,Peptide),
+                          names_to='tsamp',values_to='LogRatio')%>%
+      mutate(sample=stringr::str_replace(tsamp,'X',''))%>%
+      dplyr::select(-tsamp)%>%
+      left_join(metadata)
+    synTableStore(rbind(phdat2,phdat),'Cytokine-induced Drug Sensitivity Phosphoproteomics Unnormalized')
+
+ 
+}
 
