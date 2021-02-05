@@ -76,7 +76,7 @@ readAndTidyQuizMetadata<-function(){
   pfin <- fin%>%
     select(Sample,tmpCellLine,Flask)%>%
     left_join(ligs)%>%
-    replace_na(list(Ligand='None'))%>%
+    tidyr::replace_na(list(Ligand='None'))%>%
     select(-Flask)%>%
     rowwise()%>%
     mutate(cellLine=stringr::str_replace(tmpCellLine,' Parental .+',''))%>%
