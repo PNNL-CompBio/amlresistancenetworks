@@ -50,7 +50,7 @@ synTableStore<-function(tab,tabname,parentId='syn22128879'){
   library(reticulate)
   print(head(tab))
   fpath=write.table(tab,file='tmp.csv',sep=',',quote=T,row.names = FALSE)
-  reticulate::use_condaenv(condaenv)
+#  reticulate::use_condaenv(condaenv)
   synapse=reticulate::import('synapseclient')
 
   tab<-synapse$build_table(tabname,parentId,'tmp.csv')
