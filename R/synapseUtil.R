@@ -30,7 +30,7 @@ synapseLogin<-function(){
 #' @export
 synapseStore<-function(path,parentId){
  # library(reticulate)
-  reticulate::use_condaenv(condaenv)
+ # reticulate::use_condaenv(condaenv)
 
   synapse=reticulate::import('synapseclient')
   sync=synapse$login()
@@ -69,7 +69,7 @@ synTableStore<-function(tab,tabname,parentId='syn22128879'){
 synTableUpdate<-function(tab,synid){
   library(reticulate)
   print(head(tab))
-  reticulate::use_condaenv(condaenv)
+ # reticulate::use_condaenv(condaenv)
   synapse=reticulate::import('synapseclient')
   fpath=write.table(tab,file='tmp.csv',sep=',',row.names = FALSE,quote=FALSE)
   ntab = synapse$Table(synid,'tmp.csv')

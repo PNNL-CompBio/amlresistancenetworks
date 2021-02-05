@@ -404,7 +404,7 @@ updateCytokinePhospho<-function(){
     dplyr::select(-tsamp)%>%
     left_join(metadata)
 
-      phdat2<-read.csv2(syn$get('')$path,sep='\t')%>% ##TBD
+      phdat2<-read.csv2(syn$get('syn24375434')$path,sep='\t')%>% ##TBD
       tidyr::pivot_longer(-c(Protein,Gene,site,Peptide),
                           names_to='tsamp',values_to='LogRatio')%>%
       mutate(sample=stringr::str_replace(tsamp,'X',''))%>%
