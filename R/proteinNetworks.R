@@ -20,6 +20,7 @@ computePhosphoNetwork<-function(phos.vals=c(),prot.vals=c(),nrand=100,beta=2,fna
     rowwise()%>%
     mutate(subval=paste(SUB_GENE,SUB_MOD_RSD,sep='-'))
   
+  allvals<-unique(kdat$subval)
   
   if(!require('PCSF')){
     devtools::install_github('sgosline/PCSF')
@@ -54,7 +55,7 @@ computePhosphoNetwork<-function(phos.vals=c(),prot.vals=c(),nrand=100,beta=2,fna
   
   types<-rep('proteins',length(names(V(subnet))))
   names(types)<-names(V(subnet))
-  types[intersect(names(V(subnet)),names(phos.vals))]<-'phosphosite'
+  types[intersect(names(V(subnet)),subvals)]<-'phosphosite'
   subnet<-igraph::set.vertex.attribute(subnet,'logFoldChange',value=lfcs)
   subnet<-igraph::set.vertex.attribute(subnet,'nodeType',value=types)
   subnet<-igraph::set.edge.attribute(subnet,'interactionType',value='protein-protein interaction')
