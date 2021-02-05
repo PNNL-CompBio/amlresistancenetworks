@@ -9,7 +9,7 @@
 
 
 
-condaenv="C:\\Users\\gosl241\\OneDrive - PNNL\\Documents\\GitHub\\amlresistancenetworks\\renv\\python\\r-reticulate\\"
+#condaenv="C:\\Users\\gosl241\\OneDrive - PNNL\\Documents\\GitHub\\amlresistancenetworks\\renv\\python\\r-reticulate\\"
 
 #' Logs into Synapse using local information
 #' @import reticulate
@@ -17,7 +17,7 @@ condaenv="C:\\Users\\gosl241\\OneDrive - PNNL\\Documents\\GitHub\\amlresistancen
 #' @export
 synapseLogin<-function(){
   library(reticulate)
-  reticulate::use_condaenv(condaenv)
+ # reticulate::use_condaenv(condaenv)
   syn=reticulate::import('synapseclient')
   sync=syn$login()
   return(sync)
@@ -29,7 +29,7 @@ synapseLogin<-function(){
 #' @param parentId of folder to store
 #' @export
 synapseStore<-function(path,parentId){
-  library(reticulate)
+ # library(reticulate)
   reticulate::use_condaenv(condaenv)
 
   synapse=reticulate::import('synapseclient')
@@ -88,9 +88,9 @@ synTableUpdate<-function(tab,synid){
 querySynapseTable<-function(tableid){
   syn=synapseLogin()
   res<-syn$tableQuery(paste('select * from',tableid))$asDataFrame()
-  if('Gene'%in%names(res))
-    res$Gene<-unlist(res$Gene)
-  if('site'%in%names(res))
-    res$site<-unlist(res$site)
+ # if('Gene'%in%names(res))
+#    res$Gene<-unlist(res$Gene)
+#  if('site'%in%names(res))
+#    res$site<-unlist(res$site)
   return(res)
 }
