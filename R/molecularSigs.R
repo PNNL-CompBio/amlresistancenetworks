@@ -25,7 +25,7 @@ drugMolRandomForest<-function(clin.data,
     
     
     reg.res<-drug.mol%>%group_by(var)%>%
-      group_modify(~ miniForest(.x,mol.feature),keep=T)%>%
+      group_modify(~ miniForest(.x,mol.feature),.keep=T)%>%
       mutate(Molecular=mol.feature)
   }else{
     drug.mol<-clin.data%>%
@@ -35,7 +35,7 @@ drugMolRandomForest<-function(clin.data,
       left_join(dplyr::select(mol.data,c(Gene,`AML sample`,mol.feature)),
                 by='AML sample')
     reg.res<-drug.mol%>%group_by(var)%>%
-      group_modify(~ combForest(.x,mol.feature),keep=T)%>%
+      group_modify(~ combForest(.x,mol.feature),.keep=T)%>%
       mutate(Molecular=paste(mol.feature,collapse='_'))
   }
   return(reg.res)
@@ -69,7 +69,7 @@ drugMolRegression<-function(clin.data,
   
   
     reg.res<-drug.mol%>%group_by(var)%>%
-      group_modify(~ miniReg(.x,mol.feature),keep=T)%>%
+      group_modify(~ miniReg(.x,mol.feature),.keep=T)%>%
       mutate(Molecular=mol.feature)
   }else{
     drug.mol<-clin.data%>%
@@ -79,7 +79,7 @@ drugMolRegression<-function(clin.data,
       left_join(dplyr::select(mol.data,c(Gene,`AML sample`,mol.feature)),
                 by='AML sample')
     reg.res<-drug.mol%>%group_by(var)%>%
-      group_modify(~ combReg(.x,mol.feature),keep=T)%>%
+      group_modify(~ combReg(.x,mol.feature),.keep=T)%>%
       mutate(Molecular=paste(mol.feature,collapse='_'))
   }
   return(reg.res)
@@ -108,7 +108,7 @@ drugMolLogReg<-function(clin.data,
     
     
     reg.res<-drug.mol%>%group_by(var)%>%
-      group_modify(~ miniLogR(.x,mol.feature),keep=T)%>%
+      group_modify(~ miniLogR(.x,mol.feature),.keep=T)%>%
       mutate(Molecular=mol.feature)
   }else{
     drug.mol<-clin.data%>%
@@ -118,7 +118,7 @@ drugMolLogReg<-function(clin.data,
       left_join(dplyr::select(mol.data,c(Gene,`AML sample`,mol.feature)),
                 by='AML sample')
     reg.res<-drug.mol%>%group_by(var)%>%
-      group_modify(~ combDE(.x,mol.feature),keep=T)%>%
+      group_modify(~ combDE(.x,mol.feature),.keep=T)%>%
       mutate(Molecular=paste(mol.feature,collapse='_'))
   }
   return(reg.res)
@@ -457,7 +457,7 @@ computeDiffExByDrug<-function(sens.data){
     distinct()%>%
     subset(!is.na(cellLine))%>%
     group_by(cellLine)%>%
-    group_modify(~ computeFoldChangePvals(.x,control=NA,conditions =c("Sensitive","Resistant")),keep=TRUE)%>%
+    group_modify(~ computeFoldChangePvals(.x,control=NA,conditions =c("Sensitive","Resistant")),.keep=TRUE)%>%
     rename(Drug='cellLine')
   
   table(result%>%group_by(Drug)%>%subset(p_adj<0.1)%>%summarize(sigProts=n()))
