@@ -567,9 +567,9 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
 
   if(doEnrich && length(rownames(pat.mat))>2){
     if(data=='Phosphosite')
-      res=doRegularKin(rownames(pat.mat))
+      try(res<-doRegularKin(rownames(pat.mat)))
     else
-      res=doRegularGo(rownames(pat.mat))
+      try(res<-doRegularGo(rownames(pat.mat)))
   }
   
   # plotMostVarByDrug(drugName,data)
