@@ -216,7 +216,7 @@ doRegularGo<-function(genes,bg=NULL){
   
   try(res<-clusterProfiler::enrichGO(eg$gene_id,'org.Hs.eg.db',keyType='ENTREZID',ont='BP'))
     #sprint(res)
-  ret<-as.data.frame(list(ID=NULL,Description=NULL,pvalue=NULL,p.adjust=NULL))
+  #ret<-as.data.frame(list(ID=NULL,Description=NULL,pvalue=NULL,p.adjust=NULL))
   try(ret<-as.data.frame(res)%>%dplyr::select(ID,Description,pvalue,p.adjust))
   return(ret)
   
@@ -262,8 +262,9 @@ doRegularKin<-function(genes,bg=NULL){
   
   print(paste("Found",length(sgenes),'substrates with known kinases'))
   
-  ret<-as.data.frame(list(ID=NULL,Description=NULL,pvalue=NULL,p.adjust=NULL))
-
+  #ret<-as.data.frame(list(ID=NULL,Description=NULL,pvalue=NULL,p.adjust=NULL))
+  ret=data.frame(ID='',Description='',pvalue=1.0,p.adjust=1.0)
+  
   #ret<-as.data.frame(list(Kinase=NULL,NumSubs=NULL,pvalue=NULL,p.adjust=NULL))
   if(length(sgenes)<2)
     return(ret)
