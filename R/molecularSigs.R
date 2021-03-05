@@ -191,7 +191,7 @@ miniLogR<-function(tab,mol.feature){
   genes=names(which(full.res$beta[,which(full.res$lambda==best.res$lambda)]!=0))
   genelist<-paste(genes,collapse=';')
   cv = cor(preds,yvar,use='pairwise.complete.obs',method='spearman')
-  print(cv)
+ # print(cv)
   return(data.frame(MSE=best.res$MSE,numFeatures=length(genes),
                     genes=genelist,
                     numSamples=length(yvar)),
@@ -407,7 +407,7 @@ miniReg<-function(tab,mol.feature){
   genelist<-paste(genes,collapse=';')
   #print(paste(best.res$MSE,":",genelist))
   cv=cor(preds,yvar,use='pairwise.complete.obs',method='spearman')
-  print(cv)
+ # print(cv)
   return(data.frame(MSE=best.res$MSE,numFeatures=length(genes),genes=genelist,
                     numSamples=length(yvar),corVal=cv))
 }
