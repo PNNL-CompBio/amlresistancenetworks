@@ -111,7 +111,7 @@ miniRegEval<-function(trainTab,testTab,mol.feature){
   tmat<-buildFeatureMatrix(testTab,mol.feature,'Sample')
   
   ##dummy output in case of failure
-  ret.df<-data.frame(MSE=0,testMSE=0,resCor=0,numFeatures=0,genes='',numSamples=nrow(mat))
+  ret.df<-data.frame(MSE=0,testMSE=0,corVal=0,numFeatures=0,genes='',numSamples=nrow(mat))
 
   if(is.null(dim(mat)))
     return(ret.df)
@@ -194,7 +194,7 @@ miniRegEval<-function(trainTab,testTab,mol.feature){
   
   res.cor=cor(t.res[,1],tyvar,method='spearman',use='pairwise.complete.obs')
   print(paste(best.res$MSE,":",res,':',res.cor))
-  return(data.frame(MSE=best.res$MSE,testMSE=res,resCor=res.cor,numFeatures=length(genes),genes=as.character(genelist),
+  return(data.frame(MSE=best.res$MSE,testMSE=res,corVal=res.cor,numFeatures=length(genes),genes=as.character(genelist),
                     numSamples=length(yvar)))
 }
 
@@ -257,7 +257,7 @@ miniLogREval<-function(trainTab,testTab,mol.feature){
  tmat<-buildFeatureMatrix(testTab,mol.feature,'Sample')
 
  #empty data frame
- ret.df<-data.frame(MSE=0,testMSE=0,resCor=0,numFeatures=0,genes='',numSamples=nrow(mat))
+ ret.df<-data.frame(MSE=0,testMSE=0,corVal=0,numFeatures=0,genes='',numSamples=nrow(mat))
  
   if(is.null(dim(mat)))
     return(ret.df)
@@ -348,7 +348,7 @@ miniLogREval<-function(trainTab,testTab,mol.feature){
   try(res.cor<-cor(t.res[,1],tyvar,method='spearman',use='pairwise.complete.obs'))
   print(paste(best.res$MSE,":",res,':',res.cor))
   
-  return(data.frame(MSE=best.res$MSE,testMSE=res,resCor=res.cor,numFeatures=length(genes),genes=as.character(genelist),
+  return(data.frame(MSE=best.res$MSE,testMSE=res,corVal=res.cor,numFeatures=length(genes),genes=as.character(genelist),
                     numSamples=length(yvar)))
 }
 
