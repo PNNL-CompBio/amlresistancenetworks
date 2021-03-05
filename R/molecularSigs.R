@@ -157,7 +157,7 @@ miniLogR<-function(tab,mol.feature){
    if(ncol(mat)<5 || nrow(mat)<5)
       return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=nrow(mat)),corVal=0)
   
-  print(paste("Found",length(zvals),'patients with no',mol.feature,'data across',
+  print(paste("Found",length(zvals),'features with no',mol.feature,'data across',
               ncol(mat),'features'))    
 
   #now collect our y output variable - AUC
@@ -194,8 +194,8 @@ miniLogR<-function(tab,mol.feature){
  # print(cv)
   return(data.frame(MSE=best.res$MSE,numFeatures=length(genes),
                     genes=genelist,
-                    numSamples=length(yvar)),
-         corVal=cv)
+                    numSamples=length(yvar),
+         corVal=cv))
 }
 
 #'combForest
@@ -320,7 +320,7 @@ miniForest<-function(tab,mol.feature,quant=0.995){
   
   cm<-apply(mat,1,mean)
   zvals<-which(cm==0.0)
-  print(paste("Found",length(zvals),'patients with no',mol.feature,'data across',ncol(mat),'features'))
+  print(paste("Found",length(zvals),'features with no',mol.feature,'data across',ncol(mat),'features'))
   if(length(zvals)>0)
     mat<-mat[-zvals,]
   
