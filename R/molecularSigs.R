@@ -136,9 +136,10 @@ miniLogR<-function(tab,mol.feature){
   set.seed(10101)
 
  mat<-buildFeatureMatrix(tab,mol.feature)
+ 
   #print(mat)
   if(is.null(dim(mat)))
-    return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=0))
+    return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=0,corVal=0))
   
  ##remove uninformative features, make sure we have enough at the end of it (at least 5)  
   cm<-apply(mat,1,mean)
@@ -154,9 +155,10 @@ miniLogR<-function(tab,mol.feature){
     mat<-mat[,-zvals]
     
    if(ncol(mat)<5 || nrow(mat)<5)
-      return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=nrow(mat)))
+      return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=nrow(mat)),corVal=0)
   
-  print(paste("Found",length(zvals),'patients with no',mol.feature,'data across',ncol(mat),'features'))    
+  print(paste("Found",length(zvals),'patients with no',mol.feature,'data across',
+              ncol(mat),'features'))    
 
   #now collect our y output variable - AUC
   tmp<-tab%>%
@@ -181,14 +183,18 @@ miniLogR<-function(tab,mol.feature){
   #then select how many elements
   full.res<-NULL
   try(full.res<-glmnet(x=mat,y=yvar,family='binomial',type.measure='mse'))
+  
   if(is.null(full.res))
-    return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=nrow(mat)))
+    return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=nrow(mat)),corVal=0)
+  preds <- predict.glmnet(full.res,newx=mat)[,which(full.res$lambda==best.res$lambda)]
   
   genes=names(which(full.res$beta[,which(full.res$lambda==best.res$lambda)]!=0))
   genelist<-paste(genes,collapse=';')
 
-  return(data.frame(MSE=best.res$MSE,numFeatures=length(genes),genes=genelist,
-                    numSamples=length(yvar)))
+  return(data.frame(MSE=best.res$MSE,numFeatures=length(genes),
+                    genes=genelist,
+                    numSamples=length(yvar)),
+         corVal=cor(preds,yvar,use='pairwise.complete.obs',method='spearman'))
 }
 
 #'combForest
@@ -262,7 +268,8 @@ combReg<-function(tab,feature.list=c('proteinLevels','mRNALevels','geneMutations
   genes=names(which(full.res$beta[,which(full.res$lambda==best.res$lambda)]!=0))
   genelist<-paste(genes,collapse=';')
   #print(paste(best.res$MSE,":",genelist))
-  return(data.frame(MSE=best.res$MSE,numFeatures=length(genes),genes=genelist,numSamples=length(yvar)))
+  return(data.frame(MSE=best.res$MSE,numFeatures=length(genes),
+                    genes=genelist,numSamples=length(yvar)))
   
   
 }
@@ -376,7 +383,7 @@ miniReg<-function(tab,mol.feature){
   if(ncol(mat)<5 || nrow(mat)<5)
       return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=nrow(mat)))
  
-  print(paste("Found",length(zvals),'patients with no',mol.feature,'data across',ncol(mat),'features'))
+  print(paste("Found",length(zvals),'features with no',mol.feature,'data across',ncol(mat),'features'))
 
   
   #now collect our y output variable - AUC
@@ -394,11 +401,13 @@ miniReg<-function(tab,mol.feature){
   
   #then select how many elements
   full.res<-glmnet(x=mat,y=yvar,type.measure='mse')
+  preds <- predict.glmnet(full.res,newx=mat)[,which(full.res$lambda==best.res$lambda)]
   genes=names(which(full.res$beta[,which(full.res$lambda==best.res$lambda)]!=0))
   genelist<-paste(genes,collapse=';')
   #print(paste(best.res$MSE,":",genelist))
   return(data.frame(MSE=best.res$MSE,numFeatures=length(genes),genes=genelist,
-                    numSamples=length(yvar)))
+                    numSamples=length(yvar)),
+         corval=cor(preds,yvar,use='pairwise.complete.obs',method='spearman'))
 }
 
 
