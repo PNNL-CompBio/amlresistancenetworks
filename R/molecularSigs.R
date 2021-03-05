@@ -407,7 +407,7 @@ miniReg<-function(tab,mol.feature){
   #print(paste(best.res$MSE,":",genelist))
   return(data.frame(MSE=best.res$MSE,numFeatures=length(genes),genes=genelist,
                     numSamples=length(yvar)),
-         corval=cor(preds,yvar,use='pairwise.complete.obs',method='spearman'))
+         corcor(preds,yvar,use='pairwise.complete.obs',method='spearman')al=cor(preds,yvar,use='pairwise.complete.obs',method='spearman'))
 }
 
 
