@@ -22,7 +22,7 @@ This project is underway and is nearly ready to be submitted.
 This project needs to be processed and added to Synapse tables, then analyzed.
 
 ## Studying the effect of drug combinations in cell lines 
-This study (also known as the _cell line study_) will focus on the the immediate effect of drugs on AML cell lines to determine how they could act in concert. The data ingeset for this project as well as the subsequent analysis will be at the [AML Drug Combination]() site. 
+This study (also known as the _cell line study_) will focus on the the immediate effect of drugs on AML cell lines to determine how they could act in concert. The data ingeset for this project as well as the subsequent analysis will be at the [AML Drug Combination](https://github.com/sgosline/amlDrugCombos) site. 
 
 
 ## Early vs. Late Resistance in AML
