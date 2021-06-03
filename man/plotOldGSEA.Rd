@@ -2,10 +2,26 @@
 % Please edit documentation in R/bagOfGenesEnrichment.R
 \name{plotOldGSEA}
 \alias{plotOldGSEA}
-\title{Old plot using clusterProfiler}
+\title{Plot using clusterProfiler. 3 GSEA plots are saved to the working directory, 
+two of which are custom to the amlresistancenetworks package.}
 \usage{
-plotOldGSEA(genes.with.values, prefix, gsea_FDR = 0.05)
+plotOldGSEA(
+  genes.with.values,
+  prefix,
+  gsea_FDR = 0.05,
+  order.by = "NES",
+  height = 8.5,
+  width = 11
+)
+}
+\arguments{
+\item{genes.with.values}{A data frame with genes as row names, along with a column named "value". Usually this value column consists of log fold changes between two groups.}
+
+\item{prefix}{string, used for naming the saved plots.}
+
+\item{order.by}{This determines how the GO terms are sorted. Default is normalized enrichment score "NES", but can also use "p.adjust" to sort by significance of the terms.}
 }
 \description{
-Old plot using clusterProfiler
+Plot using clusterProfiler. 3 GSEA plots are saved to the working directory, 
+two of which are custom to the amlresistancenetworks package.
 }
