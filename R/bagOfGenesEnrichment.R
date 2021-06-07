@@ -68,9 +68,8 @@ computeGSEA<-function(genes.with.values,prefix,gsea_FDR=0.01){
 #' @param genes.with.values of genes and difference values
 #' @param prot.univ the space of all proteins we are considering
 #' @return KSEA output type stuff
-computeKSEA<-function(genes.with.values,ksea_FDR=0.05,prefix=''){
-  library(KSEAapp)
-  
+computeKSEA<-function(genes.with.values,ksea_FDR=0.05,prefix='', order_by = "z.score",
+                      height = 8.5, width = 11){
   inputdfforKSEA <- data.frame(Protein=rep("NULL", nrow(genes.with.values)), 
                                Gene=genes.with.values$Gene,
                                Peptide=rep("NULL", nrow(genes.with.values)),
@@ -91,32 +90,59 @@ computeKSEA<-function(genes.with.values,ksea_FDR=0.05,prefix=''){
   res_ksea <- readr::read_csv("KSEA Kinase Scores.csv")
   file.remove("Kinase-Substrate Links.csv")#,paste0(prefix,'_kinaseSubsLinks.csv'))
   
-  plot_KSEA <- res_ksea %>% 
-    #mutate(p.value = p.adjust(p.value)) %>% 
+  # Selecting only those Kinases with enough linked subtrates (m>5), as well as small enough false dicovery rate (p.adjust < KSEA_fdr)
+  res_ksea <- res_ksea %>%
+    mutate(p.adjust = p.adjust(p.value)) %>% 
     filter(m >= 5) %>% 
     arrange(desc(z.score)) %>% 
-    mutate(status = case_when(z.score > 0 & p.value <= ksea_FDR ~ "Up",
-                              z.score < 0 & p.value <= ksea_FDR ~ "Down",
+    mutate(status = case_when(z.score > 0 & p.adjust <= ksea_FDR ~ "Up",
+                              z.score < 0 & p.adjust <= ksea_FDR ~ "Down",
                               TRUE ~ "Not significant")) %>% 
-    filter(status != "Not significant") %>%
-    ggplot(aes(x=reorder(Kinase.Gene, z.score), y=z.score)) +
+    filter(status != "Not significant")
+  
+  plot_KSEA <- res_ksea %>%
+    ggplot(aes(x = z.score,y = reorder(Kinase.Gene, get(order_by)))) +
     geom_bar(stat='identity', aes(fill=status)) +
-    scale_fill_manual(values = c("Down" = "blue", "Up" = "red", "Not significant" = "black")) +
-    coord_flip() +
-    theme(legend.position="none", 
+    scale_fill_manual(values = c("Down" = "dodgerblue3", "Up" = "firebrick2", "Not significant" = "black")) +
+    theme_minimal() +
+    theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 18),
+          legend.position="none", 
           axis.title.x = element_text(size=16),
           axis.title.y = element_blank(), 
           axis.text.x = element_text(size = 14),
           axis.text.y=element_text(size = 14),
           axis.line.y = element_blank(),
           axis.ticks.y = element_blank()) +
-    labs(y="Kinase z-score") #for some reason labs still works with orientation before cord flip so set y 
+    labs(x = "Kinase z-score") + 
+    ggtitle("Kinase z-score")
+  
+  plot_sig <- res_ksea %>%
+    ggplot(aes(x = p.adjust, y = reorder(Kinase.Gene, get(order_by)))) +
+    geom_bar(stat='identity') +
+    theme_minimal() +
+    theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 18), 
+          legend.position="none", 
+          axis.title.x = element_text(size=16),
+          axis.title.y = element_blank(), 
+          axis.text.x = element_text(size = 14),
+          axis.ticks.y = element_blank(),
+          axis.line.y = element_line(color = "black"),
+          axis.text.y = element_blank()) +
+    scale_x_continuous(trans = reverselog_trans(10)) +
+    labs(x = "Adjusted p-value") +
+    ggtitle("Significance")
+  
+  arrange_matrix <- t(as.matrix(c(1,1,2)))
+  plot_both <- grid.arrange(plot_KSEA, plot_sig, layout_matrix = arrange_matrix)
+  
+  ggsave(paste0("sig-included", prefix,"-ksea-plot.png"), plot_both, 
+         height = height, width = width, units = "in")
   file.remove("KSEA Kinase Scores.csv")#paste0(prefix,'kinaseScores.csv'))
   
   ##join results
   #kin_res
   res_ksea<-res_ksea%>%rename(`aveSubstrateLog2FC`='log2FC')%>%left_join(subs,by='Kinase.Gene')
-  ggsave(paste0(prefix,"fig_KSEA.pdf"), plot_KSEA, height = 8.5, width = 11, units = "in")
+  ggsave(paste0(prefix,"fig_KSEA.pdf"), plot_KSEA, height = height, width = width, units = "in")
   write.table(res_ksea,paste0(prefix,'_kseaRes.csv'),sep=',')
   return(res_ksea)
 }
