@@ -213,7 +213,7 @@ plotOldGSEA<-function(genes.with.values, prefix, gsea_FDR=0.05,
   arrange_matrix <- t(as.matrix(c(1,1,1,2)))
   p.both <- grid.arrange(p.NES,p.Pval, layout_matrix = arrange_matrix)
   
-  ggsave(paste0("sig_included", prefix,"_gseaGO_plot.pdf"), p.both, 
+  ggsave(paste0("sig-included", prefix,"-gseaGO-plot.png"), p.both, 
          height = height, width = width, units = "in")
   
   enrichplot::ridgeplot(gr,showCategory = 50,fill='pvalue')+ggplot2::ggtitle(paste0("GO Terms for ",prefix))
