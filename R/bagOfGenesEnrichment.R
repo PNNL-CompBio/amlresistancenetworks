@@ -64,8 +64,11 @@ computeGSEA<-function(genes.with.values,prefix,gsea_FDR=0.01){
 #' @import KSEAapp
 #' @import readr
 #' @import dplyr
+#' @import ggplot2
+#' @import gridExtra
+#' @import scales
 #' @author Osama 
-#' @param genes.with.values of genes and difference values
+#' @param genes.with.values data frame containing a Gene column, as well as a Residue.Both column and FC column (see KSEA app).
 #' @param prot.univ the space of all proteins we are considering
 #' @return KSEA output type stuff
 computeKSEA<-function(genes.with.values,ksea_FDR=0.05,prefix='', order_by = "z.score",
@@ -156,6 +159,7 @@ computeKSEA<-function(genes.with.values,ksea_FDR=0.05,prefix='', order_by = "z.s
 #' @import ggplot2
 #' @import gridExtra
 #' @import scales
+#' @import dplyr
 #' @param genes.with.values A data frame with genes as row names, along with a column named "value". Usually this value column consists of log fold changes between two groups.
 #' @param prefix string, used for naming the saved plots.
 #' @param order.by This determines how the GO terms are sorted. Default is normalized enrichment score "NES", but can also use "p.adjust" to sort by significance of the terms.
