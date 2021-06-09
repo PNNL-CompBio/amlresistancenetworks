@@ -64,13 +64,15 @@ computeGSEA<-function(genes.with.values,prefix,gsea_FDR=0.01){
 #' @import KSEAapp
 #' @import readr
 #' @import dplyr
+#' @import ggplot2
+#' @import gridExtra
+#' @import scales
 #' @author Osama 
-#' @param genes.with.values of genes and difference values
+#' @param genes.with.values data frame containing a Gene column, as well as a Residue.Both column and FC column (see KSEA app).
 #' @param prot.univ the space of all proteins we are considering
 #' @return KSEA output type stuff
-computeKSEA<-function(genes.with.values,ksea_FDR=0.05,prefix=''){
-  library(KSEAapp)
-  
+computeKSEA<-function(genes.with.values,ksea_FDR=0.05,prefix='', order_by = "z.score",
+                      height = 8.5, width = 11){
   inputdfforKSEA <- data.frame(Protein=rep("NULL", nrow(genes.with.values)), 
                                Gene=genes.with.values$Gene,
                                Peptide=rep("NULL", nrow(genes.with.values)),
@@ -91,43 +93,78 @@ computeKSEA<-function(genes.with.values,ksea_FDR=0.05,prefix=''){
   res_ksea <- readr::read_csv("KSEA Kinase Scores.csv")
   file.remove("Kinase-Substrate Links.csv")#,paste0(prefix,'_kinaseSubsLinks.csv'))
   
-  plot_KSEA <- res_ksea %>% 
-    #mutate(p.value = p.adjust(p.value)) %>% 
+  # Selecting only those Kinases with enough linked subtrates (m>5), as well as small enough false dicovery rate (p.adjust < KSEA_fdr)
+  res_ksea <- res_ksea %>%
+    mutate(p.adjust = p.adjust(p.value)) %>% 
     filter(m >= 5) %>% 
     arrange(desc(z.score)) %>% 
-    mutate(status = case_when(z.score > 0 & p.value <= ksea_FDR ~ "Up",
-                              z.score < 0 & p.value <= ksea_FDR ~ "Down",
+    mutate(status = case_when(z.score > 0 & p.adjust <= ksea_FDR ~ "Up",
+                              z.score < 0 & p.adjust <= ksea_FDR ~ "Down",
                               TRUE ~ "Not significant")) %>% 
-    filter(status != "Not significant") %>%
-    ggplot(aes(x=reorder(Kinase.Gene, z.score), y=z.score)) +
+    filter(status != "Not significant")
+  
+  plot_KSEA <- res_ksea %>%
+    ggplot(aes(x = z.score,y = reorder(Kinase.Gene, get(order_by)))) +
     geom_bar(stat='identity', aes(fill=status)) +
-    scale_fill_manual(values = c("Down" = "blue", "Up" = "red", "Not significant" = "black")) +
-    coord_flip() +
-    theme(legend.position="none", 
+    scale_fill_manual(values = c("Down" = "dodgerblue3", "Up" = "firebrick2", "Not significant" = "black")) +
+    theme_minimal() +
+    theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 18),
+          legend.position="none", 
           axis.title.x = element_text(size=16),
           axis.title.y = element_blank(), 
           axis.text.x = element_text(size = 14),
           axis.text.y=element_text(size = 14),
           axis.line.y = element_blank(),
           axis.ticks.y = element_blank()) +
-    labs(y="Kinase z-score") #for some reason labs still works with orientation before cord flip so set y 
+    labs(x = "Kinase z-score") + 
+    ggtitle("Kinase z-score")
+  
+  plot_sig <- res_ksea %>%
+    ggplot(aes(x = p.adjust, y = reorder(Kinase.Gene, get(order_by)))) +
+    geom_bar(stat='identity') +
+    theme_minimal() +
+    theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 18), 
+          legend.position="none", 
+          axis.title.x = element_text(size=16),
+          axis.title.y = element_blank(), 
+          axis.text.x = element_text(size = 14),
+          axis.ticks.y = element_blank(),
+          axis.line.y = element_line(color = "black"),
+          axis.text.y = element_blank()) +
+    scale_x_continuous(trans = reverselog_trans(10)) +
+    labs(x = "Adjusted p-value") +
+    ggtitle("Significance")
+  
+  arrange_matrix <- t(as.matrix(c(1,1,2)))
+  plot_both <- grid.arrange(plot_KSEA, plot_sig, layout_matrix = arrange_matrix)
+  
+  ggsave(paste0("sig-included", prefix,"-ksea-plot.png"), plot_both, 
+         height = height, width = width, units = "in")
   file.remove("KSEA Kinase Scores.csv")#paste0(prefix,'kinaseScores.csv'))
   
   ##join results
   #kin_res
   res_ksea<-res_ksea%>%rename(`aveSubstrateLog2FC`='log2FC')%>%left_join(subs,by='Kinase.Gene')
-  ggsave(paste0(prefix,"fig_KSEA.pdf"), plot_KSEA, height = 8.5, width = 11, units = "in")
+  ggsave(paste0(prefix,"fig_KSEA.pdf"), plot_KSEA, height = height, width = width, units = "in")
   write.table(res_ksea,paste0(prefix,'_kseaRes.csv'),sep=',')
   return(res_ksea)
 }
 
 
 
-#' Old plot using clusterProfiler
+#' Plot using clusterProfiler. 3 GSEA plots are saved to the working directory, 
+#' two of which are custom to the amlresistancenetworks package.
 #' @export 
 #' @import BiocManager
-
-plotOldGSEA<-function(genes.with.values,prefix,gsea_FDR=0.05){
+#' @import ggplot2
+#' @import gridExtra
+#' @import scales
+#' @import dplyr
+#' @param genes.with.values A data frame with genes as row names, along with a column named "value". Usually this value column consists of log fold changes between two groups.
+#' @param prefix string, used for naming the saved plots.
+#' @param order.by This determines how the GO terms are sorted. Default is normalized enrichment score "NES", but can also use "p.adjust" to sort by significance of the terms.
+plotOldGSEA<-function(genes.with.values, prefix, gsea_FDR=0.05, 
+                      order.by = "NES", height = 8.5, width = 11){
   if(!require('org.Hs.eg.db')){
     BiocManager::install('org.Hs.eg.db')
     require(org.Hs.eg.db)
@@ -157,40 +194,73 @@ plotOldGSEA<-function(genes.with.values,prefix,gsea_FDR=0.05){
   #  }
   
   res<-filter(as.data.frame(gr),p.adjust<gsea_FDR)
-  if(nrow(res)==0)
+  if(nrow(res)==0){
     return(gr)
+  }
   
-  all_gseaGO<-res %>% 
+  all.gseaGO<-res %>% 
     dplyr::rename(pathway = 'Description') %>% 
     arrange(NES) %>% 
-    dplyr::mutate(status = case_when(NES > 0 ~ "Up",
-                                     NES < 0 ~ "Down"),
+    dplyr::mutate(status = case_when(NES > 0 ~ "Up", NES < 0 ~ "Down"),
                   status = factor(status, levels = c("Up", "Down"))) %>% 
     group_by(status) %>% 
     top_n(20, wt = abs(NES)) %>% 
-    ungroup() %>% 
-    ggplot2::ggplot(aes(x=reorder(pathway, NES), y=NES)) +
+    ungroup()
+  
+  p.NES <- ggplot(all.gseaGO, aes(x = NES, y = reorder(pathway, get(order.by)))) +
     geom_bar(stat='identity', aes(fill=status)) +
-    scale_fill_manual(values = c("Up" = "darkred", "Down" = "dodgerblue4")) +
-    coord_flip() +
+    scale_fill_manual(values = c(Up = "firebrick2", Down = "dodgerblue3")) +
     theme_minimal() +
     theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 18),
           axis.title.x = element_text(size=16),
           axis.title.y = element_blank(), 
           axis.text.x = element_text(size = 14),
-          axis.text.y=element_text(size = 14),
+          axis.text.y = element_text(size = 14),
           axis.line.y = element_blank(),
           axis.ticks.y = element_blank(),
-          legend.position = "none") +
-    labs(title = "", y="NES") +#for some reason labs still works with orientation before cord flip so set y
-    ggtitle(paste('All',prefix))
-  ggsave(paste0("allRegProts_", prefix,"_gseaGO_plot.pdf"), all_gseaGO, height = 8.5, width = 11, units = "in")
+          legend.position = "none") + 
+    labs(x = "NES") +
+    ggtitle("Normalized Enrichment Score")
+  
+  ggsave(paste0("allRegProts_", prefix,"_gseaGO_plot.pdf"), p.NES, 
+         height = 8.5, width = 11, units = "in")
+  
+  p.Pval <- ggplot(all.gseaGO, aes(x = p.adjust, y = reorder(pathway, get(order.by)))) +
+    scale_x_continuous(trans = reverselog_trans(10)) +  
+    theme_minimal() +
+    geom_bar(stat = "identity") +
+    theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 18), 
+          axis.title.x = element_text(size = 16), 
+          axis.text.x = element_text(size = 14), 
+          axis.title.y = element_blank(), 
+          axis.text.y = element_blank(), 
+          axis.line.y = element_line(color = "black"),
+          axis.ticks.y = element_blank(), 
+          legend.position = "none") + 
+    labs(x = "Adjusted p-value") + 
+    ggtitle("Significance")
+  
+  arrange_matrix <- t(as.matrix(c(1,1,1,2)))
+  p.both <- grid.arrange(p.NES,p.Pval, layout_matrix = arrange_matrix)
+  
+  ggsave(paste0("sig-included", prefix,"-gseaGO-plot.png"), p.both, 
+         height = height, width = width, units = "in")
   
   enrichplot::ridgeplot(gr,showCategory = 50,fill='pvalue')+ggplot2::ggtitle(paste0("GO Terms for ",prefix))
   ggplot2::ggsave(paste0(prefix,'_GO.pdf'),width=10,height=10)
   
   df<-as.data.frame(gr)%>%mutate(Condition=prefix)
   return(df)
+}
+
+#' Used to make reversed logarithmic scales
+#' @import scales
+reverselog_trans <- function(base = exp(1)) {
+  trans <- function(x) -log(x, base)
+  inv <- function(x) base^(-x)
+  trans_new(paste0("reverselog-", format(base)), trans, inv, 
+            log_breaks(base = base), 
+            domain = c(1e-100, Inf))
 }
 
 #'Runs regular bag of genes enrichment

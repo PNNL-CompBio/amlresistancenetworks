@@ -4,10 +4,17 @@
 \alias{computeKSEA}
 \title{compute kinase substrate enrichment - osama's code wrapped in package.}
 \usage{
-computeKSEA(genes.with.values, ksea_FDR = 0.05, prefix = "")
+computeKSEA(
+  genes.with.values,
+  ksea_FDR = 0.05,
+  prefix = "",
+  order_by = "z.score",
+  height = 8.5,
+  width = 11
+)
 }
 \arguments{
-\item{genes.with.values}{of genes and difference values}
+\item{genes.with.values}{data frame containing a Gene column, as well as a Residue.Both column and FC column (see KSEA app).}
 
 \item{prot.univ}{the space of all proteins we are considering}
 }
