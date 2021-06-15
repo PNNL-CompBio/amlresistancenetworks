@@ -358,3 +358,120 @@ doRegularKin<-function(genes,bg=NULL){
 }
   
 
+#' Plot using correlation enrichment from leapR package. 
+#' A single plot is saved to the working directory
+#' @export 
+#' @import ggplot2
+#' @import gridExtra
+#' @import scales
+#' @import dplyr
+#' @import leapr
+#' @param exprs A matrix of intensities with accessions as row names, along with samples in the columns.
+#' @param prefix string, used for naming the saved plots.
+#' @param order.by This determines how the pathways are sorted. Default is pathway correlation of "Ingroup mean", but can also use "BH_pvalue" to sort by significance of the pathways.
+#' @param geneset Pathway/Kinase database, eg ncipid, msigdb, both of which are included in leapr.
+#' @param clean.names Boolean, if TRUE removes the "_pathway" ending in pathway names, making the plot easier to read.
+plotCorrelationEnrichment <- function(exprs, geneset, fdr.cutoff = 0.05, 
+                                      corr.cutoff = 0.1, prefix, width = 11, 
+                                      height = 8.5, order.by = "Ingroup mean", 
+                                      clean.names = FALSE, ...) {
+  
+  corr.enrichment <- leapR(geneset, 
+                           enrichment_method = "correlation_enrichment",
+                           datamatrix = exprs) 
+  corr.enrichment <- corr.enrichment %>%
+    mutate(Pathway = rownames(.)) %>%
+    rename(`Ingroup mean` = ingroup_mean,
+           `Outgroup mean` = outgroup_mean) %>%
+    mutate(Status = case_when(`Ingroup mean` > 0 ~ "Positively Correlated", 
+                              `Ingroup mean` < 0 ~ "Negatively Correlated")) %>%
+    select(Pathway, `Ingroup mean`, `Outgroup mean`, 
+           ingroup_n, outgroup_n, pvalue, BH_pvalue, Status)
+  
+  corr.enrichment.filtered <- corr.enrichment %>%
+    filter(BH_pvalue < fdr.cutoff & abs(`Ingroup mean`) > corr.cutoff) %>%
+    mutate(BH_pvalue = case_when(BH_pvalue > 1e-10 ~ BH_pvalue,
+                                 BH_pvalue < 1e-10 ~ 1e-10))
+  
+  if (clean.names) {
+    corr.enrichment.filtered$Pathway <- sub("_pathway$", "", 
+                                            corr.enrichment.filtered$Pathway)
+  }
+  
+  p.corr <- ggplot(corr.enrichment.filtered, aes(x = `Ingroup mean`, 
+                                                 y = reorder(Pathway, get(order.by)))) +
+    geom_bar(stat='identity', aes(fill = Status)) +
+    scale_fill_manual(values = c("Positively Correlated" = "dodgerblue3", 
+                                 "Negatively Correlated" = "firebrick2")) +
+    theme_minimal() +
+    theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 14),
+          axis.title.x = element_text(size=16),
+          axis.title.y = element_blank(), 
+          axis.text.x = element_text(size = 14),
+          axis.text.y = element_text(size = 14),
+          axis.line.y = element_blank(),
+          axis.ticks.y = element_blank(),
+          legend.position = "none") + 
+    labs(x = "Average correlation") +
+    ggtitle("Correlation Enrichment")
+  
+  p.pval <- ggplot(corr.enrichment.filtered, aes(x = BH_pvalue, 
+                                                 y = reorder(Pathway, get(order.by)))) +
+    geom_bar(stat='identity') +
+    scale_x_continuous(trans = reverselog_trans(10)) + 
+    theme_minimal() +
+    theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 14),
+          axis.title.x = element_text(size=16),
+          axis.title.y = element_blank(), 
+          axis.text.x = element_text(size = 14),
+          axis.text.y = element_blank(),
+          axis.ticks.y = element_blank(),
+          axis.line.y = element_line(color = "black"),
+          legend.position = "none") + 
+    labs(x = "Adjusted p-value") +
+    ggtitle("Significance")
+  
+  arrange_matrix <- t(as.matrix(c(1,1,1,2)))
+  p.both <- grid.arrange(p.corr,p.pval, layout_matrix = arrange_matrix)
+  
+  ggsave(paste0("sig-included-", prefix,"-correlation-enrichment-plot.png"), p.both, 
+         height = height, width = width, units = "in")
+  return(corr.enrichment)
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
