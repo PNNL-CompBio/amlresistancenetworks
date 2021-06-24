@@ -15,7 +15,7 @@ plotCorrelationEnrichment(
   height = 8.5,
   order.by = "Ingroup mean",
   clean.names = FALSE,
-  ...
+  pathway.plot.size = 3
 )
 }
 \arguments{

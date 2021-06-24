@@ -9,6 +9,6 @@ License: MIT
 LazyData: true
 RoxygenNote: 7.1.1
 Imports: cowplot, dplyr, ggplot2, ggridges,
-    glmnet, gridExtra, KSEAapp, BiocManager, devtools,
+    glmnet, gridExtra, KSEAapp, leapr, BiocManager, devtools,
     pheatmap, purrr, randomForest, readr, readxl,
     reticulate, scales, stringr, tidyr, WebGestaltR

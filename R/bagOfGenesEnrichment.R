@@ -183,7 +183,7 @@ plotOldGSEA<-function(genes.with.values, prefix, gsea_FDR=0.05,
 
   
   gr<-clusterProfiler::gseGO(unlist(genelist),ont="BP",keyType="SYMBOL",
-                             OrgDb=org.Hs.eg.db,pAdjustMethod = 'BH',pvalueCutoff = 0.5)#,eps=1e-10)
+                             OrgDb=org.Hs.eg.db,pAdjustMethod = 'BH',pvalueCutoff = gsea_FDR)#,eps=1e-10)
   #gr<-clusterProfiler::gseKEGG(genelist[!is.na(genelist)],organism='hsa',keyType="kegg",
   #OrgDb=org.Hs.eg.db,
   #                           pAdjustMethod = 'BH')#,eps=1e-10)
@@ -374,7 +374,7 @@ doRegularKin<-function(genes,bg=NULL){
 plotCorrelationEnrichment <- function(exprs, geneset, fdr.cutoff = 0.05, 
                                       corr.cutoff = 0.1, prefix, width = 11, 
                                       height = 8.5, order.by = "Ingroup mean", 
-                                      clean.names = FALSE, ...) {
+                                      clean.names = FALSE, pathway.plot.size = 3) {
   
   corr.enrichment <- leapR(geneset, 
                            enrichment_method = "correlation_enrichment",
@@ -408,7 +408,7 @@ plotCorrelationEnrichment <- function(exprs, geneset, fdr.cutoff = 0.05,
           axis.title.x = element_text(size=16),
           axis.title.y = element_blank(), 
           axis.text.x = element_text(size = 14),
-          axis.text.y = element_text(size = 14),
+          axis.text.y = element_text(size = 9),
           axis.line.y = element_blank(),
           axis.ticks.y = element_blank(),
           legend.position = "none") + 
@@ -431,8 +431,8 @@ plotCorrelationEnrichment <- function(exprs, geneset, fdr.cutoff = 0.05,
     labs(x = "Adjusted p-value") +
     ggtitle("Significance")
   
-  arrange_matrix <- t(as.matrix(c(1,1,1,2)))
-  p.both <- grid.arrange(p.corr,p.pval, layout_matrix = arrange_matrix)
+  arrange_matrix <- t(as.matrix(c(rep(1,pathway.plot.size),2)))
+  p.both <- grid.arrange(p.corr,p.pval,layout_matrix = arrange_matrix)
   
   ggsave(paste0("sig-included-", prefix,"-correlation-enrichment-plot.png"), p.both, 
          height = height, width = width, units = "in")
@@ -440,38 +440,79 @@ plotCorrelationEnrichment <- function(exprs, geneset, fdr.cutoff = 0.05,
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#' Plot using clusterProfiler. 3 GSEA plots are saved to the working directory, 
+#' two of which are custom to the amlresistancenetworks package.
+#' @export 
+#' @import ggplot2
+#' @import gridExtra
+#' @import scales
+#' @param genes.with.values A data frame with genes as row names, along with a column named "value". Usually this value column consists of log fold changes between two groups.
+#' @param prefix string, used for naming the saved plots.
+#' @param order.by This determines how the GO terms are sorted. Default is normalized enrichment score "NES", but can also use "p.adjust" to sort by significance of the terms.
+plotGSEA<-function(genes.with.values, prefix, gsea_FDR=0.05, pathway.plot.size = 3,
+                   order.by = "NES", height = 8.5, width = 11,
+                   term.2.gene, term.2.name, ...){
+  
+  genes.with.values<-arrange(genes.with.values,desc(value))
+  # print(head(genes.with.values))
+  genelist=genes.with.values$value
+  names(genelist)=genes.with.values$Gene
+  print(head(genelist))
+  genelist<-sort(genelist,decreasing=TRUE)
+  
+  gr<-clusterProfiler::GSEA(unlist(genelist), TERM2GENE = term.2.gene, TERM2NAME = term.2.name,
+                             pAdjustMethod = 'BH', pvalueCutoff = gsea_FDR, ...)
+  
+  res<-filter(as.data.frame(gr),p.adjust<gsea_FDR)
+  if(nrow(res)==0){
+    return(gr)
+  }
+  
+  all.gsea<-res %>% 
+    dplyr::rename(pathway = 'Description') %>% 
+    arrange(NES) %>% 
+    dplyr::mutate(status = case_when(NES > 0 ~ "Up", NES < 0 ~ "Down"),
+                  status = factor(status, levels = c("Up", "Down"))) %>% 
+    group_by(status) %>% 
+    top_n(20, wt = abs(NES)) %>% 
+    ungroup()
+  
+  p.NES <- ggplot(all.gsea, aes(x = NES, y = reorder(pathway, get(order.by)))) +
+    geom_bar(stat='identity', aes(fill=status)) +
+    scale_fill_manual(values = c(Up = "firebrick2", Down = "dodgerblue3")) +
+    theme_minimal() +
+    theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 18),
+          axis.title.x = element_text(size=16),
+          axis.title.y = element_blank(), 
+          axis.text.x = element_text(size = 14),
+          axis.text.y = element_text(size = 11),
+          axis.line.y = element_blank(),
+          axis.ticks.y = element_blank(),
+          legend.position = "none") + 
+    labs(x = "NES") +
+    ggtitle("Normalized Enrichment Score")
+  
+  p.Pval <- ggplot(all.gsea, aes(x = p.adjust, y = reorder(pathway, get(order.by)))) +
+    scale_x_continuous(trans = reverselog_trans(10)) +  
+    theme_minimal() +
+    geom_bar(stat = "identity") +
+    theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 18), 
+          axis.title.x = element_text(size = 16), 
+          axis.text.x = element_text(size = 12), 
+          axis.title.y = element_blank(), 
+          axis.text.y = element_blank(), 
+          axis.line.y = element_line(color = "black"),
+          axis.ticks.y = element_blank(), 
+          legend.position = "none") + 
+    labs(x = "Adjusted p-value") + 
+    ggtitle("Significance")
+  
+  arrange_matrix <- t(as.matrix(c(rep(1,pathway.plot.size),2)))
+  p.both <- grid.arrange(p.NES,p.Pval, layout_matrix = arrange_matrix)
+  
+  ggsave(paste0("sig-included", prefix,"-gsea-plot.png"), p.both, 
+         height = height, width = width, units = "in")
+  
+  df<-as.data.frame(gr)%>%mutate(Condition=prefix)
+  return(df)
+}
