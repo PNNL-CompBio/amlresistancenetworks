@@ -164,7 +164,7 @@ computeKSEA<-function(genes.with.values,ksea_FDR=0.05,prefix='', order_by = "z.s
 #' @param prefix string, used for naming the saved plots.
 #' @param order.by This determines how the GO terms are sorted. Default is normalized enrichment score "NES", but can also use "p.adjust" to sort by significance of the terms.
 plotOldGSEA<-function(genes.with.values, prefix, gsea_FDR=0.05, 
-                      order.by = "NES", height = 8.5, width = 11){
+                      order.by = "NES", height = 8.5, width = 11, ...){
   if(!require('org.Hs.eg.db')){
     BiocManager::install('org.Hs.eg.db')
     require(org.Hs.eg.db)
@@ -183,7 +183,7 @@ plotOldGSEA<-function(genes.with.values, prefix, gsea_FDR=0.05,
 
   
   gr<-clusterProfiler::gseGO(unlist(genelist),ont="BP",keyType="SYMBOL",
-                             OrgDb=org.Hs.eg.db,pAdjustMethod = 'BH',pvalueCutoff = gsea_FDR)#,eps=1e-10)
+                             OrgDb=org.Hs.eg.db,pAdjustMethod = 'BH',pvalueCutoff = gsea_FDR, ...)#,eps=1e-10)
   #gr<-clusterProfiler::gseKEGG(genelist[!is.na(genelist)],organism='hsa',keyType="kegg",
   #OrgDb=org.Hs.eg.db,
   #                           pAdjustMethod = 'BH')#,eps=1e-10)
@@ -401,7 +401,7 @@ plotCorrelationEnrichment <- function(exprs, geneset, fdr.cutoff = 0.05,
   p.corr <- ggplot(corr.enrichment.filtered, aes(x = `Ingroup mean`, 
                                                  y = reorder(Pathway, get(order.by)))) +
     geom_bar(stat='identity', aes(fill = Status)) +
-    scale_fill_manual(values = c("Positively Correlated" = "dodgerblue3", 
+    scale_fill_manual(values = c("Positively Correlated" = "mediumturquoise", 
                                  "Negatively Correlated" = "firebrick2")) +
     theme_minimal() +
     theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 14),
