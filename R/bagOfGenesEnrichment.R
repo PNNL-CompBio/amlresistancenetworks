@@ -397,7 +397,7 @@ plotCorrelationEnrichment <- function(exprs, geneset, fdr.cutoff = 0.05,
   p.corr <- ggplot(corr.enrichment.filtered, aes(x = `Ingroup mean`, 
                                                  y = reorder(Pathway, get(order.by)))) +
     geom_bar(stat='identity', aes(fill = Status)) +
-    scale_fill_manual(values = c("Positively Correlated" = "dodgerblue3", 
+    scale_fill_manual(values = c("Positively Correlated" = "mediumturquoise", 
                                  "Negatively Correlated" = "firebrick2")) +
     theme_minimal() +
     theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 14),
