@@ -72,7 +72,7 @@ computeGSEA<-function(genes.with.values,prefix,gsea_FDR=0.01){
 #' @param prot.univ the space of all proteins we are considering
 #' @return KSEA output type stuff
 computeKSEA<-function(genes.with.values,ksea_FDR=0.05,prefix='', order_by = "z.score",
-                      height = 8.5, width = 11){
+                      height = 8.5, width = 11, NetworKIN = TRUE){
   inputdfforKSEA <- data.frame(Protein=rep("NULL", nrow(genes.with.values)), 
                                Gene=genes.with.values$Gene,
                                Peptide=rep("NULL", nrow(genes.with.values)),
@@ -85,7 +85,7 @@ computeKSEA<-function(genes.with.values,ksea_FDR=0.05,prefix='', order_by = "z.s
                                package='amlresistancenetworks'),stringsAsFactors = FALSE)
   
   #' * KSEA using not only the known substrates in PSP but also the predicted substrates in NetworKIN
-  res<-KSEA.Complete(KSDB, inputdfforKSEA, NetworKIN=FALSE, NetworKIN.cutoff=5, m.cutoff=5,
+  res<-KSEA.Complete(KSDB, inputdfforKSEA, NetworKIN = NetworKIN, NetworKIN.cutoff=5, m.cutoff=5,
                      p.cutoff=ksea_FDR)
   file.rename("KSEA Bar Plot.tiff",paste0(prefix,'_KSEABarPlot.tiff'))
   subs <- read.csv("Kinase-Substrate Links.csv")
@@ -401,7 +401,7 @@ plotCorrelationEnrichment <- function(exprs, geneset, fdr.cutoff = 0.05,
   p.corr <- ggplot(corr.enrichment.filtered, aes(x = `Ingroup mean`, 
                                                  y = reorder(Pathway, get(order.by)))) +
     geom_bar(stat='identity', aes(fill = Status)) +
-    scale_fill_manual(values = c("Positively Correlated" = "dodgerblue3", 
+    scale_fill_manual(values = c("Positively Correlated" = "mediumturquoise", 
                                  "Negatively Correlated" = "firebrick2")) +
     theme_minimal() +
     theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 14),

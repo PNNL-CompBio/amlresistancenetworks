@@ -12,3 +12,4 @@ Imports: cowplot, dplyr, ggplot2, ggridges,
     glmnet, gridExtra, KSEAapp, leapr, BiocManager, devtools,
     pheatmap, purrr, randomForest, readr, readxl,
     reticulate, scales, stringr, tidyr, WebGestaltR
+Remotes: biodataganache/leapR
