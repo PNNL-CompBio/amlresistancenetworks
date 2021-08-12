@@ -62,7 +62,6 @@ computeGSEA<-function(genes.with.values,prefix,gsea_FDR=0.01){
 #' compute kinase substrate enrichment - osama's code wrapped in package.
 #' @export
 #' @import KSEAapp
-#' @import readr
 #' @import dplyr
 #' @import ggplot2
 #' @import gridExtra
@@ -87,11 +86,16 @@ computeKSEA<-function(genes.with.values,ksea_FDR=0.05,prefix='', order_by = "z.s
   #' * KSEA using not only the known substrates in PSP but also the predicted substrates in NetworKIN
   res<-KSEA.Complete(KSDB, inputdfforKSEA, NetworKIN = NetworKIN, NetworKIN.cutoff=5, m.cutoff=5,
                      p.cutoff=ksea_FDR)
-  file.rename("KSEA Bar Plot.tiff",paste0(prefix,'_KSEABarPlot.tiff'))
+ # file.rename("KSEA Bar Plot.tiff",paste0(prefix,'_KSEABarPlot.tiff'))
+  file.remove("KSEA Bar Plot.tiff") 
+  ##read in outputs
   subs <- read.csv("Kinase-Substrate Links.csv")
-  #make own plot of KSEA results
-  res_ksea <- readr::read_csv("KSEA Kinase Scores.csv")
   file.remove("Kinase-Substrate Links.csv")#,paste0(prefix,'_kinaseSubsLinks.csv'))
+  
+  #make own plot of KSEA results
+  res_ksea <- read.csv("KSEA Kinase Scores.csv")
+  file.remove("KSEA Kinase Scores.csv")#paste0(prefix,'kinaseScores.csv'))
+  
   
   # Selecting only those Kinases with enough linked subtrates (m>5), as well as small enough false dicovery rate (p.adjust < KSEA_fdr)
   res_ksea <- res_ksea %>%
@@ -140,7 +144,6 @@ computeKSEA<-function(genes.with.values,ksea_FDR=0.05,prefix='', order_by = "z.s
   
   ggsave(paste0("sig-included", prefix,"-ksea-plot.png"), plot_both, 
          height = height, width = width, units = "in")
-  file.remove("KSEA Kinase Scores.csv")#paste0(prefix,'kinaseScores.csv'))
   
   ##join results
   #kin_res
