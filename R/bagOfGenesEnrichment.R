@@ -50,6 +50,7 @@ computeGSEA<-function(genes.with.values,prefix,gsea_FDR=0.01){
           legend.position = "none") +
     ggplot2::labs(title = "", y="NES") +#for some reason labs still works with orientation before cord flip so set y
     ggplot2::ggtitle(paste('All',prefix))
+  
   ggplot2::ggsave(paste0("allRegProts_", prefix,"_gseaGO_plot.pdf"), all_gseaGO, height = 8.5, width = 11, units = "in")
 
 
@@ -70,7 +71,8 @@ computeGSEA<-function(genes.with.values,prefix,gsea_FDR=0.01){
 #' @param prot.univ the space of all proteins we are considering
 #' @return KSEA output type stuff
 computeKSEA<-function(genes.with.values,ksea_FDR=0.05,prefix='', order_by = "z.score",
-                      height = 8.5, width = 11, NetworKIN = TRUE, linkedSubs=5){
+                      height = 8.5, width = 11, NetworKIN = TRUE, linkedSubs=5,
+                      suffix='png'){
   
   inputdfforKSEA <- data.frame(Protein=rep("NULL", nrow(genes.with.values)),
                                Gene=genes.with.values$Gene,
@@ -142,13 +144,14 @@ computeKSEA<-function(genes.with.values,ksea_FDR=0.05,prefix='', order_by = "z.s
   arrange_matrix <- t(as.matrix(c(1,1,2)))
   plot_both <- grid.arrange(plot_KSEA, plot_sig, layout_matrix = arrange_matrix)
 
-  ggsave(paste0("sig-included", prefix,"-ksea-plot.png"), plot_both,
+  ggsave(paste0("sig-included", prefix,"-ksea-plot.",suffix), device=suffix,plot_both,
          height = height, width = width, units = "in")
 
   ##join results
   #kin_res
   res_ksea<-res_ksea%>%rename(`aveSubstrateLog2FC`='log2FC')%>%left_join(subs,by='Kinase.Gene')
-  ggsave(paste0(prefix,"fig_KSEA.pdf"), plot_KSEA, height = height, width = width, units = "in")
+  ggsave(paste0(prefix,"fig_KSEA.",suffix), plot_KSEA, device=suffix,height = height, 
+         width = width, units = "in")
   write.table(res_ksea,paste0(prefix,'_kseaRes.csv'),sep=',')
   return(res_ksea)
 }
