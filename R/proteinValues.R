@@ -57,7 +57,7 @@ limmaTwoFactorDEAnalysis <- function(dat, sampleIDs.group1, sampleIDs.group2) {
   design <- model.matrix(~fac)
   fit <- lmFit(dat[,c(sampleIDs.group2, sampleIDs.group1)], design)
   fit <- eBayes(fit)
-  print(topTable(fit, coef=2))
+ # print(topTable(fit, coef=2))
   res <- topTable(fit, coef=2, number=Inf, sort.by="none")
   res <- data.frame(featureID=rownames(res), res, stringsAsFactors = F)
   return(arrange(res,P.Value))
@@ -106,7 +106,7 @@ computeFoldChangePvals<-function(g.data,
                                  conditions=c("FLT3","FGF2"),
                                  doManual=FALSE){
   
-  print(unique(g.data$cellLine))
+#  print(unique(g.data$cellLine))
   
   data<-g.data%>%
     dplyr::select(cellLine,Gene,value,treatment,Sample)%>%
@@ -129,7 +129,7 @@ computeFoldChangePvals<-function(g.data,
     myfun=limmaTwoFactorDEAnalysis
   
   lig.datasets<-purrr::map_df(conditions,function(lig){
-    print(lig)
+#    print(lig)
     g1<-subset(reps,treatment%in%control)%>%dplyr::select(Sample)%>%distinct()
     g2<-subset(reps,treatment==lig)%>%dplyr::select(Sample)%>%distinct()
     matp=reps%>%
