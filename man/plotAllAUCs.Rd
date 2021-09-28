@@ -5,7 +5,14 @@
 \title{plotall AUCS with clinical data
 what are we measuring here}
 \usage{
-plotAllAUCs(auc.data, to.plot = "AUC")
+plotAllAUCs(auc.data, pat.data, drug.metric = "AUC", drug.column = "Condition")
+}
+\arguments{
+\item{pat.data}{Patient data frame}
+
+\item{drug.metric}{'AUC' is the primary drug metric}
+
+\item{drug.column}{'Condition' is default column, but we can also plot by 'family'}
 }
 \description{
 plotall AUCS with clinical data

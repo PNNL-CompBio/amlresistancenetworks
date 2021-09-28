@@ -7,7 +7,7 @@ Description: A small package that experiments with getting AML resistance networ
 Depends:
 License: MIT
 LazyData: true
-RoxygenNote: 7.1.1
+RoxygenNote: 7.1.2
 Imports: cowplot, dplyr, ggplot2, ggridges,
     glmnet, gridExtra, KSEAapp, leapr, BiocManager, devtools,
     pheatmap, purrr, randomForest, readr, readxl,
