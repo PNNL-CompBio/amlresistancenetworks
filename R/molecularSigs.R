@@ -546,7 +546,7 @@ clusterDrugFamilyEfficacy<-function(familyName='MEK',
     distinct()%>%
     pivot_wider(values_from=AUC,names_from=Condition,values_fn = list(AUC=mean))%>%
     tibble::column_to_rownames('Sample')
-  print(drug.dat)
+ # print(drug.dat)
   #print(rownames(drug.dat))
   
   pat.mat<-data.mat%>%select('Sample','Gene','value')%>%
