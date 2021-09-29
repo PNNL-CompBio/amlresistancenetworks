@@ -515,6 +515,83 @@ getFeaturesFromString<-function(string,prefix='mRNALevels'){
 
 #' selects AUC data and molecular data nand builds heatmap
 #' of single drug and the results of the prediction
+#' @param familyName Name of drug to select from prediction results
+#' @param meth Method used to select predictors
+#' @param data Type of data to be plotted
+#' @param auc.dat AUC data from drug/samples
+#' @param auc.thresh Threshold to determine if sample is sensitive
+#' @param new.results Prediction data frame
+#' @param data.mat Data frame of data to plot
+#' @return filename of pdf
+#' @export
+clusterDrugFamilyEfficacy<-function(familyName='MEK',
+                                    meth='RandomForest',
+                                    data='proteinLevels',
+                                    doEnrich=FALSE,
+                                    this.auc.dat=auc.dat,
+                                    auc.thresh=100,
+                                    genes,
+                                    data.mat=NULL,
+                                    prefix=''){
+  
+  ##get gene,transcript, protein predictor
+  library(pheatmap)
+  library(wesanderson)
+  pal<-wes_palette('Darjeeling1',100,type='continuous')
+  
+  fname=paste0(prefix,gsub(' ','',familyName),'_',meth,'selected_',data,'preds.pdf')
+  #print(fname)
+  drug.dat<-this.auc.dat%>%subset(family==familyName)%>%
+    select(Sample,Condition,AUC)%>%
+    distinct()%>%
+    pivot_wider(values_from=AUC,names_from=Condition,values_fn = list(AUC=mean))%>%
+    tibble::column_to_rownames('Sample')
+  print(drug.dat)
+  #print(rownames(drug.dat))
+  
+  pat.mat<-data.mat%>%select('Sample','Gene','value')%>%
+    subset(Gene%in%genes)%>%
+    subset(`Sample`%in%rownames(drug.dat))%>%#sapply(rownames(drug.dat),function(x) unlist(strsplit(x,split=' '))[1]))%>%
+    pivot_wider(values_from='value',
+                names_from='Sample', 
+                values_fill =list(value=0.0),
+                values_fn=list(value=mean))%>%
+    tibble::column_to_rownames('Gene')%>%as.matrix()
+  
+  annote.colors<-list(SampleResponse=c(Sensitive='darkgrey',Resistant='white'))
+  # names(annote.colors)<-setdiff(names(pat.vars),'overallSurvival')
+  
+  # print(pat.mat)
+  res=data.frame(ID='',Description='',pvalue=1.0,p.adjust=1.0) 
+  #zvals<-which(apply(pat.mat,2,var)==0)
+  #if(length(zvals>0))
+  #  pat.mat<-pat.mat[,-zvals]
+  if(nrow(pat.mat)<3)
+    return(res)
+  #print(pat.mat)
+  #cluster all selections
+  if(data=='mRNALevels')
+    pat.mat<-log10(pat.mat+0.01)
+  
+  pheatmap::pheatmap(pat.mat,cellwidth = 10,cellheight=10,annotation_col = drug.dat,
+                     clustering_distance_cols = 'euclidean', color=pal,annotation_colors=annote.colors,
+                     clustering_method = 'ward.D2',filename=fname)
+  
+  if(doEnrich && length(rownames(pat.mat))>2){
+    if(data=='Phosphosite')
+      try(res<-doRegularKin(rownames(pat.mat)))
+    else
+      try(res<-doRegularGo(rownames(pat.mat)))
+  }
+  
+  # plotMostVarByDrug(drugName,data)
+  return(res)
+  
+}
+
+
+#' selects AUC data and molecular data nand builds heatmap
+#' of single drug and the results of the prediction
 #' @param drugName Name of drug to select from prediction results
 #' @param meth Method used to select predictors
 #' @param data Type of data to be plotted
@@ -528,7 +605,7 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
                                     meth='RandomForest',
                                     data='proteinLevels',
                                     doEnrich=FALSE,
-                                    auc.dat=auc.dat,
+                                    this.auc.dat=auc.dat,
                                     auc.thresh=100,
                                     genes,
                                     data.mat=NULL,
@@ -540,17 +617,18 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
   pal<-wes_palette('Darjeeling1',100,type='continuous')
   
   fname=paste0(prefix,gsub(' ','',drugName),'_',meth,'selected_',data,'preds.pdf')
-  print(fname)
-
-  drug.dat<-subset(auc.dat,Condition==drugName)%>%
+  #print(fname)
+  drug.dat<-subset(this.auc.dat,Condition==drugName)%>%
     mutate(SampleResponse=if_else(AUC<auc.thresh,'Sensitive','Resistant'))%>%
     dplyr::select(AUC,SampleResponse,Sample)%>%
     distinct()%>%
     tibble::column_to_rownames('Sample')
-
+  
+  #print(rownames(drug.dat))
+  
   pat.mat<-data.mat%>%select('Sample','Gene','value')%>%
     subset(Gene%in%genes)%>%
-    subset(`Sample`%in%rownames(drug.dat))%>%
+    subset(`Sample`%in%sapply(rownames(drug.dat),function(x) unlist(strsplit(x,split=' '))[1]))%>%
     pivot_wider(values_from='value',
                 names_from='Sample', 
                 values_fill =list(value=0.0),
@@ -560,7 +638,7 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
   annote.colors<-list(SampleResponse=c(Sensitive='darkgrey',Resistant='white'))
  # names(annote.colors)<-setdiff(names(pat.vars),'overallSurvival')
 
-  
+ # print(pat.mat)
   res=data.frame(ID='',Description='',pvalue=1.0,p.adjust=1.0) 
   #zvals<-which(apply(pat.mat,2,var)==0)
   #if(length(zvals>0))
@@ -572,9 +650,9 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
   if(data=='mRNALevels')
     pat.mat<-log10(pat.mat+0.01)
   
-  try(pheatmap::pheatmap(pat.mat,cellwidth = 10,cellheight=10,annotation_col = drug.dat,
+  pheatmap::pheatmap(pat.mat,cellwidth = 10,cellheight=10,annotation_col = drug.dat,
                          clustering_distance_cols = 'euclidean', color=pal,annotation_colors=annote.colors,
-                         clustering_method = 'ward.D2',filename=fname))
+                         clustering_method = 'ward.D2',filename=fname)
 
   if(doEnrich && length(rownames(pat.mat))>2){
     if(data=='Phosphosite')

@@ -43,10 +43,10 @@ plotAllAUCs<-function(auc.data,pat.data,drug.metric='AUC',drug.column='Condition
 
   library(wesanderson)
   
-  pal<-wes_palette('Darjeeling1',length(unique(auc.data$Condition)),type='continuous')
+  pal<-wes_palette('Darjeeling1',length(unique(auc.data[[drug.column]])),type='continuous')
     p1<-auc.data%>%
     dplyr::select('AML sample',drugCol=drug.column,drugMetric=drug.metric)%>%distinct()%>%
-    ggplot(aes(x=drugMetric,fill=Condition))+geom_histogram()+ theme(legend.position = "none")+
+    ggplot(aes(x=drugMetric,fill=drugCol))+geom_histogram()+ theme(legend.position = "none")+
     ggtitle(paste("Distribution of raw",drug.metric,"values by",drug.column))+scale_fill_manual(values=pal)
   print(p1)
   ggsave(paste0(drug.metric,drug.column,'dist.pdf'),p1)
@@ -91,7 +91,7 @@ plotAllAUCs<-function(auc.data,pat.data,drug.metric='AUC',drug.column='Condition
   names(pff)<-drug.metric
   
   auc.mat<-auc.data%>%
-    dplyr::select(`AML sample`,Drug=drug.column,!!to.plot)%>%
+    dplyr::select(`AML sample`,Drug=drug.column,drug.metric)%>%
     distinct()%>%
     tidyr::pivot_wider(names_from="AML sample",values_from=drug.metric,
                        values_fill=pfn,
