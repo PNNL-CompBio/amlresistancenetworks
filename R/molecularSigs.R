@@ -60,13 +60,23 @@ drugMolRegression<-function(clin.data,
   
    
   if(length(mol.feature)==1){
-    drug.mol<-clin.data%>%
-      dplyr::select(`AML sample`,var=category,AUC)%>%
-       group_by(`AML sample`,var)%>%
-      summarize(meanVal=mean(AUC,na.rm=T))%>%
-      left_join(dplyr::select(mol.data,c(Gene,`AML sample`,!!mol.feature)),
-                by='AML sample')
-  
+    if(category=='Condition')## we are doing individual drug
+     drug.mol<-clin.data%>%
+        dplyr::select(`AML sample`,var=category,AUC)%>%
+        group_by(`AML sample`,var)%>%
+        summarize(meanVal=mean(AUC,na.rm=T))%>%
+        left_join(dplyr::select(mol.data,c(Gene,`AML sample`,!!mol.feature)),
+                  by='AML sample')
+    else{
+      drug.mol <- clin.data%>%
+        dplyr::select(samp='AML sample', var=category, 'Condition','AUC')%>%
+        unite(col=`AML sample`,samp,Condition,sep='_',remove=FALSE)%>%
+        left_join(dplyr::select(mol.data,c(Gene,samp=`AML sample`,!!mol.feature)),
+                  by='samp')
+      drug.mol<-drug.mol%>%
+        group_by(`AML sample`)%>%summarize(meanVal=mean(AUC))%>%
+        right_join(drug.mol)
+    }
   
     reg.res<-drug.mol%>%group_by(var)%>%
       group_modify(~ miniReg(.x,mol.feature),.keep=T)%>%
@@ -98,15 +108,26 @@ drugMolLogReg<-function(clin.data,
                         category='Condition',
                         aucThresh=100){
   if(length(mol.feature)==1){
-    drug.mol<-clin.data%>%
-      dplyr::select(`AML sample`,var=category,AUC)%>%
-      group_by(`AML sample`,var)%>%
-      summarize(meanVal=mean(AUC,na.rm=T))%>%
-      left_join(dplyr::select(mol.data,c(Gene,`AML sample`,!!mol.feature)),
-                by='AML sample')%>%
+    if(category=='Condition')
+      drug.mol<-clin.data%>%
+        dplyr::select(`AML sample`,var=category,AUC)%>%
+        group_by(`AML sample`,var)%>%
+        summarize(meanVal=mean(AUC,na.rm=T))%>%
+        left_join(dplyr::select(mol.data,c(Gene,`AML sample`,!!mol.feature)),
+                  by='AML sample')%>%
+        mutate(sensitive=meanVal<aucThresh)
+    else {
+      drug.mol <- clin.data%>%
+        dplyr::select(samp='AML sample', var=category, 'Condition','AUC')%>%
+        unite(col=`AML sample`,samp,Condition,sep='_',remove=FALSE)%>%
+        left_join(dplyr::select(mol.data,c(Gene,samp=`AML sample`,!!mol.feature)),
+                  by='samp')
+    drug.mol<-drug.mol%>%
+      group_by(`AML sample`)%>%summarize(meanVal=mean(AUC))%>%
+      right_join(drug.mol)%>%
       mutate(sensitive=meanVal<aucThresh)
     
-    
+    }
     reg.res<-drug.mol%>%group_by(var)%>%
       group_modify(~ miniLogR(.x,mol.feature),.keep=T)%>%
       mutate(Molecular=mol.feature)
