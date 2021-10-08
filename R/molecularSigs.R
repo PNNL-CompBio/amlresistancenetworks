@@ -313,13 +313,16 @@ buildFeatureMatrix<-function(tab,mol.feature,sampname='AML sample'){
   mat<-tab%>%
   dplyr::select(!!sampname,Gene,!!mol.feature)%>%
     subset(Gene!="")%>%
+    subset(!is.na(mol.feature))%>%
     tidyr::pivot_wider(names_from=Gene,values_from=mol.feature,
                      values_fill=vfn,values_fn = vfc,names_prefix=mol.feature)%>%
     tibble::column_to_rownames(sampname)
 
+  #tmat<-as.matrix(mat)
   tmat<-apply(mat,2,unlist)
   colnames(tmat)<-colnames(mat)
   rownames(tmat)<-rownames(mat)
+  
   return(tmat)
 }
 

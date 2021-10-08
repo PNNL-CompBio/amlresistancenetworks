@@ -41,6 +41,7 @@ drugMolRegressionEval<-function(clin.data,
       left_join(select(test.mol,c(Gene,Sample,!!mol.feature)),by='Sample')
     
     reg.res<-lapply(unique(drug.mol$var),function(x){
+      print(x)
       data.frame(miniRegEval(subset(drug.mol,var==x),subset(drug.test,var==x),mol.feature),
         compound=x,Molecular=mol.feature)})
   
@@ -106,15 +107,19 @@ miniRegEval<-function(trainTab,testTab,mol.feature){
   library(glmnet)
   set.seed(10101)
   
-  #first build our feature matrix and our test matrix
-  mat<-buildFeatureMatrix(trainTab,mol.feature)
-  tmat<-buildFeatureMatrix(testTab,mol.feature,'Sample')
-  
-  ##dummy output in case of failure
   ret.df<-data.frame(MSE=0,testMSE=0,corVal=0,numFeatures=0,genes='',numSamples=nrow(mat))
-
-  if(is.null(dim(mat)))
+  
+  tmat=NULL
+  mat<-NULL
+  
+  try(mat<-buildFeatureMatrix(trainTab,mol.feature))
+  
+  try(tmat<-buildFeatureMatrix(testTab,mol.feature,'Sample'))
+  
+  
+  if(is.null(mat)||is.null(tmat)||is.null(dim(mat)))
     return(ret.df)
+  
   ##check for non-informative features
   cm<-apply(mat,1,mean)
   vm<-apply(mat,1,var)
@@ -170,6 +175,7 @@ miniRegEval<-function(trainTab,testTab,mol.feature){
   ##remove features that aren't shared
   tmat<-tmat[,shared]
   if(length(missing)>0){
+   #docker print(missing)
     newmat<-matrix(nrow=nrow(tmat),ncol=length(missing),data=0)
     colnames(newmat)<-missing
     tmat<-cbind(tmat,newmat)
@@ -252,14 +258,18 @@ miniLogREval<-function(trainTab,testTab,mol.feature){
 #  first build our feature matrix
   library(glmnet)
     set.seed(101010101)
+    #empty data frame
+    ret.df<-data.frame(MSE=0,testMSE=0,corVal=0,numFeatures=0,genes='',numSamples=nrow(mat))
+    
+  tmat=NULL
+  mat<-NULL
 
- mat<-buildFeatureMatrix(trainTab,mol.feature)
- tmat<-buildFeatureMatrix(testTab,mol.feature,'Sample')
-
- #empty data frame
- ret.df<-data.frame(MSE=0,testMSE=0,corVal=0,numFeatures=0,genes='',numSamples=nrow(mat))
+  try(mat<-buildFeatureMatrix(trainTab,mol.feature))
  
-  if(is.null(dim(mat)))
+ try(tmat<-buildFeatureMatrix(testTab,mol.feature,'Sample'))
+
+ 
+  if(is.null(mat)||is.null(tmat)||is.null(dim(mat)))
     return(ret.df)
     
  #remove uninformiatve features
