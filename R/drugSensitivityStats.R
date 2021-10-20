@@ -34,19 +34,22 @@ plotProtsByMetric<-function(sens.data,genelist=c("BCL2","TRIM21","DUSP23"),
 #' plotall AUCS with clinical data
 #' what are we measuring here
 #' @param auc.data
+#' @param pat.data Patient data frame
+#' @param drug.metric 'AUC' is the primary drug metric
+#' @param drug.column 'Condition' is default column, but we can also plot by 'family'
 #' @import pheatmap
 #' @export
-plotAllAUCs<-function(auc.data,to.plot='AUC'){
+plotAllAUCs<-function(auc.data,pat.data,drug.metric='AUC',drug.column='Condition'){
 
   library(wesanderson)
   
-  pal<-wes_palette('Darjeeling1',length(unique(auc.data$Condition)),type='continuous')
+  pal<-wes_palette('Darjeeling1',length(unique(auc.data[[drug.column]])),type='continuous')
     p1<-auc.data%>%
-    dplyr::select(`AML sample`,Condition,AUC)%>%distinct()%>%
-    ggplot(aes(x=AUC,fill=Condition))+geom_histogram()+ theme(legend.position = "none")+
-    ggtitle("Distribution of raw AUC values by drug")+scale_fill_manual(values=pal)
+    dplyr::select('AML sample',drugCol=drug.column,drugMetric=drug.metric)%>%distinct()%>%
+    ggplot(aes(x=drugMetric,fill=drugCol))+geom_histogram()+ theme(legend.position = "none")+
+    ggtitle(paste("Distribution of raw",drug.metric,"values by",drug.column))+scale_fill_manual(values=pal)
   print(p1)
-  ggsave('AUCdist.pdf',p1)
+  ggsave(paste0(drug.metric,drug.column,'dist.pdf'),p1)
  # synapseStore('AUCdist.pdf','syn22130776')
   
     library(pheatmap)
@@ -83,14 +86,14 @@ plotAllAUCs<-function(auc.data,to.plot='AUC'){
     distinct()
   
   pfn=list(0)
-  names(pfn)=to.plot
+  names(pfn)=drug.metric
   pff=list(mean)
-  names(pff)<-to.plot
+  names(pff)<-drug.metric
   
   auc.mat<-auc.data%>%
-    dplyr::select(`AML sample`,Drug='Condition',!!to.plot)%>%
+    dplyr::select(`AML sample`,Drug=drug.column,drug.metric)%>%
     distinct()%>%
-    tidyr::pivot_wider(names_from="AML sample",values_from=to.plot,
+    tidyr::pivot_wider(names_from="AML sample",values_from=drug.metric,
                        values_fill=pfn,
                        values_fn=pff)%>%
     tibble::column_to_rownames('Drug')%>%
@@ -98,9 +101,9 @@ plotAllAUCs<-function(auc.data,to.plot='AUC'){
   pheatmap(auc.mat,annotation_col = pat.vars,clustering_distance_cols='correlation',
            clustering_method='ward',cellwidth = 10,cellheight = 10, color=pal,annotation_colors=annote.colors) 
   pheatmap(auc.mat,annotation_col = pat.vars,clustering_distance_cols='correlation',
-           clustering_method='ward',filename = paste0(to.plot,'heatmap.pdf'),cellwidth = 10,cellheight = 10,
+           clustering_method='ward',filename = paste0(drug.metric,drug.column,'heatmap.pdf'),cellwidth = 10,cellheight = 10,
            color=pal,annotation_colors=annote.colors) 
- # synapseStore(paste0(to.plot,'heatmap.pdf'),'syn22130776')
+ # synapseStore(paste0(drug.metric,'heatmap.pdf'),'syn22130776')
   return(pat.vars)
 }
 
