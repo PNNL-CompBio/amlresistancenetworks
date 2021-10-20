@@ -107,8 +107,6 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = c(1)){
   library(glmnet)
   set.seed(10101)
   
-  ret.df<-data.frame(MSE=0,testMSE=0,corVal=0,numFeatures=0,genes='',numSamples=nrow(mat))
-  
   tmat=NULL
   mat<-NULL
   
@@ -116,6 +114,7 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = c(1)){
   
   try(tmat<-buildFeatureMatrix(testTab,mol.feature,'Sample'))
   
+  ret.df<-data.frame(MSE=0,testMSE=0,corVal=0,numFeatures=0,genes='',numSamples=nrow(mat))
   
   if(is.null(mat)||is.null(tmat)||is.null(dim(mat)))
     return(ret.df)
