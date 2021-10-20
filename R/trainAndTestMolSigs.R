@@ -102,7 +102,7 @@ miniRegMod<-function(trainTab,mol.feature){
 #' @param mol.feature The molecular feature to be evaluated
 #' @export 
 #' @return a data.frame with three values/columns: MSE, numFeatures, and Genes
-miniRegEval<-function(trainTab,testTab,mol.feature){
+miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = seq(0.1, 0.9, 0.1)){
   library(glmnet)
   set.seed(10101)
   
@@ -150,11 +150,25 @@ miniRegEval<-function(trainTab,testTab,mol.feature){
   names(tyvar)<-ttmp$Sample
   tyvar<-unlist(tyvar[rownames(tmat)])
   
+  models <- list()
+  ## Run glmnet for each alpha, saving the best lambda value every time
+  for (alpha in enet.alpha) {
+    model <- cv.glmnet(x = mat, y = yvar, alpha = alpha, 
+                       type.measure = 'mse')
+    best <- data.frame(lambda = model$lambda, MSE = model$cvm) %>%
+      subset(MSE == min(MSE)) %>%
+      mutate(alpha = alpha)
+    best.res <- rbind(best.res, best)
+    models[[as.character(alpha)]] <- model
+  }
   
-  #use CV to get minimum MSE error
-  cv.res=cv.glmnet(x=mat,y=yvar,type.measure='mse')
-  best.res<-data.frame(lambda=cv.res$lambda,MSE=cv.res$cvm)%>%
-    subset(MSE==min(MSE))
+  ## Picking optimal (according to MSE) lambda and alpha
+  best.res  <- best.res %>%
+    subset(MSE == min(MSE))
+  alpha = best.res$alpha %>%
+    as.character()
+  lambda = best.res$lambda
+  full.res <- models[[alpha]]
   
   ##now reduce test matrix to only those features in original model
   shared<-intersect(colnames(tmat),colnames(mat))
@@ -174,23 +188,21 @@ miniRegEval<-function(trainTab,testTab,mol.feature){
     colnames(newmat)<-missing
     tmat<-cbind(tmat,newmat)
   }
-   
-  #then build the full model
-  full.res<-glmnet(x=mat,y=yvar,type.measure='mse')
   
   ##these are the genes that minimize the MSE
   genes=NULL
-  try(genes<-names(which(full.res$beta[,which(full.res$lambda==best.res$lambda)]!=0)))
+  coefs <- coef(full.res, s = lambda)
+  try(genes<-names(coefs[coefs[,1] != 0, ])[-1])
 
   if(is.null(genes))
     return(ret.df)
   genelist<-paste(genes,collapse=';')  
 
   ## get the prediction onto the new matrix (to assess correlation)
-  t.res<-predict(full.res,newx=tmat,s=best.res$lambda)
+  t.res<-predict(full.res,newx=tmat,s=lambda)
 
   #use the assess function to get a new MSE
-  res=assess.glmnet(full.res,newx=tmat,newy=tyvar,s=best.res$lambda)$mse
+  res=assess.glmnet(full.res,newx=tmat,newy=tyvar,s=lambda)$mse
   
   res.cor=cor(t.res[,1],tyvar,method='spearman',use='pairwise.complete.obs')
   print(paste(best.res$MSE,":",res,':',res.cor))
