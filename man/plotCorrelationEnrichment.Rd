@@ -2,7 +2,7 @@
 % Please edit documentation in R/bagOfGenesEnrichment.R
 \name{plotCorrelationEnrichment}
 \alias{plotCorrelationEnrichment}
-\title{Plot using correlation enrichment from leapR package. 
+\title{Plot using correlation enrichment from leapR package.
 A single plot is saved to the working directory}
 \usage{
 plotCorrelationEnrichment(
@@ -30,6 +30,6 @@ plotCorrelationEnrichment(
 \item{clean.names}{Boolean, if TRUE removes the "_pathway" ending in pathway names, making the plot easier to read.}
 }
 \description{
-Plot using correlation enrichment from leapR package. 
+Plot using correlation enrichment from leapR package.
 A single plot is saved to the working directory
 }
