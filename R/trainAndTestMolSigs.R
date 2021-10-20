@@ -102,7 +102,7 @@ miniRegMod<-function(trainTab,mol.feature){
 #' @param mol.feature The molecular feature to be evaluated
 #' @export 
 #' @return a data.frame with three values/columns: MSE, numFeatures, and Genes
-miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = seq(0.1, 0.9, 0.1)){
+miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = c(1)){
   library(glmnet)
   set.seed(10101)
   
@@ -149,6 +149,10 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = seq(0.1, 0.9, 0
   tyvar<-ttmp$meanVal
   names(tyvar)<-ttmp$Sample
   tyvar<-unlist(tyvar[rownames(tmat)])
+  
+  best.res <- data.frame(lambda = numeric(0), 
+                         MSE = numeric(0),
+                         alpha = numeric(0))
   
   models <- list()
   ## Run glmnet for each alpha, saving the best lambda value every time

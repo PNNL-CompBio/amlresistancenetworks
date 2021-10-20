@@ -2,7 +2,7 @@
 % Please edit documentation in R/bagOfGenesEnrichment.R
 \name{plotOldGSEA}
 \alias{plotOldGSEA}
-\title{Plot using clusterProfiler. 3 GSEA plots are saved to the working directory, 
+\title{Plot using clusterProfiler. 3 GSEA plots are saved to the working directory,
 two of which are custom to the amlresistancenetworks package.}
 \usage{
 plotOldGSEA(
@@ -11,7 +11,8 @@ plotOldGSEA(
   gsea_FDR = 0.05,
   order.by = "NES",
   height = 8.5,
-  width = 11
+  width = 11,
+  ...
 )
 }
 \arguments{
@@ -22,6 +23,6 @@ plotOldGSEA(
 \item{order.by}{This determines how the GO terms are sorted. Default is normalized enrichment score "NES", but can also use "p.adjust" to sort by significance of the terms.}
 }
 \description{
-Plot using clusterProfiler. 3 GSEA plots are saved to the working directory, 
+Plot using clusterProfiler. 3 GSEA plots are saved to the working directory,
 two of which are custom to the amlresistancenetworks package.
 }

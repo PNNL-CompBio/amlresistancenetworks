@@ -10,7 +10,10 @@ computeKSEA(
   prefix = "",
   order_by = "z.score",
   height = 8.5,
-  width = 11
+  width = 11,
+  NetworKIN = TRUE,
+  linkedSubs = 5,
+  suffix = "png"
 )
 }
 \arguments{
