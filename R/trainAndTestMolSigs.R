@@ -18,6 +18,7 @@ drugMolRegressionEval<-function(clin.data,
                             mol.feature,
                             test.clin,
                             test.mol,
+                            enet.alpha = c(1),
                             category='Condition'){
   
   ##first check to evaluate drug overlap
@@ -42,7 +43,7 @@ drugMolRegressionEval<-function(clin.data,
     
     reg.res<-lapply(unique(drug.mol$var),function(x){
       print(x)
-      data.frame(miniRegEval(subset(drug.mol,var==x),subset(drug.test,var==x),mol.feature),
+      data.frame(miniRegEval(subset(drug.mol,var==x),subset(drug.test,var==x),mol.feature, enet.alpha = enet.alpha),
         compound=x,Molecular=mol.feature)})
   
   return(reg.res)
@@ -114,7 +115,7 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = c(1)){
   
   try(tmat<-buildFeatureMatrix(testTab,mol.feature,'Sample'))
   
-  ret.df<-data.frame(MSE=0,testMSE=0,corVal=0,numFeatures=0,genes='',numSamples=nrow(mat))
+  ret.df<-data.frame(alpha="0",MSE=0,testMSE=0,corVal=0,numFeatures=0,genes='',numSamples=nrow(mat))
   
   if(is.null(mat)||is.null(tmat)||is.null(dim(mat)))
     return(ret.df)
@@ -215,7 +216,7 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = c(1)){
   
   res.cor=cor(t.res[,1],tyvar,method='spearman',use='pairwise.complete.obs')
   print(paste(best.res$MSE,":",res,':',res.cor))
-  return(data.frame(MSE=best.res$MSE,testMSE=res,corVal=res.cor,numFeatures=length(genes),genes=as.character(genelist),
+  return(data.frame(alpha=alpha,MSE=best.res$MSE,testMSE=res,corVal=res.cor,numFeatures=length(genes),genes=as.character(genelist),
                     numSamples=length(yvar)))
 }
 
@@ -272,17 +273,17 @@ drugMolLogRegEval<-function(clin.data,
 miniLogREval<-function(trainTab,testTab,mol.feature){
 #  first build our feature matrix
   library(glmnet)
-    set.seed(101010101)
-    #empty data frame
-    ret.df<-data.frame(MSE=0,testMSE=0,corVal=0,numFeatures=0,genes='',numSamples=nrow(mat))
+  set.seed(101010101)
     
   tmat=NULL
   mat<-NULL
 
   try(mat<-buildFeatureMatrix(trainTab,mol.feature))
  
- try(tmat<-buildFeatureMatrix(testTab,mol.feature,'Sample'))
+  try(tmat<-buildFeatureMatrix(testTab,mol.feature,'Sample'))
 
+  #empty data frame
+  ret.df<-data.frame(MSE=0,testMSE=0,corVal=0,numFeatures=0,genes='',numSamples=nrow(mat))
  
   if(is.null(mat)||is.null(tmat)||is.null(dim(mat)))
     return(ret.df)
