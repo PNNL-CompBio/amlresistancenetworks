@@ -156,6 +156,8 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = seq(0.1, 0.9, 0
   tyvar<-unlist(tyvar[rownames(tmat)])
   
   models <- list()
+  
+  best.res<-NULL
   ## Run glmnet for each alpha, saving the best lambda value every time
   for (alpha in enet.alpha) {
     model <- cv.glmnet(x = mat, y = yvar, alpha = alpha, 
