@@ -18,7 +18,8 @@ drugMolRegressionEval<-function(clin.data,
                             mol.feature,
                             test.clin,
                             test.mol,
-                            category='Condition'){
+                            category='Condition',
+                               doEnet=FALSE){
   
   ##first check to evaluate drug overlap
    drugs<-unlist(intersect(select(clin.data,cat=category)$cat,
@@ -40,10 +41,13 @@ drugMolRegressionEval<-function(clin.data,
       summarize(meanVal=mean(AUC,na.rm=T))%>%
       left_join(select(test.mol,c(Gene,Sample,!!mol.feature)),by='Sample')
     
+    alpha=1.0
+    if(doEnet)
+      alpha=seq(0.1, 0.9, 0.1)
     reg.res<-lapply(unique(drug.mol$var),function(x){
       print(x)
       data.frame(miniRegEval(subset(drug.mol,var==x),subset(drug.test,var==x),mol.feature),
-        compound=x,Molecular=mol.feature)})
+        compound=x,Molecular=mol.feature,enet.alpha=alpha)})
   
   return(reg.res)
   
