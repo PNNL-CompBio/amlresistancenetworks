@@ -107,11 +107,11 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = seq(0.1, 0.9, 0
   library(glmnet)
   set.seed(10101)
   
-  ret.df<-data.frame(MSE=0,testMSE=0,corVal=0,numFeatures=0,genes='',numSamples=nrow(mat))
   
   tmat=NULL
   mat<-NULL
-  
+  ret.df<-data.frame(MSE=0,testMSE=0,corVal=0,numFeatures=0,genes='',numSamples=nrow(mat))
+
   try(mat<-buildFeatureMatrix(trainTab,mol.feature))
   
   try(tmat<-buildFeatureMatrix(testTab,mol.feature,'Sample'))
