@@ -380,7 +380,7 @@ miniLogREval<-function(trainTab,testTab,mol.feature){
   #res.cor=cor(t.res[,1],tyvar,method='spearman',use='pairwise.complete.obs')
   res.cor<-0
   try(res.cor<-cor(t.res[,1],tyvar,method='spearman',use='pairwise.complete.obs'))
-  print(paste(best.res$MSE,":",res,':',res.cor))
+  message(paste(best.res$MSE,":",res,':',res.cor))
   
   return(data.frame(MSE=best.res$MSE,testMSE=res,corVal=res.cor,numFeatures=length(genes),
                     genes=as.character(genelist),
