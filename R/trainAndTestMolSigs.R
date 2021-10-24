@@ -44,11 +44,12 @@ drugMolRegressionEval<-function(clin.data,
     alpha=1.0
     if(doEnet)
       alpha=seq(0.1, 0.9, 0.1)
+    
     reg.res<-lapply(unique(drug.mol$var),function(x){
       print(x)
       data.frame(miniRegEval(subset(drug.mol,var==x),subset(drug.test,var==x),mol.feature),
         compound=x,Molecular=mol.feature,enet.alpha=alpha)})
-  
+    
   return(reg.res)
   
 }
@@ -163,15 +164,19 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = seq(0.1, 0.9, 0
   
   best.res<-NULL
   ## Run glmnet for each alpha, saving the best lambda value every time
-  for (alpha in enet.alpha) {
+  #for loops in R are no good!
+  #for (alpha in enet.alpha) {
+  models<-lapply(enet.alpha,function(alpha){
     model <- cv.glmnet(x = mat, y = yvar, alpha = alpha, 
                        type.measure = 'mse')
     best <- data.frame(lambda = model$lambda, MSE = model$cvm) %>%
       subset(MSE == min(MSE)) %>%
       mutate(alpha = alpha)
-    best.res <- rbind(best.res, best)
-    models[[as.character(alpha)]] <- model
-  }
+    best.res <<- rbind(best.res, best)
+    #models[[as.character(alpha)]] <- model
+    model
+  })
+  names(models)<-enet.alpha
   
   ## Picking optimal (according to MSE) lambda and alpha
   best.res  <- best.res %>%
@@ -214,7 +219,7 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = seq(0.1, 0.9, 0
   t.res<-predict(full.res,newx=tmat,s=lambda)
 
   #use the assess function to get a new MSE
-  res=assess.glmnet(full.res,newx=tmat,newy=tyvar,s=lambda)$mse
+  res=assess.glmnet(full.res,newx=tmat,newy=tyvar,s=lambda)$mse[[1]]
   
   res.cor=cor(t.res[,1],tyvar,method='spearman',use='pairwise.complete.obs')
   print(paste(best.res$MSE,":",res,':',res.cor))
