@@ -107,7 +107,7 @@ miniRegEval<-function(trainTab,testTab,mol.feature){
   library(glmnet)
   set.seed(10101)
   
-  ret.df<-data.frame(MSE=0,testMSE=0,corVal=0,numFeatures=0,genes='',numSamples=nrow(mat))
+  ret.df<-data.frame(MSE=0,testMSE=0,corVal=0,numFeatures=0,genes='',numSamples=0)
   
   tmat=NULL
   mat<-NULL
@@ -259,7 +259,7 @@ miniLogREval<-function(trainTab,testTab,mol.feature){
   library(glmnet)
     set.seed(101010101)
     #empty data frame
-    ret.df<-data.frame(MSE=0,testMSE=0,corVal=0,numFeatures=0,genes='',numSamples=nrow(mat))
+    ret.df<-data.frame(MSE=0,testMSE=0,corVal=0,numFeatures=0,genes='',numSamples=0)
     
   tmat=NULL
   mat<-NULL
