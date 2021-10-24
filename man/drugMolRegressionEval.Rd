@@ -13,7 +13,8 @@ drugMolRegressionEval(
   mol.feature,
   test.clin,
   test.mol,
-  category = "Condition"
+  category = "Condition",
+  doEnet = FALSE
 )
 }
 \arguments{
