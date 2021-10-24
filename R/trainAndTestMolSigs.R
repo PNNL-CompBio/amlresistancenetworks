@@ -47,7 +47,7 @@ drugMolRegressionEval<-function(clin.data,
     
     reg.res<-lapply(unique(drug.mol$var),function(x){
       message(x)
-      data.frame(miniRegEval(subset(drug.mol,var==x),subset(drug.test,var==x),mol.feature,,enet.alpha=alpha),
+      data.frame(miniRegEval(subset(drug.mol,var==x),subset(drug.test,var==x),mol.feature,enet.alpha=alpha),
         compound=x,Molecular=mol.feature)})
     
   return(reg.res)
