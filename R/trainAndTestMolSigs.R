@@ -24,7 +24,7 @@ drugMolRegressionEval<-function(clin.data,
   ##first check to evaluate drug overlap
    drugs<-unlist(intersect(select(clin.data,cat=category)$cat,
                            select(test.clin,cat=category)$cat))
-   print(paste('Found',length(drugs),'conditions that overlap between training and testing'))
+   message(paste('Found',length(drugs),'conditions that overlap between training and testing'))
    
     drug.mol<-clin.data%>%
       dplyr::select(`AML sample`,var=category,AUC)%>%
@@ -46,7 +46,7 @@ drugMolRegressionEval<-function(clin.data,
       alpha=seq(0.1, 0.9, 0.1)
     
     reg.res<-lapply(unique(drug.mol$var),function(x){
-      print(x)
+      message(x)
       data.frame(miniRegEval(subset(drug.mol,var==x),subset(drug.test,var==x),mol.feature),
         compound=x,Molecular=mol.feature,enet.alpha=alpha)})
     
@@ -67,7 +67,7 @@ miniRegMod<-function(trainTab,mol.feature){
   if(length(zvals)>0)
     mat<-mat[-zvals,]
   
-  print(paste("Found",length(zvals),'patients with no',
+  message(paste("Found",length(zvals),'patients with no',
               mol.feature,'data across',ncol(mat),'features'))
   
   zcols<-apply(mat,2,var)
@@ -141,8 +141,8 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = seq(0.1, 0.9, 0
   if(ncol(mat)<5 || nrow(mat)<5)
     return(ret.df)
   
-  print(paste("Found",length(zvals),'patients with no',
-              mol.feature,'data across',ncol(mat),'features'))
+  message(paste("Found",length(zvals),'features with no',
+              mol.feature,'information, keeping',ncol(mat),'features'))
 
   #now collect our y output variable for training
   tmp<-trainTab%>%
@@ -190,10 +190,10 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = seq(0.1, 0.9, 0
   shared<-intersect(colnames(tmat),colnames(mat))
   missing<-setdiff(colnames(mat),colnames(tmat))
  
-  print(paste('missing',length(missing),'genes and using',length(shared)))
+  message(paste('missing',length(missing),'genes between train and test and using',length(shared)))
   if(length(shared)==0){
-    print("None of the genes are shared?")
-    print(paste(colnames(tmat)[1:10],collapse=';'))
+    warning("None of the genes are shared?")
+    warning(paste(colnames(tmat)[1:10],collapse=';'))
     return(ret.df)
   }
   
@@ -222,7 +222,7 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = seq(0.1, 0.9, 0
   res=assess.glmnet(full.res,newx=tmat,newy=tyvar,s=lambda)$mse[[1]]
   
   res.cor=cor(t.res[,1],tyvar,method='spearman',use='pairwise.complete.obs')
-  print(paste(best.res$MSE,":",res,':',res.cor))
+  message(paste(best.res$MSE,":",res,':',res.cor))
   return(data.frame(MSE=best.res$MSE,testMSE=res,corVal=res.cor,numFeatures=length(genes),genes=as.character(genelist),
                     numSamples=length(yvar)))
 }
@@ -244,7 +244,7 @@ drugMolLogRegEval<-function(clin.data,
   drugs<-unlist(intersect(select(clin.data,cat=category)$cat,
                           select(test.clin,cat=category)$cat))
   
-  print(paste('Found',length(drugs),'conditions that overlap between training and testing'))
+  message(paste('Found',length(drugs),'conditions that overlap between training and testing'))
   
     drug.mol<-clin.data%>%
       dplyr::select(`AML sample`,var=category,AUC)%>%
@@ -312,8 +312,8 @@ miniLogREval<-function(trainTab,testTab,mol.feature){
       return(ret.df)
    
       
-  print(paste("Found",length(zvals),'patients with no',mol.feature,
-              'data across',ncol(mat),'features')) 
+  message(paste("Found",length(zvals),'features with no',mol.feature,
+              'information across',ncol(mat),'features')) 
     #now collect our y output variables
   tmp<-trainTab%>%
      dplyr::select(sensitive,`AML sample`)%>%
@@ -337,11 +337,11 @@ miniLogREval<-function(trainTab,testTab,mol.feature){
   shared<-intersect(colnames(tmat),colnames(mat))
   missing<-setdiff(colnames(mat),colnames(tmat))
   
-  print(paste('missing',length(missing),'genes and using',length(shared)))
+  message(paste('missing',length(missing),'genes and using',length(shared)))
   
   if(length(shared)==0){
-    print("None of the genes are shared?")
-    print(paste(colnames(tmat)[1:10],collapse=';'))
+    warning("None of the genes are shared?")
+    warning(paste(colnames(tmat)[1:10],collapse=';'))
     return(ret.df)
   }
   
@@ -468,7 +468,7 @@ miniForestEval<-function(tab,mol.feature,quant=0.995){
   
   cm<-apply(mat,1,mean)
   zvals<-which(cm==0.0)
-  print(paste("Found",length(zvals),'patients with no',mol.feature,'data across',ncol(mat),'features'))
+  message(paste("Found",length(zvals),'patients with no',mol.feature,'data across',ncol(mat),'features'))
   if(length(zvals)>0)
     mat<-mat[-zvals,]
   
