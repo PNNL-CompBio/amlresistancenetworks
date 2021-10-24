@@ -47,8 +47,8 @@ drugMolRegressionEval<-function(clin.data,
     
     reg.res<-lapply(unique(drug.mol$var),function(x){
       message(x)
-      data.frame(miniRegEval(subset(drug.mol,var==x),subset(drug.test,var==x),mol.feature),
-        compound=x,Molecular=mol.feature,enet.alpha=alpha)})
+      data.frame(miniRegEval(subset(drug.mol,var==x),subset(drug.test,var==x),mol.feature,,enet.alpha=alpha),
+        compound=x,Molecular=mol.feature)})
     
   return(reg.res)
   
@@ -223,7 +223,8 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = seq(0.1, 0.9, 0
   
   res.cor=cor(t.res[,1],tyvar,method='spearman',use='pairwise.complete.obs')
   message(paste(best.res$MSE,":",res,':',res.cor))
-  return(data.frame(MSE=best.res$MSE,testMSE=res,corVal=res.cor,numFeatures=length(genes),genes=as.character(genelist),
+  return(data.frame(MSE=best.res$MSE,testMSE=res,corVal=res.cor,numFeatures=length(genes),
+                    genes=as.character(genelist),
                     numSamples=length(yvar)))
 }
 
@@ -381,7 +382,8 @@ miniLogREval<-function(trainTab,testTab,mol.feature){
   try(res.cor<-cor(t.res[,1],tyvar,method='spearman',use='pairwise.complete.obs'))
   print(paste(best.res$MSE,":",res,':',res.cor))
   
-  return(data.frame(MSE=best.res$MSE,testMSE=res,corVal=res.cor,numFeatures=length(genes),genes=as.character(genelist),
+  return(data.frame(MSE=best.res$MSE,testMSE=res,corVal=res.cor,numFeatures=length(genes),
+                    genes=as.character(genelist),
                     numSamples=length(yvar)))
 }
 
