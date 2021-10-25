@@ -18,13 +18,14 @@ drugMolRegressionEval<-function(clin.data,
                             mol.feature,
                             test.clin,
                             test.mol,
-                            enet.alpha = c(1),
-                            category='Condition'){
+                            category='Condition',
+                               doEnet=FALSE){
+
   
   ##first check to evaluate drug overlap
    drugs<-unlist(intersect(select(clin.data,cat=category)$cat,
                            select(test.clin,cat=category)$cat))
-   print(paste('Found',length(drugs),'conditions that overlap between training and testing'))
+   message(paste('Found',length(drugs),'conditions that overlap between training and testing'))
    
     drug.mol<-clin.data%>%
       dplyr::select(`AML sample`,var=category,AUC)%>%
@@ -41,11 +42,15 @@ drugMolRegressionEval<-function(clin.data,
       summarize(meanVal=mean(AUC,na.rm=T))%>%
       left_join(select(test.mol,c(Gene,Sample,!!mol.feature)),by='Sample')
     
+    alpha=1.0
+    if(doEnet)
+      alpha=seq(0.1, 0.9, 0.1)
+    
     reg.res<-lapply(unique(drug.mol$var),function(x){
-      print(x)
-      data.frame(miniRegEval(subset(drug.mol,var==x),subset(drug.test,var==x),mol.feature, enet.alpha = enet.alpha),
+      message(x)
+      data.frame(miniRegEval(subset(drug.mol,var==x),subset(drug.test,var==x),mol.feature,enet.alpha=alpha),
         compound=x,Molecular=mol.feature)})
-  
+    
   return(reg.res)
   
 }
@@ -63,7 +68,7 @@ miniRegMod<-function(trainTab,mol.feature){
   if(length(zvals)>0)
     mat<-mat[-zvals,]
   
-  print(paste("Found",length(zvals),'patients with no',
+  message(paste("Found",length(zvals),'patients with no',
               mol.feature,'data across',ncol(mat),'features'))
   
   zcols<-apply(mat,2,var)
@@ -108,9 +113,11 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = c(1)){
   library(glmnet)
   set.seed(10101)
   
+  ret.df<-data.frame(MSE=0,testMSE=0,corVal=0,numFeatures=0,genes='',numSamples=0)
+  
   tmat=NULL
   mat<-NULL
-  
+
   try(mat<-buildFeatureMatrix(trainTab,mol.feature))
   
   try(tmat<-buildFeatureMatrix(testTab,mol.feature,'Sample'))
@@ -136,8 +143,8 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = c(1)){
   if(ncol(mat)<5 || nrow(mat)<5)
     return(ret.df)
   
-  print(paste("Found",length(zvals),'patients with no',
-              mol.feature,'data across',ncol(mat),'features'))
+  message(paste("Found",length(zvals),'features with no',
+              mol.feature,'information, keeping',ncol(mat),'features'))
 
   #now collect our y output variable for training
   tmp<-trainTab%>%
@@ -160,16 +167,22 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = c(1)){
                          alpha = numeric(0))
   
   models <- list()
+  
+  best.res<-NULL
   ## Run glmnet for each alpha, saving the best lambda value every time
-  for (alpha in enet.alpha) {
+  #for loops in R are no good!
+  #for (alpha in enet.alpha) {
+  models<-lapply(enet.alpha,function(alpha){
     model <- cv.glmnet(x = mat, y = yvar, alpha = alpha, 
                        type.measure = 'mse')
     best <- data.frame(lambda = model$lambda, MSE = model$cvm) %>%
       subset(MSE == min(MSE)) %>%
       mutate(alpha = alpha)
-    best.res <- rbind(best.res, best)
-    models[[as.character(alpha)]] <- model
-  }
+    best.res <<- rbind(best.res, best)
+    #models[[as.character(alpha)]] <- model
+    model
+  })
+  names(models)<-enet.alpha
   
   ## Picking optimal (according to MSE) lambda and alpha
   best.res  <- best.res %>%
@@ -183,10 +196,10 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = c(1)){
   shared<-intersect(colnames(tmat),colnames(mat))
   missing<-setdiff(colnames(mat),colnames(tmat))
  
-  print(paste('missing',length(missing),'genes and using',length(shared)))
+  message(paste('missing',length(missing),'genes between train and test and using',length(shared)))
   if(length(shared)==0){
-    print("None of the genes are shared?")
-    print(paste(colnames(tmat)[1:10],collapse=';'))
+    warning("None of the genes are shared?")
+    warning(paste(colnames(tmat)[1:10],collapse=';'))
     return(ret.df)
   }
   
@@ -212,11 +225,12 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = c(1)){
   t.res<-predict(full.res,newx=tmat,s=lambda)
 
   #use the assess function to get a new MSE
-  res=assess.glmnet(full.res,newx=tmat,newy=tyvar,s=lambda)$mse
+  res=assess.glmnet(full.res,newx=tmat,newy=tyvar,s=lambda)$mse[[1]]
   
   res.cor=cor(t.res[,1],tyvar,method='spearman',use='pairwise.complete.obs')
-  print(paste(best.res$MSE,":",res,':',res.cor))
-  return(data.frame(alpha=alpha,MSE=best.res$MSE,testMSE=res,corVal=res.cor,numFeatures=length(genes),genes=as.character(genelist),
+  message(paste(best.res$MSE,":",res,':',res.cor))
+  return(data.frame(MSE=best.res$MSE,testMSE=res,corVal=res.cor,numFeatures=length(genes),
+                    genes=as.character(genelist),
                     numSamples=length(yvar)))
 }
 
@@ -237,7 +251,7 @@ drugMolLogRegEval<-function(clin.data,
   drugs<-unlist(intersect(select(clin.data,cat=category)$cat,
                           select(test.clin,cat=category)$cat))
   
-  print(paste('Found',length(drugs),'conditions that overlap between training and testing'))
+  message(paste('Found',length(drugs),'conditions that overlap between training and testing'))
   
     drug.mol<-clin.data%>%
       dplyr::select(`AML sample`,var=category,AUC)%>%
@@ -273,7 +287,9 @@ drugMolLogRegEval<-function(clin.data,
 miniLogREval<-function(trainTab,testTab,mol.feature){
 #  first build our feature matrix
   library(glmnet)
-  set.seed(101010101)
+    set.seed(101010101)
+    #empty data frame
+    ret.df<-data.frame(MSE=0,testMSE=0,corVal=0,numFeatures=0,genes='',numSamples=0)
     
   tmat=NULL
   mat<-NULL
@@ -305,8 +321,8 @@ miniLogREval<-function(trainTab,testTab,mol.feature){
       return(ret.df)
    
       
-  print(paste("Found",length(zvals),'patients with no',mol.feature,
-              'data across',ncol(mat),'features')) 
+  message(paste("Found",length(zvals),'features with no',mol.feature,
+              'information across',ncol(mat),'features')) 
     #now collect our y output variables
   tmp<-trainTab%>%
      dplyr::select(sensitive,`AML sample`)%>%
@@ -330,11 +346,11 @@ miniLogREval<-function(trainTab,testTab,mol.feature){
   shared<-intersect(colnames(tmat),colnames(mat))
   missing<-setdiff(colnames(mat),colnames(tmat))
   
-  print(paste('missing',length(missing),'genes and using',length(shared)))
+  message(paste('missing',length(missing),'genes and using',length(shared)))
   
   if(length(shared)==0){
-    print("None of the genes are shared?")
-    print(paste(colnames(tmat)[1:10],collapse=';'))
+    warning("None of the genes are shared?")
+    warning(paste(colnames(tmat)[1:10],collapse=';'))
     return(ret.df)
   }
   
@@ -372,9 +388,10 @@ miniLogREval<-function(trainTab,testTab,mol.feature){
   #res.cor=cor(t.res[,1],tyvar,method='spearman',use='pairwise.complete.obs')
   res.cor<-0
   try(res.cor<-cor(t.res[,1],tyvar,method='spearman',use='pairwise.complete.obs'))
-  print(paste(best.res$MSE,":",res,':',res.cor))
+  message(paste(best.res$MSE,":",res,':',res.cor))
   
-  return(data.frame(MSE=best.res$MSE,testMSE=res,corVal=res.cor,numFeatures=length(genes),genes=as.character(genelist),
+  return(data.frame(MSE=best.res$MSE,testMSE=res,corVal=res.cor,numFeatures=length(genes),
+                    genes=as.character(genelist),
                     numSamples=length(yvar)))
 }
 
@@ -461,7 +478,7 @@ miniForestEval<-function(tab,mol.feature,quant=0.995){
   
   cm<-apply(mat,1,mean)
   zvals<-which(cm==0.0)
-  print(paste("Found",length(zvals),'patients with no',mol.feature,'data across',ncol(mat),'features'))
+  message(paste("Found",length(zvals),'patients with no',mol.feature,'data across',ncol(mat),'features'))
   if(length(zvals)>0)
     mat<-mat[-zvals,]
   

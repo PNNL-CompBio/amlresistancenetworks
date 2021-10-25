@@ -65,7 +65,6 @@ computeGSEA<-function(genes.with.values,prefix,gsea_FDR=0.01){
 #' @import dplyr
 #' @import ggplot2
 #' @import gridExtra
-#' @import scales
 #' @author Osama
 #' @param genes.with.values data frame containing a Gene column, as well as a Residue.Both column and FC column (see KSEA app).
 #' @param prot.univ the space of all proteins we are considering
@@ -164,7 +163,6 @@ computeKSEA<-function(genes.with.values,ksea_FDR=0.05,prefix='', order_by = "z.s
 #' @import BiocManager
 #' @import ggplot2
 #' @import gridExtra
-#' @import scales
 #' @import dplyr
 #' @param genes.with.values A data frame with genes as row names, along with a column named "value". Usually this value column consists of log fold changes between two groups.
 #' @param prefix string, used for naming the saved plots.
@@ -262,10 +260,11 @@ plotOldGSEA<-function(genes.with.values, prefix, gsea_FDR=0.05,
 #' Used to make reversed logarithmic scales
 #' @import scales
 reverselog_trans <- function(base = exp(1)) {
+  library(scales)
   trans <- function(x) -log(x, base)
   inv <- function(x) base^(-x)
-  trans_new(paste0("reverselog-", format(base)), trans, inv,
-            log_breaks(base = base),
+  scales::trans_new(paste0("reverselog-", format(base)), trans, inv,
+            scales::log_breaks(base = base),
             domain = c(1e-100, Inf))
 }
 
@@ -369,7 +368,6 @@ doRegularKin<-function(genes,bg=NULL){
 #' @export
 #' @import ggplot2
 #' @import gridExtra
-#' @import scales
 #' @import dplyr
 #' @import leapr
 #' @param exprs A matrix of intensities with accessions as row names, along with samples in the columns.
@@ -452,7 +450,6 @@ plotCorrelationEnrichment <- function(exprs, geneset, fdr.cutoff = 0.05,
 #' @export
 #' @import ggplot2
 #' @import gridExtra
-#' @import scales
 #' @param genes.with.values A data frame with genes as row names, along with a column named "value". Usually this value column consists of log fold changes between two groups.
 #' @param prefix string, used for naming the saved plots.
 #' @param order.by This determines how the GO terms are sorted. Default is normalized enrichment score "NES", but can also use "p.adjust" to sort by significance of the terms.

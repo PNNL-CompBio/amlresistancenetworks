@@ -178,7 +178,7 @@ miniLogR<-function(tab,mol.feature){
    if(ncol(mat)<5 || nrow(mat)<5)
       return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=nrow(mat)),corVal=0)
   
-  print(paste("Found",length(zvals),'features with no',mol.feature,'data across',
+  message(paste("Found",length(zvals),'features with no',mol.feature,'data across',
               ncol(mat),'features'))    
 
   #now collect our y output variable - AUC
@@ -344,7 +344,7 @@ miniForest<-function(tab,mol.feature,quant=0.995){
   
   cm<-apply(mat,1,mean)
   zvals<-which(cm==0.0)
-  print(paste("Found",length(zvals),'features with no',mol.feature,'data across',ncol(mat),'features'))
+  message(paste("Found",length(zvals),'features with no',mol.feature,'data across',ncol(mat),'features'))
   if(length(zvals)>0)
     mat<-mat[-zvals,]
   
@@ -409,7 +409,7 @@ miniReg<-function(tab,mol.feature, enet.alpha = c(1)){
   if(ncol(mat)<5 || nrow(mat)<5)
       return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=nrow(mat)))
  
-  print(paste("Found",length(zvals),'features with no',mol.feature,'data across',ncol(mat),'features'))
+  message(paste("Found",length(zvals),'features with no',mol.feature,'data across',ncol(mat),'features'))
 
   
   #now collect our y output variable - AUC
@@ -472,7 +472,7 @@ plotCorrelationsByDrug<-function(cor.res,cor.thresh){
   library(ggplot2)
   library(dplyr)
   do.p<-function(dat,cor.thresh){
-    print(head(dat))
+    message(head(dat))
     fam=dat$family[1]
     #fam=dat%>%dplyr::select(family)%>%unlist()
     #fam=fam[1]
@@ -533,7 +533,7 @@ computeAUCCorVals<-function(clin.data,mol.data,mol.feature){
     subset(!is.na(Mol))%>%
     inner_join(clin.data,by='AML sample')
   
-  print('here')
+  message('here')
   dcors<-tdat%>%select(Gene,Mol,Condition,AUC)%>%
     distinct()%>%
     group_by(Gene,Condition)%>%
