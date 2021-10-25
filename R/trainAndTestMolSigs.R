@@ -12,7 +12,6 @@
 #' @param mol.data is tidied table of molecular data
 #' @param mol.feature is name of column to select from mol.data
 #' @param category can be either Condition or family
-#' @param doEnet TRUE or FALSE, determines whether to use elastic net (TRUE) or LASSO only (FALSE)
 #' @export 
 drugMolRegressionEval<-function(clin.data,
                             mol.data,
@@ -20,8 +19,7 @@ drugMolRegressionEval<-function(clin.data,
                             test.clin,
                             test.mol,
                             category='Condition',
-                            doEnet=FALSE){
-
+                               doEnet=FALSE){
   
   ##first check to evaluate drug overlap
    drugs<-unlist(intersect(select(clin.data,cat=category)$cat,
@@ -31,7 +29,7 @@ drugMolRegressionEval<-function(clin.data,
     drug.mol<-clin.data%>%
       dplyr::select(`AML sample`,var=category,AUC)%>%
       subset(var%in%drugs)%>%
-      group_by(`AML sample`,var)%>%
+       group_by(`AML sample`,var)%>%
       summarize(meanVal=mean(AUC,na.rm=T))%>%
       left_join(select(mol.data,c(Gene,`AML sample`,!!mol.feature)),
                 by='AML sample')
@@ -108,14 +106,13 @@ miniRegMod<-function(trainTab,mol.feature){
 #' @param trainTab with column names `AML sample`,meanVal,Gene, and whatever the value of `mol.feature` is.
 #' @param testTab with column names `Sample`, meanVal, Gene, and whatever the value of `mol.feature` is
 #' @param mol.feature The molecular feature to be evaluated
-#' @param enet.alpha vector specifying alpha values to pass to cv.glmnet
 #' @export 
 #' @return a data.frame with three values/columns: MSE, numFeatures, and Genes
-miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = c(1)){
+miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = seq(0.1, 0.9, 0.1)){
   library(glmnet)
   set.seed(10101)
   
-  ret.df<-data.frame(alpha="0",MSE=0,testMSE=0,corVal=0,numFeatures=0,genes='',numSamples=0)
+  ret.df<-data.frame(MSE=0,testMSE=0,corVal=0,numFeatures=0,genes='',numSamples=0)
   
   tmat=NULL
   mat<-NULL
@@ -123,6 +120,7 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = c(1)){
   try(mat<-buildFeatureMatrix(trainTab,mol.feature))
   
   try(tmat<-buildFeatureMatrix(testTab,mol.feature,'Sample'))
+  
   
   if(is.null(mat)||is.null(tmat)||is.null(dim(mat)))
     return(ret.df)
@@ -162,10 +160,6 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = c(1)){
   names(tyvar)<-ttmp$Sample
   tyvar<-unlist(tyvar[rownames(tmat)])
   
-  best.res <- data.frame(lambda = numeric(0), 
-                         MSE = numeric(0),
-                         alpha = numeric(0))
-  
   models <- list()
   
   best.res<-NULL
@@ -182,7 +176,7 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = c(1)){
     #models[[as.character(alpha)]] <- model
     model
   })
-  names(models)<-as.character(enet.alpha)
+  names(models)<-enet.alpha
   
   ## Picking optimal (according to MSE) lambda and alpha
   best.res  <- best.res %>%
@@ -229,7 +223,7 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = c(1)){
   
   res.cor=cor(t.res[,1],tyvar,method='spearman',use='pairwise.complete.obs')
   message(paste(best.res$MSE,":",res,':',res.cor))
-  return(data.frame(alpha=alpha,MSE=best.res$MSE,testMSE=res,corVal=res.cor,numFeatures=length(genes),
+  return(data.frame(MSE=best.res$MSE,testMSE=res,corVal=res.cor,numFeatures=length(genes),
                     genes=as.character(genelist),
                     numSamples=length(yvar)))
 }
@@ -287,16 +281,17 @@ drugMolLogRegEval<-function(clin.data,
 miniLogREval<-function(trainTab,testTab,mol.feature){
 #  first build our feature matrix
   library(glmnet)
-  set.seed(101010101)
-  #empty data frame
-  ret.df<-data.frame(MSE=0,testMSE=0,corVal=0,numFeatures=0,genes='',numSamples=0)
+    set.seed(101010101)
+    #empty data frame
+    ret.df<-data.frame(MSE=0,testMSE=0,corVal=0,numFeatures=0,genes='',numSamples=0)
     
   tmat=NULL
   mat<-NULL
 
   try(mat<-buildFeatureMatrix(trainTab,mol.feature))
  
-  try(tmat<-buildFeatureMatrix(testTab,mol.feature,'Sample'))
+ try(tmat<-buildFeatureMatrix(testTab,mol.feature,'Sample'))
+
  
   if(is.null(mat)||is.null(tmat)||is.null(dim(mat)))
     return(ret.df)
