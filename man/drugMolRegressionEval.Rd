@@ -25,6 +25,8 @@ drugMolRegressionEval(
 \item{mol.feature}{is name of column to select from mol.data}
 
 \item{category}{can be either Condition or family}
+
+\item{doEnet}{TRUE or FALSE, determines whether to use elastic net (TRUE) or LASSO only (FALSE)}
 }
 \description{
 working on this function still
