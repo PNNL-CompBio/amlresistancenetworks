@@ -380,7 +380,7 @@ miniForest<-function(tab,mol.feature,quant=0.995){
 #' @param enet.alpha numeric vector specifying the alpha values to use when running glmnet
 #' @export 
 #' @return a data.frame with three values/columns: MSE, numFeatures, and Genes
-miniReg<-function(tab,mol.feature, enet.alpha = seq(0.1, 1, 0.1)){
+miniReg<-function(tab,mol.feature, enet.alpha = c(1)){
   library(glmnet)
 #  set.seed(1010101)
   set.seed(101010101)

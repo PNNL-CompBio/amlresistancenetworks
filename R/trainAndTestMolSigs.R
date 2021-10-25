@@ -20,6 +20,7 @@ drugMolRegressionEval<-function(clin.data,
                             test.mol,
                             category='Condition',
                                doEnet=FALSE){
+
   
   ##first check to evaluate drug overlap
    drugs<-unlist(intersect(select(clin.data,cat=category)$cat,
@@ -108,7 +109,7 @@ miniRegMod<-function(trainTab,mol.feature){
 #' @param mol.feature The molecular feature to be evaluated
 #' @export 
 #' @return a data.frame with three values/columns: MSE, numFeatures, and Genes
-miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = seq(0.1, 0.9, 0.1)){
+miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = c(1)){
   library(glmnet)
   set.seed(10101)
   
@@ -121,6 +122,7 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = seq(0.1, 0.9, 0
   
   try(tmat<-buildFeatureMatrix(testTab,mol.feature,'Sample'))
   
+  ret.df<-data.frame(alpha="0",MSE=0,testMSE=0,corVal=0,numFeatures=0,genes='',numSamples=nrow(mat))
   
   if(is.null(mat)||is.null(tmat)||is.null(dim(mat)))
     return(ret.df)
@@ -159,6 +161,10 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = seq(0.1, 0.9, 0
   tyvar<-ttmp$meanVal
   names(tyvar)<-ttmp$Sample
   tyvar<-unlist(tyvar[rownames(tmat)])
+  
+  best.res <- data.frame(lambda = numeric(0), 
+                         MSE = numeric(0),
+                         alpha = numeric(0))
   
   models <- list()
   
@@ -290,8 +296,10 @@ miniLogREval<-function(trainTab,testTab,mol.feature){
 
   try(mat<-buildFeatureMatrix(trainTab,mol.feature))
  
- try(tmat<-buildFeatureMatrix(testTab,mol.feature,'Sample'))
+  try(tmat<-buildFeatureMatrix(testTab,mol.feature,'Sample'))
 
+  #empty data frame
+  ret.df<-data.frame(MSE=0,testMSE=0,corVal=0,numFeatures=0,genes='',numSamples=nrow(mat))
  
   if(is.null(mat)||is.null(tmat)||is.null(dim(mat)))
     return(ret.df)
