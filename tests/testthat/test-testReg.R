@@ -8,7 +8,7 @@ test_that("multiplication works", {
 
 test_that('regression', {
   library(dplyr)
-  dat<-readRDS('tests/testData.rda')
+  dat<-load('testData')
   
   tr.samps<-unique(dat$mol.data$Sample)[1:40]
   te.samps<-setdiff(dat$mol.data$Sample,tr.samps)
@@ -41,7 +41,7 @@ test_that('regression', {
 test_that('logistic regression',{
   
   library(dplyr)
-  dat<-readRDS('tests/testData.rda')
+  dat<-load('testData')
   
   tr.samps<-unique(dat$mol.data$Sample)[1:40]
   te.samps<-setdiff(dat$mol.data$Sample,tr.samps)
@@ -73,7 +73,7 @@ test_that('logistic regression',{
 
 test_that('elastic net regression',{
   library(dplyr)
-  dat<-readRDS('tests/testData.rda')
+  dat<-load('testData')
   
   tr.samps<-unique(dat$mol.data$Sample)[1:40]
   te.samps<-setdiff(dat$mol.data$Sample,tr.samps)

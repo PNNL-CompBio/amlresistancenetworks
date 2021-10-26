@@ -307,7 +307,7 @@ plotKinDat<-function(kindat,phosData=phosData,prefix='all',
  pheatmap(mat[vars,],cellwidth = 8,cellheight=8,clustering_distance_cols = 'correlation',
           clustering_distance_rows = 'correlation',
           annotation_row = kinAts,annotation_col=sampAts,
-          file=paste0(prefix,'KinaseHeatmap.pdf'),height=25,width=8) 
+          filename=paste0(prefix,'KinaseHeatmap.pdf'),height=25,width=8) 
 }
 
 
