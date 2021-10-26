@@ -5,10 +5,12 @@
 \title{miniReg
 Runs lasso regression on a single feature from tabular data}
 \usage{
-miniReg(tab, mol.feature)
+miniReg(tab, mol.feature, enet.alpha = seq(0.1, 1, 0.1))
 }
 \arguments{
 \item{tab}{with column names `AML sample`,meanVal,Gene, and whatever the value of 'mol.feature' is.}
+
+\item{enet.alpha}{numeric vector specifying the alpha values to use when running glmnet}
 }
 \value{
 a data.frame with three values/columns: MSE, numFeatures, and Genes
