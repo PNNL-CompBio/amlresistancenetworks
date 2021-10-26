@@ -24,6 +24,7 @@ drugMolRegressionEval<-function(clin.data,
   ##first check to evaluate drug overlap
    drugs<-unlist(intersect(select(clin.data,cat=category)$cat,
                            select(test.clin,cat=category)$cat))
+   
    message(paste('Found',length(drugs),'conditions that overlap between training and testing'))
    
     drug.mol<-clin.data%>%
@@ -44,12 +45,13 @@ drugMolRegressionEval<-function(clin.data,
     alpha=1.0
     if(doEnet)
       alpha=seq(0.1, 0.9, 0.1)
+    #mol.feature=paste(mol.feature,collapse=';')
     
     reg.res<-lapply(unique(drug.mol$var),function(x){
       message(x)
       data.frame(miniRegEval(subset(drug.mol,var==x),subset(drug.test,var==x),
                              mol.feature,enet.alpha=alpha),
-        compound=x,Molecular=mol.feature)})
+        compound=x,Molecular=paste(mol.feature,collapse=';'))})
     
   return(reg.res)
   
@@ -121,7 +123,7 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = seq(0.1, 0.9, 0
  
   if(length(mol.feature)>1){
     try(mat<-do.call('cbind',lapply(mol.feature,function(x) buildFeatureMatrix(trainTab,x))))
-    try(tmat<-do.call('cbind',lapply(mol.feature,function(x) buildFeatureMatrix(testTab,x))))
+    try(tmat<-do.call('cbind',lapply(mol.feature,function(x) buildFeatureMatrix(testTab,x,'Sample'))))
     
   }else{
     try(mat<-buildFeatureMatrix(trainTab, mol.feature))

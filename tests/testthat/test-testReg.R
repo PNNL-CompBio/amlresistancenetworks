@@ -5,6 +5,35 @@ test_that("multiplication works", {
 
 ##create gene by sample by protein table
 
+test_that('multi-data regression', {
+  library(dplyr)
+  # dat<-load('testData')
+  
+  tr.samps<-unique(testData$mol.data$Sample)[1:40]
+  te.samps<-setdiff(testData$mol.data$Sample,tr.samps)
+  
+  auc.dat<-testData$auc.data
+  drugs<-unique(auc.dat$Condition)[1:5]
+  
+  
+  tr.dat<-subset(testData$mol.data,Sample%in%tr.samps)
+  te.dat<-subset(testData$mol.data,Sample%in%te.samps)
+  
+  auc.dat<-auc.dat%>%
+    rename(AUC='Value')%>%
+    subset(Condition%in%drugs)
+  ##now train model on AML and eval on depmap data
+  reg.preds<-drugMolRegressionEval(dplyr::rename(auc.dat,`AML sample`='Sample'),
+                                                   dplyr::rename(tr.dat,`AML sample`='Sample'),
+                                                   mol.feature=c('transcriptCounts','LogFoldChange',
+                                                     'numMuts'),
+                                                   auc.dat,
+                                                   te.dat,
+                                                   category='Condition')%>%
+    do.call(rbind,.)
+  expect_equal(dim(reg.preds),c(5,8))
+  
+})
 
 test_that('regression', {
   library(dplyr)
