@@ -178,7 +178,7 @@ miniLogR<-function(tab,mol.feature){
    if(ncol(mat)<5 || nrow(mat)<5)
       return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=nrow(mat)),corVal=0)
   
-  print(paste("Found",length(zvals),'features with no',mol.feature,'data across',
+  message(paste("Found",length(zvals),'features with no',mol.feature,'data across',
               ncol(mat),'features'))    
 
   #now collect our y output variable - AUC
@@ -344,7 +344,7 @@ miniForest<-function(tab,mol.feature,quant=0.995){
   
   cm<-apply(mat,1,mean)
   zvals<-which(cm==0.0)
-  print(paste("Found",length(zvals),'features with no',mol.feature,'data across',ncol(mat),'features'))
+  message(paste("Found",length(zvals),'features with no',mol.feature,'data across',ncol(mat),'features'))
   if(length(zvals)>0)
     mat<-mat[-zvals,]
   
@@ -377,9 +377,10 @@ miniForest<-function(tab,mol.feature,quant=0.995){
 #' miniReg
 #' Runs lasso regression on a single feature from tabular data
 #' @param tab with column names `AML sample`,meanVal,Gene, and whatever the value of 'mol.feature' is.
+#' @param enet.alpha numeric vector specifying the alpha values to use when running glmnet
 #' @export 
 #' @return a data.frame with three values/columns: MSE, numFeatures, and Genes
-miniReg<-function(tab,mol.feature){
+miniReg<-function(tab,mol.feature, enet.alpha = seq(0.1, 1, 0.1)){
   library(glmnet)
 #  set.seed(1010101)
   set.seed(101010101)
@@ -408,7 +409,7 @@ miniReg<-function(tab,mol.feature){
   if(ncol(mat)<5 || nrow(mat)<5)
       return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=nrow(mat)))
  
-  print(paste("Found",length(zvals),'features with no',mol.feature,'data across',ncol(mat),'features'))
+  message(paste("Found",length(zvals),'features with no',mol.feature,'data across',ncol(mat),'features'))
 
   
   #now collect our y output variable - AUC
@@ -419,20 +420,39 @@ miniReg<-function(tab,mol.feature){
   names(yvar)<-tmp$`AML sample`
   yvar<-unlist(yvar[rownames(mat)])
   
-  #use CV to get minimum error
-  cv.res=cv.glmnet(x=mat,y=yvar,type.measure='mse')
-  best.res<-data.frame(lambda=cv.res$lambda,MSE=cv.res$cvm)%>%
-    subset(MSE==min(MSE))
+  best.res <- data.frame(lambda = numeric(0), 
+                         MSE = numeric(0),
+                         alpha = numeric(0))
+  
+  models <- list()
+  ## Run glmnet for each alpha, saving the best lambda value every time
+  for (alpha in enet.alpha) {
+    model <- cv.glmnet(x = mat, y = yvar, alpha = alpha, 
+                       type.measure = 'mse')
+    best <- data.frame(lambda = model$lambda, MSE = model$cvm) %>%
+      subset(MSE == min(MSE)) %>%
+      mutate(alpha = alpha)
+    best.res <- rbind(best.res, best)
+    models[[as.character(alpha)]] <- model
+  }
+  
+  ## Picking optimal (according to MSE) lambda and alpha
+  best.res  <- best.res %>%
+    subset(MSE == min(MSE))
+  alpha = best.res$alpha %>%
+    as.character()
+  lambda = best.res$lambda
+  full.res <- models[[alpha]]
   
   #then select how many elements
-  full.res<-glmnet(x=mat,y=yvar,type.measure='mse')
-  preds <- predict.glmnet(full.res,newx=mat)[,which(full.res$lambda==best.res$lambda)]
-  genes=names(which(full.res$beta[,which(full.res$lambda==best.res$lambda)]!=0))
+  preds <- predict(full.res,newx=mat, s = lambda)
+  coefs <- coef(full.res, s = lambda)
+  genes <- names(coefs[coefs[,1] != 0, ])[-1]
   genelist<-paste(genes,collapse=';')
   #print(paste(best.res$MSE,":",genelist))
   cv=cor(preds,yvar,use='pairwise.complete.obs',method='spearman')
  # print(cv)
-  return(data.frame(MSE=best.res$MSE,numFeatures=length(genes),genes=genelist,
+  return(data.frame(alpha=alpha,MSE=best.res$MSE,numFeatures=length(genes),genes=genelist,
                     numSamples=length(yvar),corVal=cv))
 }
 
@@ -452,7 +472,7 @@ plotCorrelationsByDrug<-function(cor.res,cor.thresh){
   library(ggplot2)
   library(dplyr)
   do.p<-function(dat,cor.thresh){
-    print(head(dat))
+    message(head(dat))
     fam=dat$family[1]
     #fam=dat%>%dplyr::select(family)%>%unlist()
     #fam=fam[1]
@@ -513,7 +533,7 @@ computeAUCCorVals<-function(clin.data,mol.data,mol.feature){
     subset(!is.na(Mol))%>%
     inner_join(clin.data,by='AML sample')
   
-  print('here')
+  message('here')
   dcors<-tdat%>%select(Gene,Mol,Condition,AUC)%>%
     distinct()%>%
     group_by(Gene,Condition)%>%
