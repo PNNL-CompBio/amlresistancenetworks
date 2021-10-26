@@ -31,7 +31,7 @@ drugMolRegressionEval<-function(clin.data,
       subset(var%in%drugs)%>%
        group_by(`AML sample`,var)%>%
       summarize(meanVal=mean(AUC,na.rm=T))%>%
-      left_join(select(mol.data,c(Gene,`AML sample`,!!mol.feature)),
+      left_join(select(mol.data,c('Gene','AML sample',mol.feature)),
                 by='AML sample')
   
     drug.test<-test.clin%>%
@@ -39,7 +39,7 @@ drugMolRegressionEval<-function(clin.data,
       subset(var%in%drugs)%>%
       group_by(Sample,var)%>%
       summarize(meanVal=mean(AUC,na.rm=T))%>%
-      left_join(select(test.mol,c(Gene,Sample,!!mol.feature)),by='Sample')
+      left_join(select(test.mol,c('Gene','Sample',mol.feature)),by='Sample')
     
     alpha=1.0
     if(doEnet)
@@ -47,7 +47,8 @@ drugMolRegressionEval<-function(clin.data,
     
     reg.res<-lapply(unique(drug.mol$var),function(x){
       message(x)
-      data.frame(miniRegEval(subset(drug.mol,var==x),subset(drug.test,var==x),mol.feature,enet.alpha=alpha),
+      data.frame(miniRegEval(subset(drug.mol,var==x),subset(drug.test,var==x),
+                             mol.feature,enet.alpha=alpha),
         compound=x,Molecular=mol.feature)})
     
   return(reg.res)
@@ -117,11 +118,16 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = seq(0.1, 0.9, 0
   tmat=NULL
   mat<-NULL
 
-  try(mat<-buildFeatureMatrix(trainTab,mol.feature))
-  
-  try(tmat<-buildFeatureMatrix(testTab,mol.feature,'Sample'))
-  
-  
+ 
+  if(length(mol.feature)>1){
+    try(mat<-do.call('cbind',lapply(mol.feature,function(x) buildFeatureMatrix(trainTab,x))))
+    try(tmat<-do.call('cbind',lapply(mol.feature,function(x) buildFeatureMatrix(testTab,x))))
+    
+  }else{
+    try(mat<-buildFeatureMatrix(trainTab, mol.feature))
+    try(tmat<-buildFeatureMatrix(testTab, mol.feature,'Sample'))
+  }
+
   if(is.null(mat)||is.null(tmat)||is.null(dim(mat)))
     return(ret.df)
   
@@ -141,6 +147,8 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = seq(0.1, 0.9, 0
   if(ncol(mat)<5 || nrow(mat)<5)
     return(ret.df)
   
+
+  mol.feature<-paste(mol.feature,collapse=';')
   message(paste("Found",length(zvals),'features with no',
               mol.feature,'information, keeping',ncol(mat),'features'))
 
@@ -222,6 +230,8 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = seq(0.1, 0.9, 0
   res=assess.glmnet(full.res,newx=tmat,newy=tyvar,s=lambda)$mse[[1]]
   
   res.cor=cor(t.res[,1],tyvar,method='spearman',use='pairwise.complete.obs')
+
+
   message(paste(best.res$MSE,":",res,':',res.cor))
   return(data.frame(MSE=best.res$MSE,testMSE=res,corVal=res.cor,numFeatures=length(genes),
                     genes=as.character(genelist),
@@ -252,7 +262,7 @@ drugMolLogRegEval<-function(clin.data,
       group_by(`AML sample`,var)%>%
       subset(var%in%drugs)%>%
       summarize(meanVal=mean(AUC,na.rm=T))%>%
-      left_join(select(mol.data,c(Gene,`AML sample`,!!mol.feature)),
+      left_join(select(mol.data,c('Gene','AML sample',mol.feature)),
                 by='AML sample')%>%
       mutate(sensitive=meanVal<aucThresh)
     
@@ -261,12 +271,13 @@ drugMolLogRegEval<-function(clin.data,
       subset(var%in%drugs)%>%
       group_by(Sample,var)%>%
       summarize(meanVal=mean(AUC,na.rm=T))%>%
-      left_join(select(test.mol,c(Gene,Sample,!!mol.feature)),by='Sample')%>%
+      left_join(select(test.mol,c('Gene','Sample',mol.feature)),by='Sample')%>%
       mutate(sensitive=meanVal<aucThresh)
     
     reg.res<-lapply(unique(drug.mol$var),function(x){
-      data.frame(miniLogREval(subset(drug.mol,var==x),subset(drug.test,var==x),mol.feature),
-        compound=x, Molecular=mol.feature)})
+      data.frame(miniLogREval(subset(drug.mol,var==x),
+                              subset(drug.test,var==x),mol.feature),
+        compound=x, Molecular=paste(mol.feature,collapse=';'))})
   
   return(reg.res)
   
@@ -288,10 +299,16 @@ miniLogREval<-function(trainTab,testTab,mol.feature){
   tmat=NULL
   mat<-NULL
 
-  try(mat<-buildFeatureMatrix(trainTab,mol.feature))
- 
- try(tmat<-buildFeatureMatrix(testTab,mol.feature,'Sample'))
-
+  if(length(mol.feature)>1){
+    try(mat<-do.call('cbind',lapply(mol.feature,function(x) buildFeatureMatrix(trainTab,x))))
+    try(tmat<-do.call('cbind',lapply(mol.feature,function(x) buildFeatureMatrix(testTab,x))))
+    
+  }else{
+    try(mat<-buildFeatureMatrix(trainTab,mol.feature))
+    
+    try(tmat<-buildFeatureMatrix(testTab,mol.feature,'Sample'))
+  }
+  
  
   if(is.null(mat)||is.null(tmat)||is.null(dim(mat)))
     return(ret.df)
@@ -313,6 +330,9 @@ miniLogREval<-function(trainTab,testTab,mol.feature){
       return(ret.df)
    
       
+
+  mol.feature<-paste(mol.feature,collapse=';')
+
   message(paste("Found",length(zvals),'features with no',mol.feature,
               'information across',ncol(mat),'features')) 
     #now collect our y output variables
@@ -393,11 +413,17 @@ miniLogREval<-function(trainTab,testTab,mol.feature){
 #'@param tab
 #'@export
 #'@return a data frame with 3 values
-combForestEval<-function(tab,feature.list=c('proteinLevels','mRNAlevels','geneMutations')){
-  comb.mat<-do.call('cbind',lapply(feature.list,function(x) buildFeatureMatrix(tab,x)))
+combForestEval<-function(trainTab,testTab,
+                         feature.list=c('proteinLevels','mRNAlevels','geneMutations')){
   
-  if(ncol(comb.mat)<5 || nrow(comb.mat)<5)
-    return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=nrow(comb.mat)))
+  tr.comb.mat<-NULL
+  te.comb.mat<-NULL
+  try(tr.comb.mat<-do.call('cbind',lapply(feature.list,function(x) buildFeatureMatrix(trainTab,x))))
+  try(te.comb.mat<-do.call('cbind',lapply(feature.list,function(x) buildFeatureMatrix(trainTab,x))))
+  
+  #f(ncol(tr.comb.mat)<5 || nrow(tr.comb.mat)<5)
+  if(is.null(tr.comb.mat)||is.null(te.comb.mat)) 
+   return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=0))
   
   #now collect our y output variable
   tmp<-tab%>%
@@ -422,12 +448,19 @@ combForestEval<-function(tab,feature.list=c('proteinLevels','mRNAlevels','geneMu
 #' @export
 #' @param feature.list
 #' @return a data frame with three values/columns
-combRegEval<-function(tab,feature.list=c('proteinLevels','mRNALevels','geneMutations')){
+combRegEval<-function(trainTab,testTab,feature.list=c('proteinLevels','mRNALevels','geneMutations')){
   
-   comb.mat<-do.call('cbind',lapply(feature.list,function(x) buildFeatureMatrix(tab,x)))
-   
-  if(ncol(comb.mat)<5 || nrow(comb.mat)<5)
-    return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=nrow(comb.mat)))
+  
+  tr.comb.mat<-NULL
+  te.comb.mat<-NULL
+  try(tr.comb.mat<-do.call('cbind',lapply(feature.list,function(x) buildFeatureMatrix(trainTab,x))))
+  try(te.comb.mat<-do.call('cbind',lapply(feature.list,function(x) buildFeatureMatrix(testTab,x))))
+  
+  #f(ncol(tr.comb.mat)<5 || nrow(tr.comb.mat)<5)
+  if(is.null(tr.comb.mat)||is.null(te.comb.mat)) 
+    return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=0))
+  
+  
   
   #now collect our y output variable
   tmp<-tab%>%

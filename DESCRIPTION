@@ -4,7 +4,6 @@ Version: 0.1
 Author: Sara Gosline
 Maintainer: Sara Gosline <sara.gosline@pnnl.gov>
 Description: A small package that experiments with getting AML resistance networks
-Depends:
 License: MIT
 LazyData: true
 RoxygenNote: 7.1.2
@@ -13,3 +12,8 @@ Imports: cowplot, dplyr, ggplot2, ggridges,
     pheatmap, purrr, randomForest, readr, readxl,
     reticulate, scales, stringr, tidyr, WebGestaltR
 Remotes: biodataganache/leapR
+Suggests: 
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+Depends: 
+    R (>= 2.10)

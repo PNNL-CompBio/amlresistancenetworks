@@ -2,9 +2,9 @@
 #this file should only be modified rarely when new data are to be added
 
 #' reads in metadata from excel spreadsheet and tidies it
-#' @require readxl
-#' @require dplyr
-#' @require reticulate
+#' @import readxl
+#' @import dplyr
+#' @import reticulate
 #'
 
 readAndTidyMetadata<-function(){
@@ -47,9 +47,9 @@ readAndTidyMetadata<-function(){
 ##load data from files into rdata files
 
 #' reads in metadata from excel spreadsheet and tidies it
-#' @require readxl
-#' @require dplyr
-#' @require tidyr
+#' @import readxl
+#' @import dplyr
+#' @import tidyr
 
 readAndTidyQuizMetadata<-function(){
   syn=synapseLogin()
@@ -86,7 +86,7 @@ readAndTidyQuizMetadata<-function(){
 #' reads and tidies protein measurements
 #' joins with metadata
 #' saves tidied data and returns
-#' @require dplyr
+#' @import dplyr
 readAndTidyQuizProtMeasures<-function(){
   metadata<-readAndTidyQuizMetadata()
   syn=synapseLogin()
@@ -109,7 +109,7 @@ readAndTidyQuizProtMeasures<-function(){
 #' joins with metadata
 #' saves tidied data and 
 #' 
-#' @require dplyr
+#' @import dplyr
 #
 readAndTidyQuizPhosphoProtMeasures<-function(){
   metadata<-readAndTidyQuizMetadata()
@@ -132,7 +132,7 @@ readAndTidyQuizPhosphoProtMeasures<-function(){
 #' reads and tidies protein measurements
 #' joins with metadata
 #' saves tidied data and returns
-#' @require dplyr
+#' @import dplyr
 #
 readAndTidyProtMeasures<-function(){
   metadata<-readAndTidyMetadata()
@@ -152,7 +152,7 @@ readAndTidyProtMeasures<-function(){
 #' reads and tidies phosphoprotein measurements
 #' joins with metadata
 #' saves tidied data and returns
-#' @require dplyr
+#' @import dplyr
 #
 readAndTidyPhosphoProtMeasures<-function(){
   metadata<-readAndTidyMetadata()
@@ -174,7 +174,7 @@ readAndTidyPhosphoProtMeasures<-function(){
 #' reads and tidies uncorrected phosphoprotein measurements
 #' joins with metadata
 #' saves tidied data and returns
-#' @require dplyr
+#' @import dplyr
 #
 readAndTidyUncorrectedQuizPhosphoMeasures<-function(){
  metadata<-readAndTidyQuizMetadata()
@@ -196,8 +196,8 @@ readAndTidyUncorrectedQuizPhosphoMeasures<-function(){
 
 
 #' reads and tidies phosphototeomic data for experimnet 11
-#' @require dplyr
-#' @require tidyr
+#' @import dplyr
+#' @import tidyr
 readAndTidySensPhosMeasures<-function(){
   metadata<-readAndTidySensMetadata()
   syn<-synapseLogin()
@@ -214,8 +214,8 @@ readAndTidySensPhosMeasures<-function(){
 }
 
 #' reads and tidies bulk proteomic data for experiment 11
-#' @require dplyr
-#' @require tidyr
+#' @import dplyr
+#' @import tidyr
 #'
 readAndTidySensProtMeasure<-function(){
   metadata<-readAndTidySensMetadata()
@@ -235,8 +235,8 @@ readAndTidySensProtMeasure<-function(){
 
 
 #' reads and tidies experiment 11 metadata
-#' @require dplyr
-#' @require readxl
+#' @import dplyr
+#' @import readxl
 #' @export
 readAndTidySensMetadata<-function(){
   syn=synapseLogin()
@@ -279,7 +279,7 @@ getTimeCourseMetadata<-function(){
 }
 
 #' getTimecourseData
-#' @require dplyr
+#' @import dplyr
 getTimeCourseData<-function(){
     library(dplyr)
     syn=synapseLogin()
