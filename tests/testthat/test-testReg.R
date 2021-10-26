@@ -8,17 +8,17 @@ test_that("multiplication works", {
 
 test_that('regression', {
   library(dplyr)
-  dat<-load('testData')
+ # dat<-load('testData')
   
-  tr.samps<-unique(dat$mol.data$Sample)[1:40]
-  te.samps<-setdiff(dat$mol.data$Sample,tr.samps)
+  tr.samps<-unique(testData$mol.data$Sample)[1:40]
+  te.samps<-setdiff(testData$mol.data$Sample,tr.samps)
   
-  auc.dat<-dat$auc.data
+  auc.dat<-testData$auc.data
   drugs<-unique(auc.dat$Condition)[1:5]
   
   
-  tr.dat<-subset(dat$mol.data,Sample%in%tr.samps)
-  te.dat<-subset(dat$mol.data,Sample%in%te.samps)
+  tr.dat<-subset(testData$mol.data,Sample%in%tr.samps)
+  te.dat<-subset(testData$mol.data,Sample%in%te.samps)
   
   auc.dat<-auc.dat%>%
     rename(AUC='Value')%>%
@@ -41,17 +41,17 @@ test_that('regression', {
 test_that('logistic regression',{
   
   library(dplyr)
-  dat<-load('testData')
+ # dat<-load('testData')
   
-  tr.samps<-unique(dat$mol.data$Sample)[1:40]
-  te.samps<-setdiff(dat$mol.data$Sample,tr.samps)
+  tr.samps<-unique(testData$mol.data$Sample)[1:40]
+  te.samps<-setdiff(testData$mol.data$Sample,tr.samps)
   
-  auc.dat<-dat$auc.data
+  auc.dat<-testData$auc.data
   drugs<-unique(auc.dat$Condition)[1:5]
   
   
-  tr.dat<-subset(dat$mol.data,Sample%in%tr.samps)
-  te.dat<-subset(dat$mol.data,Sample%in%te.samps)
+  tr.dat<-subset(testData$mol.data,Sample%in%tr.samps)
+  te.dat<-subset(testData$mol.data,Sample%in%te.samps)
   
   auc.dat<-auc.dat%>%
     rename(AUC='Value')%>%
@@ -73,17 +73,17 @@ test_that('logistic regression',{
 
 test_that('elastic net regression',{
   library(dplyr)
-  dat<-load('testData')
+ # dat<-load('testData')
   
-  tr.samps<-unique(dat$mol.data$Sample)[1:40]
-  te.samps<-setdiff(dat$mol.data$Sample,tr.samps)
+  tr.samps<-unique(testData$mol.data$Sample)[1:40]
+  te.samps<-setdiff(testData$mol.data$Sample,tr.samps)
   
-  auc.dat<-dat$auc.data
+  auc.dat<-testData$auc.data
   drugs<-unique(auc.dat$Condition)[1:5]
   
   
-  tr.dat<-subset(dat$mol.data,Sample%in%tr.samps)
-  te.dat<-subset(dat$mol.data,Sample%in%te.samps)
+  tr.dat<-subset(testData$mol.data,Sample%in%tr.samps)
+  te.dat<-subset(testData$mol.data,Sample%in%te.samps)
   
   auc.dat<-auc.dat%>%
     rename(AUC='Value')%>%

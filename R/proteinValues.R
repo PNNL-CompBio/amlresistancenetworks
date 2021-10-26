@@ -153,8 +153,8 @@ computeFoldChangePvals<-function(g.data,
 #' @param data
 #' @param metric
 #' @return data.frame
-#' @require ggplot2
-#' @require dplyr
+#' @import ggplot2
+#' @import dplyr
 #' @export
 getCorrelatedProteins<-function(data,metric="AUC"){
   cor.stats<-subset(data,Metric==metric)%>%
@@ -186,12 +186,12 @@ getCorrelatedProteins<-function(data,metric="AUC"){
 #' Gets groups of proteins that are clustered across time points in a condition of interest
 #' @param timeCourseData
 #' @return dataFrame
-#' @require dplyr
-#' @require amap
+#' @import dplyr
+#' 
 #' @export 
 getCoClusteredProteins<-function(prot.data){
   
-  library(amap)
+  #library(amap)
   # print(cellLine,treatment)
   cellLine=unique(prot.data$cellLine)
   treatment=unique(prot.data$treatment)
