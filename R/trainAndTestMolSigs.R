@@ -247,7 +247,6 @@ drugMolLogRegEval<-function(clin.data,
   #print(mol.feature)
   #print(mol.feature.name)
   
-  
   drugs<-unlist(intersect(select(clin.data,cat=category)$cat,
                           select(test.clin,cat=category)$cat))
   
@@ -258,7 +257,7 @@ drugMolLogRegEval<-function(clin.data,
       group_by(`AML sample`,var)%>%
       subset(var%in%drugs)%>%
       summarize(meanVal=mean(AUC,na.rm=T))%>%
-      inner_join(select(mol.data,c(mol.feature,'AML sample',mol.feature.name)),
+      inner_join(select(mol.data,c(unique(mol.feature),'AML sample',unique(mol.feature.name))),
                 by='AML sample')%>%
       mutate(sensitive=meanVal<aucThresh)
     
@@ -267,7 +266,7 @@ drugMolLogRegEval<-function(clin.data,
       subset(var%in%drugs)%>%
       group_by(Sample,var)%>%
       summarize(meanVal=mean(AUC,na.rm=T))%>%
-    inner_join(select(test.mol,c(mol.feature,'Sample',mol.feature.name)),by='Sample')%>%
+    inner_join(select(test.mol,c(unique(mol.feature),'Sample',unique(mol.feature.name))),by='Sample')%>%
       mutate(sensitive=meanVal<aucThresh)
     
     reg.res<-lapply(unique(drug.mol$var),function(x){
@@ -297,20 +296,22 @@ miniLogREval<-function(trainTab,testTab,mol.feature='Gene',feature.val='mRNALeve
   tmat=NULL
   mat<-NULL
   
-  ##make this into a list with names 
-  mol.feature=list(mol.feature)
   names(mol.feature)<-feature.val
+  ##make this into a list with names 
+  #mol.feature=list(mol.feature)
+  #names(mol.feature)<-feature.val
   #message(mol.feature)
-  fnames=names(mol.feature)
+  
+  #fnames=names(mol.feature)
   
   if(length(mol.feature)>1){
-    try(mat<-do.call('cbind',lapply(feature.val,function(x) buildFeatureMatrix(trainTab,mol.feature=fnames[[x]],feature.val=x))))
-    try(tmat<-do.call('cbind',lapply(feature.val,function(x) buildFeatureMatrix(testTab,mol.feature=fnames[[x]],feature.val=x,'Sample'))))
+    try(mat<-do.call('cbind',lapply(feature.val,function(x) buildFeatureMatrix(trainTab,mol.feature=feature.val[[x]],feature.val=x))))
+    try(tmat<-do.call('cbind',lapply(feature.val,function(x) buildFeatureMatrix(testTab,mol.feature=feature.val[[x]],feature.val=x,'Sample'))))
     
   }else{
-    try(mat<-buildFeatureMatrix(trainTab,feature.val=fnames[[1]],mol.feature=mol.feature[[1]]))
+    try(mat<-buildFeatureMatrix(trainTab,feature.val=feature.val[[1]],mol.feature=mol.feature[[1]]))
     
-    try(tmat<-buildFeatureMatrix(testTab,feature.val=fnames[[1]],mol.feature=mol.feature[[1]],sampname='Sample'))
+    try(tmat<-buildFeatureMatrix(testTab,feature.val=feature.val[[1]],mol.feature=mol.feature[[1]],sampname='Sample'))
   }
   #print(tmat[1:10,1:10])
  
