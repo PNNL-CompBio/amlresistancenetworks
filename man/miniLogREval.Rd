@@ -5,14 +5,20 @@
 \title{miniLogReval: Assesses the performance of building a logistic regression model on one test of 
 data `trainTab` and assessing it on a second `testTab`}
 \usage{
-miniLogREval(trainTab, testTab, mol.feature)
+miniLogREval(
+  trainTab,
+  testTab,
+  mol.feature = "Gene",
+  feature.val = "mRNALevels"
+)
 }
 \arguments{
 \item{trainTab}{- a tabular form of data with three columns}
 
 \item{testTab}{- a tabular form of data with three columns}
 
-\item{mol.features}{}
+\item{mol.feature}{is a list of column features, with the names of the column features representing the measurements. 
+e.g. mRNALevels='Gene', or Phosphosite='site'}
 }
 \description{
 miniLogReval: Assesses the performance of building a logistic regression model on one test of 

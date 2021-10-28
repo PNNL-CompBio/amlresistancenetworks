@@ -3,14 +3,30 @@
 \name{buildFeatureMatrix}
 \alias{buildFeatureMatrix}
 \title{buildFeatureMatrix
-Builds a matrix for regression with rows as patients and columns as gene}
+This function sits at the core of the modeling by extracting features o finterest from the tidied tables
+and builds a matrix for regression with rows as patients and columns as gene}
 \usage{
-buildFeatureMatrix(tab, mol.feature, sampname = "AML sample")
+buildFeatureMatrix(
+  tab,
+  mol.feature = "Gene",
+  sampname = "AML sample",
+  feature.val = "mRNALevels"
+)
+}
+\arguments{
+\item{tab}{The data table to build into a matrix}
+
+\item{mol.feature}{The molecular feature/column name to grab, default is 'Gene'}
+
+\item{sampname}{The name of the sample, default is `AML sample`}
+
+\item{feature.val}{The name of the feature, default is 'mRNALevels'}
 }
 \value{
 matrix
 }
 \description{
 buildFeatureMatrix
-Builds a matrix for regression with rows as patients and columns as gene
+This function sits at the core of the modeling by extracting features o finterest from the tidied tables
+and builds a matrix for regression with rows as patients and columns as gene
 }

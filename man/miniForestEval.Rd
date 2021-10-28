@@ -2,15 +2,19 @@
 % Please edit documentation in R/trainAndTestMolSigs.R
 \name{miniForestEval}
 \alias{miniForestEval}
-\title{miniForest
-Runds random forest on the table and molecular feature of interest}
+\title{miniForestEval}
 \usage{
 miniForestEval(tab, mol.feature, quant = 0.995)
+}
+\arguments{
+\item{tab}{Data table of merged info}
 }
 \value{
 list
 }
 \description{
-miniForest
-Runds random forest on the table and molecular feature of interest
+
+}
+\details{
+
 }
