@@ -34,8 +34,8 @@ drugMolRegressionEval<-function(clin.data,
 
   mol.feature<-unlist(mol.feature)
   mol.feature.name<-unlist(mol.feature.name)
-   print(mol.feature)
-   print(mol.feature.name)
+#   print(mol.feature)
+#   print(mol.feature.name)
   
      drug.mol<-clin.data%>%
      dplyr::select(`AML sample`,var=category,AUC)%>%
@@ -241,6 +241,12 @@ drugMolLogRegEval<-function(clin.data,
   #names(mol.feature)<-mol.feature.name
   #message(mol.feature)
  # message(names(mol.feature.name))
+ 
+  mol.feature<-unlist(mol.feature)
+  mol.feature.name<-unlist(mol.feature.name)
+  #print(mol.feature)
+  #print(mol.feature.name)
+  
   
   drugs<-unlist(intersect(select(clin.data,cat=category)$cat,
                           select(test.clin,cat=category)$cat))
@@ -268,7 +274,7 @@ drugMolLogRegEval<-function(clin.data,
     #  print(x)
       data.frame(miniLogREval(subset(drug.mol,var==x),
                               subset(drug.test,var==x),mol.feature,mol.feature.name),
-        compound=x, Molecular=paste(names(mol.feature),collapse=';'))})
+        compound=x, Molecular=paste(mol.feature.name,collapse=';'))})
   
   return(reg.res)
   
