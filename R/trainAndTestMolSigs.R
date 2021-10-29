@@ -53,7 +53,6 @@ drugMolRegressionEval<-function(clin.data,
      summarize(meanVal=mean(AUC,na.rm=T))%>%
      inner_join(select(test.mol,c(unique(mol.feature),'Sample',unique(mol.feature.name))),by='Sample')#%>%
  
-   
      alpha=1.0
     if(doEnet)
       alpha=seq(0.1, 0.9, 0.1)
@@ -252,7 +251,7 @@ drugMolLogRegEval<-function(clin.data,
   
   message(paste('Found',length(drugs),'conditions that overlap between training and testing'))
   
-    drug.mol<-clin.data%>%
+  drug.mol<-clin.data%>%
       dplyr::select(`AML sample`,var=category,AUC)%>%
       group_by(`AML sample`,var)%>%
       subset(var%in%drugs)%>%
@@ -260,6 +259,7 @@ drugMolLogRegEval<-function(clin.data,
       inner_join(select(mol.data,c(unique(mol.feature),'AML sample',unique(mol.feature.name))),
                 by='AML sample')%>%
       mutate(sensitive=meanVal<aucThresh)
+    #print(drug.mol)
     
     drug.test<-test.clin%>%
       dplyr::select(Sample,var=category,AUC)%>%
@@ -268,9 +268,10 @@ drugMolLogRegEval<-function(clin.data,
       summarize(meanVal=mean(AUC,na.rm=T))%>%
     inner_join(select(test.mol,c(unique(mol.feature),'Sample',unique(mol.feature.name))),by='Sample')%>%
       mutate(sensitive=meanVal<aucThresh)
+  #  print(drug.test)
     
     reg.res<-lapply(unique(drug.mol$var),function(x){
-    #  print(x)
+      message(x)
       data.frame(miniLogREval(subset(drug.mol,var==x),
                               subset(drug.test,var==x),mol.feature,mol.feature.name),
         compound=x, Molecular=paste(mol.feature.name,collapse=';'))})
@@ -295,25 +296,27 @@ miniLogREval<-function(trainTab,testTab,mol.feature='Gene',feature.val='mRNALeve
     
   tmat=NULL
   mat<-NULL
+  feature.val<-unlist(feature.val)
   
   names(mol.feature)<-feature.val
+  
   ##make this into a list with names 
   #mol.feature=list(mol.feature)
   #names(mol.feature)<-feature.val
-  #message(mol.feature)
+  #print(mol.feature)
   
   #fnames=names(mol.feature)
-  
+ # print(feature.val)
+#  print(mol.feature)
   if(length(mol.feature)>1){
-    try(mat<-do.call('cbind',lapply(feature.val,function(x) buildFeatureMatrix(trainTab,mol.feature=feature.val[[x]],feature.val=x))))
-    try(tmat<-do.call('cbind',lapply(feature.val,function(x) buildFeatureMatrix(testTab,mol.feature=feature.val[[x]],feature.val=x,'Sample'))))
+    try(mat<-do.call('cbind',lapply(feature.val,function(x) buildFeatureMatrix(trainTab,mol.feature=mol.feature[[x]],feature.val=x))))
+    try(tmat<-do.call('cbind',lapply(feature.val,function(x) buildFeatureMatrix(testTab,mol.feature=mol.feature[[x]],feature.val=x,sampname='Sample'))))
     
   }else{
     try(mat<-buildFeatureMatrix(trainTab,feature.val=feature.val[[1]],mol.feature=mol.feature[[1]]))
-    
     try(tmat<-buildFeatureMatrix(testTab,feature.val=feature.val[[1]],mol.feature=mol.feature[[1]],sampname='Sample'))
   }
-  #print(tmat[1:10,1:10])
+ # print(tmat[1:10,1:10])
  
   if(is.null(mat)||is.null(tmat)||is.null(dim(mat)))
     return(ret.df)
@@ -334,11 +337,10 @@ miniLogREval<-function(trainTab,testTab,mol.feature='Gene',feature.val='mRNALeve
    if(ncol(mat)<5 || nrow(mat)<5)
       return(ret.df)
    
-      
 
-  mol.feature<-paste(mol.feature,collapse=';')
+  feature.val<-paste(feature.val,collapse=';')
 
-  message(paste("Found",length(zvals),'features with no',mol.feature,
+  message(paste("Found",length(zvals),'features with no',feature.val,
               'information across',ncol(mat),'features')) 
     #now collect our y output variables
   tmp<-trainTab%>%
@@ -378,6 +380,8 @@ miniLogREval<-function(trainTab,testTab,mol.feature='Gene',feature.val='mRNALeve
     tmat<-cbind(tmat,newmat)
   }
 
+  #print(mat[1:10,1:10])
+  #print(yvar)
   #use CV to get minimum MSE
   cv.res<-NULL
   try(cv.res<-cv.glmnet(x=mat,y=yvar,family='binomial',
