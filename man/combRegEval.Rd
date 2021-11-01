@@ -6,7 +6,8 @@
 Runs lasso regression on a combination of feature types}
 \usage{
 combRegEval(
-  tab,
+  trainTab,
+  testTab,
   feature.list = c("proteinLevels", "mRNALevels", "geneMutations")
 )
 }

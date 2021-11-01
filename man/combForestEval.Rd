@@ -6,7 +6,8 @@
 Runs random forest on combination of feature types}
 \usage{
 combForestEval(
-  tab,
+  trainTab,
+  testTab,
   feature.list = c("proteinLevels", "mRNAlevels", "geneMutations")
 )
 }
