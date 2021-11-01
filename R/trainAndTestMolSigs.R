@@ -14,51 +14,51 @@
 #' @param category can be either Condition or family
 #' @export 
 drugMolRegressionEval<-function(clin.data,
-                                mol.data,
-                                mol.feature,
-                                test.clin,
-                                test.mol,
-                                category='Condition',
-                                doEnet=FALSE){
+                            mol.data,
+                            mol.feature,
+                            test.clin,
+                            test.mol,
+                            category='Condition',
+                               doEnet=FALSE){
   
   ##first check to evaluate drug overlap
-  drugs<-unlist(intersect(select(clin.data,cat=category)$cat,
-                          select(test.clin,cat=category)$cat))
+   drugs<-unlist(intersect(select(clin.data,cat=category)$cat,
+                           select(test.clin,cat=category)$cat))
+   
+   message(paste('Found',length(drugs),'conditions that overlap between training and testing'))
+   
+    drug.mol<-clin.data%>%
+      dplyr::select(`AML sample`,var=category,AUC)%>%
+      subset(var%in%drugs)%>%
+       group_by(`AML sample`,var)%>%
+      summarize(meanVal=mean(AUC,na.rm=T))%>%
+      left_join(select(mol.data,c('Gene','AML sample',mol.feature)),
+                by='AML sample')
   
-  message(paste('Found',length(drugs),'conditions that overlap between training and testing'))
-  
-  drug.mol<-clin.data%>%
-    dplyr::select(`AML sample`,var=category,AUC)%>%
-    subset(var%in%drugs)%>%
-    group_by(`AML sample`,var)%>%
-    summarize(meanVal=mean(AUC,na.rm=T))%>%
-    left_join(select(mol.data,c('Gene','AML sample',mol.feature)),
-              by='AML sample')
-  
-  drug.test<-test.clin%>%
-    dplyr::select(Sample,var=category,AUC)%>%
-    subset(var%in%drugs)%>%
-    group_by(Sample,var)%>%
-    summarize(meanVal=mean(AUC,na.rm=T))%>%
-    left_join(select(test.mol,c('Gene','Sample',mol.feature)),by='Sample')
-  
-  alpha=1.0
-  if(doEnet)
-    alpha=seq(0.1, 0.9, 0.1)
-  #mol.feature=paste(mol.feature,collapse=';')
-  
-  reg.res<-lapply(unique(drug.mol$var),function(x){
-    message(x)
-    data.frame(miniRegEval(subset(drug.mol,var==x),subset(drug.test,var==x),
-                           mol.feature,enet.alpha=alpha),
-               compound=x,Molecular=paste(mol.feature,collapse=';'))})
-  
+    drug.test<-test.clin%>%
+      dplyr::select(Sample,var=category,AUC)%>%
+      subset(var%in%drugs)%>%
+      group_by(Sample,var)%>%
+      summarize(meanVal=mean(AUC,na.rm=T))%>%
+      left_join(select(test.mol,c('Gene','Sample',mol.feature)),by='Sample')
+    
+    alpha=1.0
+    if(doEnet)
+      alpha=seq(0.1, 0.9, 0.1)
+    #mol.feature=paste(mol.feature,collapse=';')
+    
+    reg.res<-lapply(unique(drug.mol$var),function(x){
+      message(x)
+      data.frame(miniRegEval(subset(drug.mol,var==x),subset(drug.test,var==x),
+                             mol.feature,enet.alpha=alpha),
+        compound=x,Molecular=paste(mol.feature,collapse=';'))})
+    
   return(reg.res)
   
 }
 
 miniRegMod<-function(trainTab,mol.feature){
-  #first build our feature matrix
+    #first build our feature matrix
   mat<-buildFeatureMatrix(trainTab,mol.feature)
   #print(mat)
   if(is.null(dim(mat)))
@@ -71,7 +71,7 @@ miniRegMod<-function(trainTab,mol.feature){
     mat<-mat[-zvals,]
   
   message(paste("Found",length(zvals),'patients with no',
-                mol.feature,'data across',ncol(mat),'features'))
+              mol.feature,'data across',ncol(mat),'features'))
   
   zcols<-apply(mat,2,var)
   zvals<-which(zcols==0)
@@ -119,8 +119,8 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = seq(0.1, 0.9, 0
   
   tmat=NULL
   mat<-NULL
-  
-  
+
+ 
   if(length(mol.feature)>1){
     try(mat<-do.call('cbind',lapply(mol.feature,function(x) buildFeatureMatrix(trainTab,x))))
     try(tmat<-do.call('cbind',lapply(mol.feature,function(x) buildFeatureMatrix(testTab,x,'Sample'))))
@@ -129,7 +129,7 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = seq(0.1, 0.9, 0
     try(mat<-buildFeatureMatrix(trainTab, mol.feature))
     try(tmat<-buildFeatureMatrix(testTab, mol.feature,'Sample'))
   }
-  
+
   if(is.null(mat)||is.null(tmat)||is.null(dim(mat)))
     return(ret.df)
   
@@ -149,11 +149,11 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = seq(0.1, 0.9, 0
   if(ncol(mat)<5 || nrow(mat)<5)
     return(ret.df)
   
-  
+
   mol.feature<-paste(mol.feature,collapse=';')
   message(paste("Found",length(zvals),'features with no',
-                mol.feature,'information, keeping',ncol(mat),'features'))
-  
+              mol.feature,'information, keeping',ncol(mat),'features'))
+
   #now collect our y output variable for training
   tmp<-trainTab%>%
     dplyr::select(meanVal,`AML sample`)%>%
@@ -199,7 +199,7 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = seq(0.1, 0.9, 0
   ##now reduce test matrix to only those features in original model
   shared<-intersect(colnames(tmat),colnames(mat))
   missing<-setdiff(colnames(mat),colnames(tmat))
-  
+ 
   message(paste('missing',length(missing),'genes between train and test and using',length(shared)))
   if(length(shared)==0){
     warning("None of the genes are shared?")
@@ -210,7 +210,7 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = seq(0.1, 0.9, 0
   ##remove features that aren't shared
   tmat<-tmat[,shared]
   if(length(missing)>0){
-    #docker print(missing)
+   #docker print(missing)
     newmat<-matrix(nrow=nrow(tmat),ncol=length(missing),data=0)
     colnames(newmat)<-missing
     tmat<-cbind(tmat,newmat)
@@ -220,20 +220,20 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = seq(0.1, 0.9, 0
   genes=NULL
   coefs <- coef(full.res, s = lambda)
   try(genes<-names(coefs[coefs[,1] != 0, ])[-1])
-  
+
   if(is.null(genes))
     return(ret.df)
   genelist<-paste(genes,collapse=';')  
-  
+
   ## get the prediction onto the new matrix (to assess correlation)
   t.res<-predict(full.res,newx=tmat,s=lambda)
-  
+
   #use the assess function to get a new MSE
   res=assess.glmnet(full.res,newx=tmat,newy=tyvar,s=lambda)$mse[[1]]
   
   res.cor=cor(t.res[,1],tyvar,method='spearman',use='pairwise.complete.obs')
-  
-  
+
+
   message(paste(best.res$MSE,":",res,':',res.cor))
   return(data.frame(MSE=best.res$MSE,testMSE=res,corVal=res.cor,numFeatures=length(genes),
                     genes=as.character(genelist),
@@ -247,39 +247,39 @@ miniRegEval<-function(trainTab,testTab,mol.feature, enet.alpha = seq(0.1, 0.9, 0
 #' @param aucThresh
 #' @export
 drugMolLogRegEval<-function(clin.data, 
-                            mol.data,
-                            mol.feature,
-                            test.clin,
-                            test.mol,
-                            category='Condition',
-                            aucThresh=100){
+                        mol.data,
+                        mol.feature,
+                        test.clin,
+                        test.mol,
+                        category='Condition',
+                        aucThresh=100){
   
   drugs<-unlist(intersect(select(clin.data,cat=category)$cat,
                           select(test.clin,cat=category)$cat))
   
   message(paste('Found',length(drugs),'conditions that overlap between training and testing'))
   
-  drug.mol<-clin.data%>%
-    dplyr::select(`AML sample`,var=category,AUC)%>%
-    group_by(`AML sample`,var)%>%
-    subset(var%in%drugs)%>%
-    summarize(meanVal=mean(AUC,na.rm=T))%>%
-    left_join(select(mol.data,c('Gene','AML sample',mol.feature)),
-              by='AML sample')%>%
-    mutate(sensitive=meanVal<aucThresh)
-  
-  drug.test<-test.clin%>%
-    dplyr::select(Sample,var=category,AUC)%>%
-    subset(var%in%drugs)%>%
-    group_by(Sample,var)%>%
-    summarize(meanVal=mean(AUC,na.rm=T))%>%
-    left_join(select(test.mol,c('Gene','Sample',mol.feature)),by='Sample')%>%
-    mutate(sensitive=meanVal<aucThresh)
-  
-  reg.res<-lapply(unique(drug.mol$var),function(x){
-    data.frame(miniLogREval(subset(drug.mol,var==x),
-                            subset(drug.test,var==x),mol.feature),
-               compound=x, Molecular=paste(mol.feature,collapse=';'))})
+    drug.mol<-clin.data%>%
+      dplyr::select(`AML sample`,var=category,AUC)%>%
+      group_by(`AML sample`,var)%>%
+      subset(var%in%drugs)%>%
+      summarize(meanVal=mean(AUC,na.rm=T))%>%
+      left_join(select(mol.data,c('Gene','AML sample',mol.feature)),
+                by='AML sample')%>%
+      mutate(sensitive=meanVal<aucThresh)
+    
+    drug.test<-test.clin%>%
+      dplyr::select(Sample,var=category,AUC)%>%
+      subset(var%in%drugs)%>%
+      group_by(Sample,var)%>%
+      summarize(meanVal=mean(AUC,na.rm=T))%>%
+      left_join(select(test.mol,c('Gene','Sample',mol.feature)),by='Sample')%>%
+      mutate(sensitive=meanVal<aucThresh)
+    
+    reg.res<-lapply(unique(drug.mol$var),function(x){
+      data.frame(miniLogREval(subset(drug.mol,var==x),
+                              subset(drug.test,var==x),mol.feature),
+        compound=x, Molecular=paste(mol.feature,collapse=';'))})
   
   return(reg.res)
   
@@ -292,15 +292,15 @@ drugMolLogRegEval<-function(clin.data,
 #' @param mol.features
 #' 
 miniLogREval<-function(trainTab,testTab,mol.feature){
-  #  first build our feature matrix
+#  first build our feature matrix
   library(glmnet)
-  set.seed(101010101)
-  #empty data frame
-  ret.df<-data.frame(MSE=0,testMSE=0,corVal=0,numFeatures=0,genes='',numSamples=0)
-  
+    set.seed(101010101)
+    #empty data frame
+    ret.df<-data.frame(MSE=0,testMSE=0,corVal=0,numFeatures=0,genes='',numSamples=0)
+    
   tmat=NULL
   mat<-NULL
-  
+
   if(length(mol.feature)>1){
     try(mat<-do.call('cbind',lapply(mol.feature,function(x) buildFeatureMatrix(trainTab,x))))
     try(tmat<-do.call('cbind',lapply(mol.feature,function(x) buildFeatureMatrix(testTab,x))))
@@ -311,11 +311,11 @@ miniLogREval<-function(trainTab,testTab,mol.feature){
     try(tmat<-buildFeatureMatrix(testTab,mol.feature,'Sample'))
   }
   
-  
+ 
   if(is.null(mat)||is.null(tmat)||is.null(dim(mat)))
     return(ret.df)
-  
-  #remove uninformiatve features
+    
+ #remove uninformiatve features
   cm<-apply(mat,1,mean)
   vm<-apply(mat,1,var)
   zvals<-union(which(cm==0),which(vm==0))
@@ -324,23 +324,23 @@ miniLogREval<-function(trainTab,testTab,mol.feature){
   
   zcols<-apply(mat,2,var)
   zvals<-which(zcols==0)
-  #sprint(zvals)
-  if(length(zvals)>0)
+   #sprint(zvals)
+   if(length(zvals)>0)
     mat<-mat[,-zvals]
-  
-  if(ncol(mat)<5 || nrow(mat)<5)
-    return(ret.df)
-  
-  
-  
+    
+   if(ncol(mat)<5 || nrow(mat)<5)
+      return(ret.df)
+   
+      
+
   mol.feature<-paste(mol.feature,collapse=';')
-  
+
   message(paste("Found",length(zvals),'features with no',mol.feature,
-                'information across',ncol(mat),'features')) 
-  #now collect our y output variables
+              'information across',ncol(mat),'features')) 
+    #now collect our y output variables
   tmp<-trainTab%>%
-    dplyr::select(sensitive,`AML sample`)%>%
-    distinct()
+     dplyr::select(sensitive,`AML sample`)%>%
+     distinct()
   yvar<-tmp$sensitive
   #print(yvar)
   names(yvar)<-tmp$`AML sample`
@@ -374,7 +374,7 @@ miniLogREval<-function(trainTab,testTab,mol.feature){
     colnames(newmat)<-missing
     tmat<-cbind(tmat,newmat)
   }
-  
+
   #use CV to get minimum MSE
   cv.res<-NULL
   try(cv.res<-cv.glmnet(x=mat,y=yvar,family='binomial',
@@ -387,16 +387,16 @@ miniLogREval<-function(trainTab,testTab,mol.feature){
   
   #then select how many elements
   full.res<-glmnet(x=mat,y=yvar,family='binomial',type.measure='mse')
-  
+
   genes=NULL
   try(genes<-names(which(full.res$beta[,which(full.res$lambda==best.res$lambda)]!=0)))
   
   if(is.null(genes))
     return(ret.df)
-  
+
   genelist<-paste(genes,collapse=';')
   t.res<-predict(full.res,newx=tmat,family='binomial',s=best.res$lambda)
-  
+
   res=0
   try(res<-assess.glmnet(full.res,newx=tmat,newy=tyvar,s=best.res$lambda)$mse)
   #res.cor=cor(t.res[,1],tyvar,method='spearman',use='pairwise.complete.obs')
@@ -425,7 +425,7 @@ combForestEval<-function(trainTab,testTab,
   
   #f(ncol(tr.comb.mat)<5 || nrow(tr.comb.mat)<5)
   if(is.null(tr.comb.mat)||is.null(te.comb.mat)) 
-    return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=0))
+   return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=0))
   
   #now collect our y output variable
   tmp<-tab%>%
@@ -434,9 +434,9 @@ combForestEval<-function(trainTab,testTab,
   yvar<-tmp$meanVal
   names(yvar)<-tmp$`AML sample`
   yvar<-unlist(yvar[rownames(comb.mat)])
-  
+               
   rf<-randomForest(comb.mat,yvar)
-  
+
   return(data.frame(MSE=min(rf$mse),
                     numFeatures=length(which(rf$importance!=0)),
                     genes=paste(names(rf$importance)[which(rf$importance!=0)],collapse=';',),
@@ -521,9 +521,9 @@ miniForestEval<-function(tab,mol.feature,quant=0.995){
   yvar<-unlist(yvar[rownames(mat)])
   
   rf<-randomForest(mat,yvar)
-  
+
   ##let's parse through the importance
-  
+ 
   top5=quantile(rf$importance,quant)
   
   
@@ -531,7 +531,8 @@ miniForestEval<-function(tab,mol.feature,quant=0.995){
                     numFeatures=length(which(rf$importance>top5)),
                     genes=paste(rownames(rf$importance)[which(rf$importance>top5)],collapse=';'),
                     numSamples=length(yvar)))
-  
+         
   
 }
+
 
