@@ -7,14 +7,20 @@ Runs lasso regression on a single feature from tabular data and evaluates on a s
 This is a little more complicated than LOO
 analysis because we have to check for shared feature names}
 \usage{
-miniRegEval(trainTab, testTab, mol.feature, enet.alpha = seq(0.1, 0.9, 0.1))
+miniRegEval(
+  trainTab,
+  testTab,
+  mol.feature = "Gene",
+  feature.val = "mRNALevels",
+  enet.alpha = seq(0.1, 0.9, 0.1)
+)
 }
 \arguments{
 \item{trainTab}{with column names `AML sample`,meanVal,Gene, and whatever the value of `mol.feature` is.}
 
 \item{testTab}{with column names `Sample`, meanVal, Gene, and whatever the value of `mol.feature` is}
 
-\item{mol.feature}{The molecular feature to be evaluated}
+\item{mol.feature}{list of molecular features to be evaluated}
 }
 \value{
 a data.frame with three values/columns: MSE, numFeatures, and Genes

@@ -296,26 +296,28 @@ combReg<-function(tab,feature.list=c('proteinLevels','mRNALevels','geneMutations
   
 }
 
-#' buildFeatureMatrix
-#' Builds a matrix for regression with rows as patients and columns as gene
-#' @param tab
-#' @param mol.feature
-#' @param sampname
+#' @title buildFeatureMatrix
+#' This function sits at the core of the modeling by extracting features o finterest from the tidied tables
+#' and builds a matrix for regression with rows as patients and columns as gene
+#' @param tab The data table to build into a matrix
+#' @param mol.feature The molecular feature/column name to grab, default is 'Gene'
+#' @param feature.val The name of the feature, default is 'mRNALevels'
+#' @param sampname The name of the sample, default is `AML sample`
 #' @return matrix
-buildFeatureMatrix<-function(tab,mol.feature,sampname='AML sample'){
+buildFeatureMatrix<-function(tab,mol.feature='Gene',sampname='AML sample',feature.val='mRNALevels'){
  # print(mol.feature)
   vfn=list(0.0)
-  names(vfn)=mol.feature
+  names(vfn)=feature.val
   
   vfc<-list(mean)
-  names(vfc)=mol.feature
+  names(vfc)=feature.val
 
   mat<-tab%>%
-  dplyr::select(!!sampname,Gene,!!mol.feature)%>%
-    subset(Gene!="")%>%
-    subset(!is.na(mol.feature))%>%
-    tidyr::pivot_wider(names_from=Gene,values_from=mol.feature,
-                     values_fill=vfn,values_fn = vfc,names_prefix=mol.feature)%>%
+  dplyr::select(sampname,feature.val,feat=mol.feature)%>%
+    subset(feat!="")%>%
+    subset(!is.na(feat))%>%
+    tidyr::pivot_wider(names_from=feat,values_from=feature.val,
+                     values_fill=vfn,values_fn = vfc,names_prefix=feature.val)%>%
     tibble::column_to_rownames(sampname)
 
   #tmat<-as.matrix(mat)
