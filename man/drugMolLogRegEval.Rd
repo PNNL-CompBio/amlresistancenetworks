@@ -2,20 +2,41 @@
 % Please edit documentation in R/trainAndTestMolSigs.R
 \name{drugMolLogRegEval}
 \alias{drugMolLogRegEval}
-\title{drugMolLogReg
-Computes logistic regression based on AUC threshold of 100}
+\title{drugMolLogRegEval
+Computes logistic regression and evaluates on test dataset for a particular aucThreshold}
 \usage{
 drugMolLogRegEval(
   clin.data,
   mol.data,
-  mol.feature,
+  mol.feature = "Gene",
+  mol.feature.name,
   test.clin,
   test.mol,
   category = "Condition",
   aucThresh = 100
 )
 }
+\arguments{
+\item{clin.data}{AUC data for training}
+
+\item{mol.data}{molecular data table}
+
+\item{mol.feature}{list of molecular features to evaluate}
+
+\item{mol.feature.name}{list of molecular feature names}
+
+\item{test.clin}{AUC data for testing}
+
+\item{test.mol}{molecular data for testing}
+
+\item{category}{Column in AUC data to use}
+
+\item{aucThresh}{Threshold to call sample sensitive vs. resistant}
+}
+\value{
+
+}
 \description{
-drugMolLogReg
-Computes logistic regression based on AUC threshold of 100
+drugMolLogRegEval
+Computes logistic regression and evaluates on test dataset for a particular aucThreshold
 }

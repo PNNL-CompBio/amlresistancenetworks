@@ -2,15 +2,15 @@
 % Please edit documentation in R/trainAndTestMolSigs.R
 \name{drugMolRegressionEval}
 \alias{drugMolRegressionEval}
-\title{working on this function still
-The goal is to use a basic elastic net regression to identify how 
-well each molecular feature predicts outcome as well as how many features
-are selected}
+\title{drugMolRegressionEval
+This is the primary function that runs continuous regression (enet) on separate train and test sets
+of molecular features and drug responses. It will iterate through every drug in the table to create indivdiual models of each}
 \usage{
 drugMolRegressionEval(
   clin.data,
   mol.data,
   mol.feature,
+  mol.feature.name,
   test.clin,
   test.mol,
   category = "Condition",
@@ -22,15 +22,20 @@ drugMolRegressionEval(
 
 \item{mol.data}{is tidied table of molecular data}
 
-\item{mol.feature}{is name of column to select from mol.data}
+\item{mol.feature}{is name of column to select from mol.data, e.g. Gene}
+
+\item{mol.feature.name}{the name of teh value to select from mol.data}
+
+\item{test.clin}{tidied clinical data to test}
+
+\item{test.mol}{tidieid molecular data to test}
 
 \item{category}{can be either Condition or family}
 
-\item{doEnet}{TRUE or FALSE, determines whether to use elastic net (TRUE) or LASSO only (FALSE)}
+\item{doEnet}{run elastic net instead of LASSO}
 }
 \description{
-working on this function still
-The goal is to use a basic elastic net regression to identify how 
-well each molecular feature predicts outcome as well as how many features
-are selected
+drugMolRegressionEval
+This is the primary function that runs continuous regression (enet) on separate train and test sets
+of molecular features and drug responses. It will iterate through every drug in the table to create indivdiual models of each
 }
