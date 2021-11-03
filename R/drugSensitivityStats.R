@@ -39,7 +39,8 @@ plotProtsByMetric<-function(sens.data,genelist=c("BCL2","TRIM21","DUSP23"),
 #' @param drug.column 'Condition' is default column, but we can also plot by 'family'
 #' @import pheatmap
 #' @export
-plotAllAUCs<-function(auc.data,pat.data,drug.metric='AUC',drug.column='Condition'){
+plotAllAUCs<-function(auc.data,pat.data,drug.metric='AUC',drug.column='Condition',
+                      dat.summ = NULL){
 
   library(wesanderson)
   
@@ -53,12 +54,14 @@ plotAllAUCs<-function(auc.data,pat.data,drug.metric='AUC',drug.column='Condition
  # synapseStore('AUCdist.pdf','syn22130776')
   
     library(pheatmap)
-  dat.summ<-pat.data%>%group_by(`AML sample`)%>%
+  if (is.null(dat.summ)){
+    dat.summ<-pat.data%>%group_by(`AML sample`)%>%
       summarize(RNA=if_else(all(mRNALevels==0),FALSE,TRUE),
-               proteins=if_else(all(proteinLevels==0),FALSE,TRUE),
-               mutations=if_else(all(geneMutations==0),FALSE,TRUE))%>%
-    mutate(phosphoSite=`AML sample`%in%pat.phos$Sample)%>%
-    left_join(select(auc.data,c(`AML sample`))%>%distinct())
+                proteins=if_else(all(proteinLevels==0),FALSE,TRUE),
+                mutations=if_else(all(geneMutations==0),FALSE,TRUE))%>%
+      mutate(phosphoSite=`AML sample`%in%pat.phos$Sample)%>%
+      left_join(select(auc.data,c(`AML sample`))%>%distinct())
+  }
   
   print(dat.summ)
   pat.vars<-auc.data%>%

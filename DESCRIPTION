@@ -10,7 +10,8 @@ RoxygenNote: 7.1.2
 Imports: cowplot, dplyr, ggplot2, ggridges,
     glmnet, gridExtra, KSEAapp, leapr, BiocManager, devtools,
     pheatmap, purrr, randomForest, readr, readxl,
-    reticulate, scales, stringr, tidyr, WebGestaltR
+    reticulate, scales, stringr, tidyr, WebGestaltR,
+    data.table, limma
 Remotes: biodataganache/leapR
 Suggests: 
     testthat (>= 3.0.0)
