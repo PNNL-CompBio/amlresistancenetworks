@@ -83,14 +83,15 @@ computePhosphoNetwork<-function(phos.vals=c(),prot.vals=c(),nrand=100,beta=2,fna
 }
 
 #' computeProteinNetwork
-#' @import devtools
-#' @param data.frame all.vals with required values
+#' @import remotes
+#' @param data.frame all.vals with required values, columsn should be: `Gene`,`value`,`signif`, and `cond`
 #' @param nrand number of randomizations
+#' @return file name of graph in gml format
 #' @export
 #' 
 computeProteinNetwork<-function(all.vals,nrand=100){
   if(!require('PCSF')){
-    devtools::install_github('sgosline/PCSF')
+    remotes::install_github('sgosline/PCSF')
     require('PCSF')
   }
   data("STRING")
