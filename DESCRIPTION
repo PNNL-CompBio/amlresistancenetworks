@@ -11,7 +11,7 @@ Imports: cowplot, dplyr, ggplot2, ggridges,
     glmnet, gridExtra, KSEAapp, leapr, BiocManager, devtools,
     pheatmap, purrr, randomForest, readr, readxl,
     reticulate, scales, stringr, tidyr, WebGestaltR,
-    data.table, limma
+    data.table, limma, remotes
 Remotes: biodataganache/leapR
 Suggests: 
     testthat (>= 3.0.0)
