@@ -5,7 +5,7 @@
 \title{miniDE
 Carries out differential expressiona nalysis using an AUC of 100}
 \usage{
-miniLogR(tab, mol.feature)
+miniLogR(tab, mol.feature, feature.val)
 }
 \arguments{
 \item{mol.features}{}

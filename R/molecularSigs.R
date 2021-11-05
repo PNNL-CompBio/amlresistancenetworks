@@ -12,6 +12,7 @@
 drugMolRandomForest<-function(clin.data,
                               mol.data,
                               mol.feature,
+                              mol.feature.name,
                               category='Condition'){
   
   
@@ -51,47 +52,40 @@ drugMolRandomForest<-function(clin.data,
 #' @param clin.data is tidied clinical data
 #' @param mol.data is tidied table of molecular data
 #' @param mol.feature is name of column to select from mol.data
+#' @param mol.feature.name is the name of the feature, default is 'Gene'
 #' @param category can be either Condition or family
 #' @export 
 drugMolRegression<-function(clin.data,
                             mol.data,
                             mol.feature,
-                            category='Condition'){
+                            mol.feature.name='Gene',
+                            category='Condition',
+                            doEnet=FALSE){
   
    
-  if(length(mol.feature)==1){
-    if(category=='Condition')## we are doing individual drug
-     drug.mol<-clin.data%>%
-        dplyr::select(`AML sample`,var=category,AUC)%>%
-        group_by(`AML sample`,var)%>%
-        summarize(meanVal=mean(AUC,na.rm=T))%>%
-        left_join(dplyr::select(mol.data,c(Gene,`AML sample`,!!mol.feature)),
-                  by='AML sample')
-    else{
-      drug.mol <- clin.data%>%
-        dplyr::select(samp='AML sample', var=category, 'Condition','AUC')%>%
-        unite(col=`AML sample`,samp,Condition,sep='_',remove=FALSE)%>%
-        left_join(dplyr::select(mol.data,c(Gene,samp=`AML sample`,!!mol.feature)),
-                  by='samp')
-      drug.mol<-drug.mol%>%
-        group_by(`AML sample`)%>%summarize(meanVal=mean(AUC))%>%
-        right_join(drug.mol)
-    }
   
-    reg.res<-drug.mol%>%group_by(var)%>%
-      group_modify(~ miniReg(.x,mol.feature),.keep=T)%>%
-      mutate(Molecular=mol.feature)
-  }else{
-    drug.mol<-clin.data%>%
-      dplyr::select(`AML sample`,var=category,AUC)%>%
-      group_by(`AML sample`,var)%>%
-      summarize(meanVal=mean(AUC,na.rm=T))%>%
-      left_join(dplyr::select(mol.data,c(Gene,`AML sample`,mol.feature)),
-                by='AML sample')
-    reg.res<-drug.mol%>%group_by(var)%>%
-      group_modify(~ combReg(.x,mol.feature),.keep=T)%>%
-      mutate(Molecular=paste(mol.feature,collapse='_'))
-  }
+  mol.feature<-unlist(mol.feature)
+  mol.feature.name<-unlist(mol.feature.name)
+  
+  drug.mol<-clin.data%>%
+    dplyr::select(`AML sample`,var=category,AUC)%>%
+    group_by(`AML sample`,var)%>%
+    summarize(meanVal=mean(AUC,na.rm=T))%>%
+    inner_join(select(mol.data,c(unique(mol.feature),'AML sample',unique(mol.feature.name))),
+               by='AML sample')#%>%
+ 
+  
+  alpha=1.0
+  if(doEnet)
+    alpha=seq(0.1, 0.9, 0.1)
+  #mol.feature=paste(mol.feature,collapse=';')
+  
+  reg.res<-lapply(unique(drug.mol$var),function(x){
+    message(x)
+    data.frame(miniReg(subset(drug.mol,var==x),
+                           mol.feature,mol.feature.name,enet.alpha=alpha),
+               compound=x,Molecular=paste(mol.feature.name,collapse=';'))})
+  
   return(reg.res)
   
 }
@@ -105,43 +99,30 @@ drugMolRegression<-function(clin.data,
 drugMolLogReg<-function(clin.data, 
                         mol.data,
                         mol.feature,
+                        mol.feature.name,
                         category='Condition',
                         aucThresh=100){
-  if(length(mol.feature)==1){
-    if(category=='Condition')
-      drug.mol<-clin.data%>%
-        dplyr::select(`AML sample`,var=category,AUC)%>%
-        group_by(`AML sample`,var)%>%
-        summarize(meanVal=mean(AUC,na.rm=T))%>%
-        left_join(dplyr::select(mol.data,c(Gene,`AML sample`,!!mol.feature)),
-                  by='AML sample')%>%
-        mutate(sensitive=meanVal<aucThresh)
-    else {
-      drug.mol <- clin.data%>%
-        dplyr::select(samp='AML sample', var=category, 'Condition','AUC')%>%
-        unite(col=`AML sample`,samp,Condition,sep='_',remove=FALSE)%>%
-        left_join(dplyr::select(mol.data,c(Gene,samp=`AML sample`,!!mol.feature)),
-                  by='samp')
-    drug.mol<-drug.mol%>%
-      group_by(`AML sample`)%>%summarize(meanVal=mean(AUC))%>%
-      right_join(drug.mol)%>%
-      mutate(sensitive=meanVal<aucThresh)
-    
-    }
-    reg.res<-drug.mol%>%group_by(var)%>%
-      group_modify(~ miniLogR(.x,mol.feature),.keep=T)%>%
-      mutate(Molecular=mol.feature)
-  }else{
-    drug.mol<-clin.data%>%
-      dplyr::select(`AML sample`,var=category,AUC)%>%
-      group_by(`AML sample`,var)%>%
-      summarize(meanVal=mean(AUC,na.rm=T))%>%
-      left_join(dplyr::select(mol.data,c(Gene,`AML sample`,mol.feature)),
-                by='AML sample')
-    reg.res<-drug.mol%>%group_by(var)%>%
-      group_modify(~ combDE(.x,mol.feature),.keep=T)%>%
-      mutate(Molecular=paste(mol.feature,collapse='_'))
-  }
+  
+  
+  mol.feature<-unlist(mol.feature)
+  mol.feature.name<-unlist(mol.feature.name)
+
+  drug.mol<-clin.data%>%
+    dplyr::select(`AML sample`,var=category,AUC)%>%
+    group_by(`AML sample`,var)%>%
+    summarize(meanVal=mean(AUC,na.rm=T))%>%
+    inner_join(select(mol.data,c(unique(mol.feature),'AML sample',unique(mol.feature.name))),
+               by='AML sample')%>%
+    mutate(sensitive=meanVal<aucThresh)
+
+  
+  reg.res<-lapply(unique(drug.mol$var),function(x){
+    message(x)
+    data.frame(miniLogR(subset(drug.mol,var==x),
+                        mol.feature,mol.feature.name),
+               compound=x, Molecular=paste(mol.feature.name,collapse=';'))})
+  
+
   return(reg.res)
   
 }
@@ -151,13 +132,24 @@ drugMolLogReg<-function(clin.data,
 #' @param tab
 #' @param mol.features
 #' 
-miniLogR<-function(tab,mol.feature){
+miniLogR<-function(tab,mol.feature,feature.val){
 #  irst build our feature matrix
   library(glmnet)
-  set.seed(10101)
+  set.seed(101010101)
+  #empty data frame
+  ret.df<-data.frame(MSE=0,corVal=0,numFeatures=0,genes='',numSamples=0)
+  
+  mat<-NULL
+  feature.val<-unlist(feature.val)
+  names(mol.feature)<-feature.val
+  
+  if(length(mol.feature)>1){
+    try(mat<-do.call('cbind',lapply(feature.val,function(x) buildFeatureMatrix(tab,mol.feature=mol.feature[[x]],feature.val=x))))
 
- mat<-buildFeatureMatrix(tab,mol.feature)
- 
+  }else{
+    try(mat<-buildFeatureMatrix(tab,feature.val=feature.val[[1]],mol.feature=mol.feature[[1]]))
+  }
+
   #print(mat)
   if(is.null(dim(mat)))
     return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=0,corVal=0))
@@ -219,82 +211,7 @@ miniLogR<-function(tab,mol.feature){
          corVal=cv))
 }
 
-#'combForest
-#'Runs random forest on combination of feature types
-#'@param feature.list
-#'@param tab
-#'@export
-#'@return a data frame with 3 values
-combForest<-function(tab,feature.list=c('proteinLevels','mRNAlevels','geneMutations')){
-  comb.mat<-do.call('cbind',lapply(feature.list,function(x) buildFeatureMatrix(tab,x)))
-  
-  if(ncol(comb.mat)<5 || nrow(comb.mat)<5)
-    return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=nrow(comb.mat)))
-  
-  #now collect our y output variable
-  tmp<-tab%>%
-    dplyr::select(meanVal,`AML sample`)%>%
-    distinct()
-  yvar<-tmp$meanVal
-  names(yvar)<-tmp$`AML sample`
-  yvar<-unlist(yvar[rownames(comb.mat)])
-               
-  rf<-randomForest(comb.mat,yvar)
-  # rf.pred<-predict(rf,mat)
-  # mse=mean((rf.pred-yvar)^2)
-  return(data.frame(MSE=min(rf$mse),
-                    numFeatures=length(which(rf$importance!=0)),
-                    genes=paste(names(rf$importance)[which(rf$importance!=0)],collapse=';',),
-                    numSamples=length(yvar)))
-  
-}
 
-#' combReg
-#' Runs lasso regression on a combination of feature types
-#' @param tab
-#' @export
-#' @param feature.list
-#' @return a data frame with three values/columns
-combReg<-function(tab,feature.list=c('proteinLevels','mRNALevels','geneMutations')){
-  
-   comb.mat<-do.call('cbind',lapply(feature.list,function(x) buildFeatureMatrix(tab,x)))
-   
-   
-  # cm<-apply(comb.mat,1,mean)
-  # zvals<-which(cm==0)
-  # if(length(zvals)>0)
-  #   comb.mat<-comb.mat[-zvals,]
-   
-   
-  if(ncol(comb.mat)<5 || nrow(comb.mat)<5)
-    return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=nrow(comb.mat)))
-  
-  #now collect our y output variable
-  tmp<-tab%>%
-    dplyr::select(meanVal,`AML sample`)%>%
-    distinct()
-  yvar<-tmp$meanVal
-  names(yvar)<-tmp$`AML sample`
-  yvar<-unlist(yvar[rownames(comb.mat)])
-  
-  #use CV to get maximum AUC
-  cv.res=cv.glmnet(x=comb.mat,y=yvar,type.measure='mse')
-  best.res<-data.frame(lambda=cv.res$lambda,MSE=cv.res$cvm)%>%
-    subset(MSE==min(MSE))
-  
-  #then select how many elements
-  full.res<-NULL
-  try(  full.res<-glmnet(x=comb.mat,y=yvar,type.measure='mse'))
-  if(is.null(full.res))
-    return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=nrow(comb.mat)))
-  genes=names(which(full.res$beta[,which(full.res$lambda==best.res$lambda)]!=0))
-  genelist<-paste(genes,collapse=';')
-  #print(paste(best.res$MSE,":",genelist))
-  return(data.frame(MSE=best.res$MSE,numFeatures=length(genes),
-                    genes=genelist,numSamples=length(yvar)))
-  
-  
-}
 
 #' @title buildFeatureMatrix
 #' This function sits at the core of the modeling by extracting features o finterest from the tidied tables
@@ -334,11 +251,25 @@ buildFeatureMatrix<-function(tab,mol.feature='Gene',sampname='AML sample',featur
 #' @import randomForest
 #' @export 
 #' @return list
-miniForest<-function(tab,mol.feature,quant=0.995){
+miniForest<-function(tab,mol.feature,feature.val,quant=0.995){
   library(randomForest)
   
-  #first build our feature matrix
-  mat<-buildFeatureMatrix(tab,mol.feature)
+  ret.df<-data.frame(MSE=0,corVal=0,numFeatures=0,genes='',numSamples=0)
+  
+  mat<-NULL
+  feature.val<-unlist(feature.val)
+  names(mol.feature)<-feature.val
+  
+  if(length(mol.feature)>1){
+    try(mat<-do.call('cbind',lapply(feature.val,function(x) buildFeatureMatrix(tab,mol.feature=mol.feature[[x]],feature.val=x))))
+    
+  }else{
+    try(mat<-buildFeatureMatrix(tab,feature.val=feature.val[[1]],mol.feature=mol.feature[[1]]))
+  }
+  
+  #print(mat)
+  if(is.null(dim(mat)))
+    return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=0,corVal=0))
   
   #rint(dim(mat))
   if(is.null(dim(mat)))
@@ -382,11 +313,28 @@ miniForest<-function(tab,mol.feature,quant=0.995){
 #' @param enet.alpha numeric vector specifying the alpha values to use when running glmnet
 #' @export 
 #' @return a data.frame with three values/columns: MSE, numFeatures, and Genes
-miniReg<-function(tab,mol.feature, enet.alpha = seq(0.1, 1, 0.1)){
+miniReg<-function(tab,mol.feature, feature.val,enet.alpha = seq(0.1, 1, 0.1)){
   library(glmnet)
 #  set.seed(1010101)
   set.seed(101010101)
-
+  #empty data frame
+  ret.df<-data.frame(MSE=0,corVal=0,numFeatures=0,genes='',numSamples=0)
+  
+  mat<-NULL
+  feature.val<-unlist(feature.val)
+  names(mol.feature)<-feature.val
+  
+  if(length(mol.feature)>1){
+    try(mat<-do.call('cbind',lapply(feature.val,function(x) buildFeatureMatrix(tab,mol.feature=mol.feature[[x]],feature.val=x))))
+    
+  }else{
+    try(mat<-buildFeatureMatrix(tab,feature.val=feature.val[[1]],mol.feature=mol.feature[[1]]))
+  }
+  
+  #print(mat)
+  if(is.null(dim(mat)))
+    return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=0,corVal=0))
+  
   #first build our feature matrix
  mat<-buildFeatureMatrix(tab,mol.feature)
  #print(mat)

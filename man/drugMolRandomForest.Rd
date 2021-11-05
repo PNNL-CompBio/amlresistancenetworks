@@ -5,7 +5,13 @@
 \title{drugMolRandomForest
 builds random forest predictor of molecular data}
 \usage{
-drugMolRandomForest(clin.data, mol.data, mol.feature, category = "Condition")
+drugMolRandomForest(
+  clin.data,
+  mol.data,
+  mol.feature,
+  mol.feature.name,
+  category = "Condition"
+)
 }
 \description{
 drugMolRandomForest

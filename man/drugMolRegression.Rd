@@ -7,7 +7,14 @@ The goal is to use a basic elastic net regression to identify how
 well each molecular feature predicts outcome as well as how many features
 are selected}
 \usage{
-drugMolRegression(clin.data, mol.data, mol.feature, category = "Condition")
+drugMolRegression(
+  clin.data,
+  mol.data,
+  mol.feature,
+  mol.feature.name = "Gene",
+  category = "Condition",
+  doEnet = FALSE
+)
 }
 \arguments{
 \item{clin.data}{is tidied clinical data}
@@ -15,6 +22,8 @@ drugMolRegression(clin.data, mol.data, mol.feature, category = "Condition")
 \item{mol.data}{is tidied table of molecular data}
 
 \item{mol.feature}{is name of column to select from mol.data}
+
+\item{mol.feature.name}{is the name of the feature, default is 'Gene'}
 
 \item{category}{can be either Condition or family}
 }
