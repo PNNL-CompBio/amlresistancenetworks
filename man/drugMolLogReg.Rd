@@ -9,6 +9,7 @@ drugMolLogReg(
   clin.data,
   mol.data,
   mol.feature,
+  mol.feature.name,
   category = "Condition",
   aucThresh = 100
 )

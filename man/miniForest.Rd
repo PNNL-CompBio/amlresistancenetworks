@@ -5,7 +5,7 @@
 \title{miniForest
 Runds random forest on the table and molecular feature of interest}
 \usage{
-miniForest(tab, mol.feature, quant = 0.995)
+miniForest(tab, mol.feature, feature.val, quant = 0.995)
 }
 \value{
 list
