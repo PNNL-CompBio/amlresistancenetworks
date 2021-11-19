@@ -9,10 +9,7 @@ computeProteinNetwork(all.vals, nrand = 100)
 \arguments{
 \item{nrand}{number of randomizations}
 
-\item{data.frame}{all.vals with required values, columsn should be: `Gene`,`value`,`signif`, and `cond`}
-}
-\value{
-file name of graph in gml format
+\item{data.frame}{all.vals with required values}
 }
 \description{
 computeProteinNetwork

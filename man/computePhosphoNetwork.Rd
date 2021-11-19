@@ -8,6 +8,7 @@ maps kinase activity to proteins in a sum}
 computePhosphoNetwork(
   phos.vals = c(),
   prot.vals = c(),
+  gene.vals = c(),
   nrand = 100,
   beta = 2,
   fname

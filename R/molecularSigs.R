@@ -207,8 +207,7 @@ miniLogR<-function(tab,mol.feature,feature.val){
  # print(cv)
   return(data.frame(MSE=best.res$MSE,numFeatures=length(genes),
                     genes=genelist,
-                    numSamples=length(yvar),
-         corVal=cv))
+                    numSamples=length(yvar), corVal=cv))
 }
 
 
@@ -336,7 +335,6 @@ miniReg<-function(tab,mol.feature, feature.val,enet.alpha = seq(0.1, 1, 0.1)){
     return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=0,corVal=0))
   
   #first build our feature matrix
- mat<-buildFeatureMatrix(tab,mol.feature)
  #print(mat)
  if(is.null(dim(mat)))
    return(data.frame(MSE=0,numFeatures=0,genes='',numSamples=0))
@@ -402,7 +400,7 @@ miniReg<-function(tab,mol.feature, feature.val,enet.alpha = seq(0.1, 1, 0.1)){
   #print(paste(best.res$MSE,":",genelist))
   cv=cor(preds,yvar,use='pairwise.complete.obs',method='spearman')
  # print(cv)
-  return(data.frame(alpha=alpha,MSE=best.res$MSE,numFeatures=length(genes),genes=genelist,
+  return(data.frame(MSE=best.res$MSE,numFeatures=length(genes),genes=genelist,
                     numSamples=length(yvar),corVal=cv))
 }
 
@@ -497,13 +495,50 @@ computeAUCCorVals<-function(clin.data,mol.data,mol.feature){
   
 }
 
+
 #' getFeaturesFromString - separates out comma-delimited model features
 #' @param string
 #' @param prefix
 #' @export
 #' @return list of features
 getFeaturesFromString<-function(string,prefix='mRNALevels'){
-  stringr::str_remove_all(string,prefix)%>%stringr::str_split(';')%>%unlist()
+
+    ret=stringr::str_remove_all(string,prefix)%>%stringr::str_split(';')
+    #%>%
+     #                unlist()%>%paste(collapse=';'))
+    
+  #}
+  # print(head(ret))
+  return(ret)
+}
+
+#' getFeaturesFromStringdf - separates out comma-delimited model features and returns data frame
+#' @param string
+#' @param prefix
+#' @export
+#' @return list of features
+getFeaturesFromStringdf<-function(string,prefix='mRNALevels'){
+  num<-grep(';',prefix)
+  if(length(num)>0){
+    allvals<-prefix%>%stringr::str_split(';')%>%unlist()%>%unique()
+    
+    allgenes <- string%>%stringr::str_split(';')%>%unlist()
+    
+    genelists<-lapply(allvals,function(x) {
+      r1<-allgenes[grep(x,allgenes)]%>%
+        stringr::str_remove_all(x)%>%
+        paste(collapse=';')
+     # print(r1)
+      r1})
+    ret=data.frame(Molecular=prefix,DataType=allvals,genelists=unlist(genelists))
+                      
+  }else{
+    ret=data.frame(Molecular=prefix,DataType=prefix,genelists=stringr::str_remove_all(string,prefix)%>%stringr::str_split(';')%>%
+                     unlist()%>%paste(collapse=';'))
+    
+  }
+ # print(head(ret))
+  return(ret)
 }
 
 

@@ -9,9 +9,9 @@
 #' @param nrand number of randomizations
 #' @param beta beta value
 #' @param fname
-#' @import devtools
+#' @import remotes
 #' @export
-computePhosphoNetwork<-function(phos.vals=c(),prot.vals=c(),nrand=100,beta=2,fname){
+computePhosphoNetwork<-function(phos.vals=c(),prot.vals=c(),gene.vals=c(),nrand=100,beta=2,fname){
   
     #read kinase substrate database stored in data folder
   KSDB <- read.csv(system.file('PSP&NetworKIN_Kinase_Substrate_Dataset_July2016.csv',
@@ -23,10 +23,11 @@ computePhosphoNetwork<-function(phos.vals=c(),prot.vals=c(),nrand=100,beta=2,fna
   allvals<-unique(kdat$subval)
   
   if(!require('PCSF')){
-    devtools::install_github('sgosline/PCSF')
+    remotes::install_github('sgosline/PCSF')
     require('PCSF')
     }
    data("STRING")
+   #print(phos.vals)
    ##add phospho data to STRING
    if(length(phos.vals)>0){
      mval<-mean(STRING$cost)
@@ -37,11 +38,11 @@ computePhosphoNetwork<-function(phos.vals=c(),prot.vals=c(),nrand=100,beta=2,fna
    }else{
      adf<-data.frame()
    } 
-  
+ #  print(adf)
    ppi <- construct_interactome(rbind(STRING,adf))
    
    ##now run the code
-   terms=c(phos.vals,prot.vals)
+   terms=c(phos.vals,prot.vals,gene.vals)
    subnet<-NULL
    try(
      subnet <- PCSF_rand(ppi,abs(terms), n=nrand, r=0.2,w = 4, b = beta, mu = 0.0005)
@@ -53,9 +54,18 @@ computePhosphoNetwork<-function(phos.vals=c(),prot.vals=c(),nrand=100,beta=2,fna
   lfcs<-terms[match(names(V(subnet)),names(terms))]
   lfcs[is.na(lfcs)]<-0.0
   
+  ##assign proteins first
   types<-rep('proteins',length(names(V(subnet))))
+  
   names(types)<-names(V(subnet))
-  types[intersect(names(V(subnet)),allvals)]<-'phosphosite'
+  
+  ##then assign phosphosites
+  types[intersect(names(V(subnet)),names(phos.vals))]<-'phosphosite'
+  
+  ##assign gene mutations
+  types[intersect(names(V(subnet)),names(gene.vals))]<-'mutation'
+
+  
   subnet<-igraph::set.vertex.attribute(subnet,'logFoldChange',value=lfcs)
   subnet<-igraph::set.vertex.attribute(subnet,'nodeType',value=types)
   subnet<-igraph::set.edge.attribute(subnet,'interactionType',value='protein-protein interaction')
@@ -83,14 +93,14 @@ computePhosphoNetwork<-function(phos.vals=c(),prot.vals=c(),nrand=100,beta=2,fna
 }
 
 #' computeProteinNetwork
-#' @import devtools
+#' @import remotes
 #' @param data.frame all.vals with required values
 #' @param nrand number of randomizations
 #' @export
 #' 
 computeProteinNetwork<-function(all.vals,nrand=100){
   if(!require('PCSF')){
-    devtools::install_github('sgosline/PCSF')
+    remotes::install_github('sgosline/PCSF')
     require('PCSF')
   }
   data("STRING")

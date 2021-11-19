@@ -300,50 +300,54 @@ doRegularGo<-function(genes,bg=NULL){
 
 #'Runs regular bag of genes enrichment
 #'@export
-#'@import devtools
+#'@import remotes
 
 doRegularKin<-function(genes,bg=NULL){
   require(dplyr)
   if(!require('leapr')){
-    devtools::install('biodataganache/leapr')
+    remotes::install_github('biodataganache/leapr', build_vignettes=TRUE)
     require('leapr')
       }
 
+  data('kinasesubstrates')
+  kslist<-kinasesubstrates
    #read kinase substrate database stored in data folder
-  KSDB <- read.csv(system.file('PSP&NetworKIN_Kinase_Substrate_Dataset_July2016.csv',
-                               package='amlresistancenetworks'),stringsAsFactors = FALSE)
+  #KSDB <- read.csv(system.file('PSP&NetworKIN_Kinase_Substrate_Dataset_July2016.csv',
+   #                            package='amlresistancenetworks'),stringsAsFactors = FALSE)
 
-  kdat<-KSDB%>%group_by(GENE)%>%select(SUB_GENE,SUB_MOD_RSD)%>%
-    rowwise()%>%
-    mutate(subval=paste(SUB_GENE,SUB_MOD_RSD,sep='-'))
+  #kdat<-KSDB%>%group_by(GENE)%>%select(SUB_GENE,SUB_MOD_RSD)%>%
+  #  rowwise()%>%
+  #  mutate(subval=paste(SUB_GENE,SUB_MOD_RSD,sep='-'))
 
-  klist<-lapply(unique(kdat$GENE),function(x) unique(unlist(kdat[which(kdat$GENE==x),'subval'])))
-  names(klist)<-unique(kdat$GENE)
+#  klist<-lapply(unique(kdat$GENE),function(x) unique(unlist(kdat[which(kdat$GENE==x),'subval'])))
+#  names(klist)<-unique(kdat$GENE)
 
-  maxlen <- max(lengths(klist))
-  kmat <- do.call(cbind,lapply(klist, function(lst) c(lst, rep(NA, maxlen - length(lst)))))
+ # maxlen <- max(lengths(klist))
+#  kmat <- do.call(cbind,lapply(klist, function(lst) c(lst, rep(NA, maxlen - length(lst)))))
 
-  kslist<-list(names=names(klist),desc=paste(names(klist),'substrates'),
-               sizes=unlist(lapply(klist,length)),matrix=t(kmat))
+ # kslist<-list(names=names(klist),desc=paste(names(klist),'substrates'),
+  #             sizes=unlist(lapply(klist,length)),matrix=t(kmat))
 
 
   ##now we need to fix the gene list, since it's not going to match
-  sgenes<-data.frame(genes=genes)%>%
-    separate(genes, into=c('gene','mod'),sep='-')%>%
+  sgenes<-data.frame(genes=unlist(genes))%>%
+    tidyr::separate(genes, into=c('gene','mod'),sep='-')%>%
     mutate(modlist=strsplit(mod,split='s|t|y'))%>%
     apply(1,function(x) paste(x$gene,x$modlist,sep='-'))%>%
     unlist()%>%unique()
 
 
-  print(paste("Found",length(sgenes),'substrates with known kinases'))
+  print(paste("Found",length(sgenes),'substrates '))
 
+  #print(head(sgenes))
   #ret<-as.data.frame(list(ID=NULL,Description=NULL,pvalue=NULL,p.adjust=NULL))
-  ret=data.frame(ID='',Description='',pvalue=1.0,p.adjust=1.0)
+  ret=data.frame(ID='',score=0.0,pvalue=1.0,p.adjust=1.0,Description='')
 
   #ret<-as.data.frame(list(Kinase=NULL,NumSubs=NULL,pvalue=NULL,p.adjust=NULL))
   if(length(sgenes)<2)
     return(ret)
 
+  res<-NULL
   try(res <- leapR(geneset=kslist,
               enrichment_method='enrichment_in_sets',targets=sgenes))
 
@@ -353,9 +357,9 @@ doRegularKin<-function(genes,bg=NULL){
   ret<-as.data.frame(res)%>%
     tibble::rownames_to_column('Kinase')%>%
     subset(ingroup_n>0)%>%
-    dplyr::select(ID='Kinase',NumSubs='ingroup_n',pvalue,p.adjust='BH_pvalue')%>%rowwise()%>%
-    mutate(Description=paste0(ID,': ',NumSubs,' targets'))%>%
-    select(-NumSubs)
+    dplyr::select(ID='Kinase',NumSubs='ingroup_n',TotalSubs='outgroup_n',score,pvalue,p.adjust='BH_pvalue')%>%rowwise()%>%
+    mutate(Description=paste0(ID,': ',NumSubs,' targets with ',TotalSubs,' other targets'))%>%
+    dplyr::select(-c(NumSubs,TotalSubs))
 
 
   return(ret)
