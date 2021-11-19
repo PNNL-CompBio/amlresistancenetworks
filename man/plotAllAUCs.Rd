@@ -5,7 +5,13 @@
 \title{plotall AUCS with clinical data
 what are we measuring here}
 \usage{
-plotAllAUCs(auc.data, pat.data, drug.metric = "AUC", drug.column = "Condition")
+plotAllAUCs(
+  auc.data,
+  pat.data,
+  drug.metric = "AUC",
+  drug.column = "Condition",
+  dat.summ = NULL
+)
 }
 \arguments{
 \item{pat.data}{Patient data frame}

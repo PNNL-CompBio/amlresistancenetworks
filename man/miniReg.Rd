@@ -5,7 +5,7 @@
 \title{miniReg
 Runs lasso regression on a single feature from tabular data}
 \usage{
-miniReg(tab, mol.feature, feature.val, enet.alpha = seq(0.1, 1, 0.1))
+miniReg(tab, mol.feature, enet.alpha = c(1))
 }
 \arguments{
 \item{tab}{with column names `AML sample`,meanVal,Gene, and whatever the value of 'mol.feature' is.}

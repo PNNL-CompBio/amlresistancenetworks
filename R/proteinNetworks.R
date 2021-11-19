@@ -94,8 +94,9 @@ computePhosphoNetwork<-function(phos.vals=c(),prot.vals=c(),gene.vals=c(),nrand=
 
 #' computeProteinNetwork
 #' @import remotes
-#' @param data.frame all.vals with required values
+#' @param data.frame all.vals with required values, columsn should be: `Gene`,`value`,`signif`, and `cond`
 #' @param nrand number of randomizations
+#' @return file name of graph in gml format
 #' @export
 #' 
 computeProteinNetwork<-function(all.vals,nrand=100){
