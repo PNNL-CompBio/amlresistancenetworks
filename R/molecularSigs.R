@@ -655,8 +655,9 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
   
   #print(rownames(drug.dat))
   
-  pat.mat<-data.mat%>%select('Sample','Gene','value')%>%
-    subset(Gene%in%genes)%>%
+  pat.mat<-data.mat%>%
+    dplyr::select('Sample','Gene','value')%>%
+    subset(Gene%in%unlist(genes))%>%
     subset(`Sample`%in%sapply(rownames(drug.dat),function(x) unlist(strsplit(x,split=' '))[1]))%>%
     pivot_wider(values_from='value',
                 names_from='Sample', 
@@ -666,7 +667,6 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
 
   annote.colors<-list(SampleResponse=c(Sensitive='darkgrey',Resistant='white'))
  # names(annote.colors)<-setdiff(names(pat.vars),'overallSurvival')
-
  # print(pat.mat)
   res=data.frame(ID='',Description='',pvalue=1.0,p.adjust=1.0) 
   #zvals<-which(apply(pat.mat,2,var)==0)
