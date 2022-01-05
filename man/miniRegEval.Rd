@@ -12,7 +12,7 @@ miniRegEval(
   testTab,
   mol.feature = "Gene",
   feature.val = "mRNALevels",
-  enet.alpha = seq(0.1, 0.9, 0.1)
+  enet.alpha = c(1)
 )
 }
 \arguments{

@@ -78,7 +78,7 @@ drugMolRegressionEval<-function(clin.data,
 #' @param mol.feature list of molecular features to be evaluated
 #' @export 
 #' @return a data.frame with three values/columns: MSE, numFeatures, and Genes
-miniRegEval<-function(trainTab,testTab,mol.feature='Gene',feature.val='mRNALevels', enet.alpha = seq(0.1, 0.9, 0.1)){
+miniRegEval<-function(trainTab,testTab,mol.feature='Gene',feature.val='mRNALevels', enet.alpha = c(1)){
   library(glmnet)
   set.seed(10101)
   
@@ -592,3 +592,46 @@ miniForestEval<-function(tab,mol.feature,quant=0.995){
 #   try(genes<-names(which(full.res$beta[,which(full.res$lambda==best.res$lambda)]!=0)))
 #   
 # }
+
+
+
+#' The goal is to pre filter features using limma, with the hope that
+#' the smaller set of features consist of features which are more likely
+#' to produce good models by glmnet.
+#' @importFrom data.table rbindlist
+#' @import limma
+#' @param mat matrix samples as rows, features as columns
+#' @param tmat see mat
+#' @param yvar (auc) response. This is what we eventually want to predict, but here we use it to define categorical variables and train a model.
+#' @param tyvar see yvar
+#' @param p.val cutoff when filtering
+#' @export 
+findCandidates <- function(mat, tmat, yvar, tyvar, p.val = 0.001){
+  
+  sample.names <- c(rownames(mat), rownames(tmat))
+  xx <- rbindlist(list(as.data.frame(mat), as.data.frame(tmat)), fill = TRUE, use.names = TRUE) %>%
+    as.data.frame()
+  rownames(xx) <- sample.names
+  
+  auc <- c(yvar, tyvar)
+  
+  ## Making sure names match
+  if (!all(names(auc) == sample.names)){
+    stop("Error, sample name mismatch")
+  }
+  
+  ## making AUC factor from AUC.
+  meta <- data.frame(Sample = sample.names) %>%
+    mutate(auc.group = cut(auc, breaks = c(0,100,200,300)))
+  auc.mod <- model.matrix(~0 + auc.group, meta)
+  coefs <- colnames(auc.mod)
+  xx <- t(as.matrix(xx))
+  fit <- lmFit(xx, auc.mod)
+  fit.smooth <- eBayes(fit)
+  sig <- topTable(fit.smooth, number = nrow(xx), sort.by = "none", 
+                  coef = coefs) %>%
+    filter(P.Value < p.val)
+  candidates <- rownames(sig)
+  
+  return(candidates)
+}

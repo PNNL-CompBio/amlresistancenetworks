@@ -1,7 +1,5 @@
 
 
-
-
 #' drugMolRandomForest
 #' builds random forest predictor of molecular data
 #' @param clin.data
@@ -603,7 +601,7 @@ clusterDrugFamilyEfficacy<-function(familyName='MEK',
     pat.mat<-log10(pat.mat+0.01)
   
   pheatmap::pheatmap(pat.mat,cellwidth = 10,cellheight=10,annotation_col = drug.dat,
-                     clustering_distance_cols = 'euclidean', color=pal,annotation_colors=annote.colors,
+                     clustering_distance_cols = 'euclidean',annotation_colors=annote.colors,
                      clustering_method = 'ward.D2',filename=fname)
   
   if(doEnrich && length(rownames(pat.mat))>2){
@@ -680,7 +678,7 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
     pat.mat<-log10(pat.mat+0.01)
   
   pheatmap::pheatmap(pat.mat,cellwidth = 10,cellheight=10,annotation_col = drug.dat,
-                         clustering_distance_cols = 'euclidean', color=pal,annotation_colors=annote.colors,
+                         clustering_distance_cols = 'euclidean', annotation_colors=annote.colors,
                          clustering_method = 'ward.D2',filename=fname)
 
   if(doEnrich && length(rownames(pat.mat))>2){
@@ -694,4 +692,3 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
   return(res)
   
 }
-
