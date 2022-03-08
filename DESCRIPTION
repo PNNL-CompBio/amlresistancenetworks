@@ -7,13 +7,32 @@ Description: A small package that experiments with getting AML resistance networ
 License: MIT
 LazyData: true
 RoxygenNote: 7.1.2
-Imports: cowplot, dplyr, ggplot2, ggridges,
-    glmnet, gridExtra, KSEAapp, leapr, BiocManager, devtools,
-    pheatmap, purrr, randomForest, readr, readxl,
-    reticulate, scales, stringr, tidyr, WebGestaltR,
-    data.table, remotes, limma
+Imports:
+    cowplot,
+    dplyr,
+    ggplot2,
+    ggridges,
+    glmnet,
+    gridExtra,
+    KSEAapp,
+    leapR,
+    BiocManager,
+    devtools,
+    pheatmap,
+    purrr,
+    randomForest,
+    readr,
+    readxl,
+    reticulate,
+    scales,
+    stringr,
+    tidyr,
+    WebGestaltR,
+    data.table,
+    remotes,
+    limma
 Remotes: biodataganache/leapR
-biocViews: limma
+biocViews:
 Suggests: 
     testthat (>= 3.0.0)
 Config/testthat/edition: 3

@@ -300,14 +300,9 @@ doRegularGo<-function(genes,bg=NULL){
 
 #'Runs regular bag of genes enrichment
 #'@export
-#'@import remotes
-
+#'@import dplyr
+#'@import leapR
 doRegularKin<-function(genes,bg=NULL){
-  require(dplyr)
-  if(!require('leapr')){
-    remotes::install_github('biodataganache/leapr', build_vignettes=TRUE)
-    require('leapr')
-      }
 
   data('kinasesubstrates')
   kslist<-kinasesubstrates
@@ -373,7 +368,7 @@ doRegularKin<-function(genes,bg=NULL){
 #' @import ggplot2
 #' @import gridExtra
 #' @import dplyr
-#' @import leapr
+#' @import leapR
 #' @param exprs A matrix of intensities with accessions as row names, along with samples in the columns.
 #' @param prefix string, used for naming the saved plots.
 #' @param order.by This determines how the pathways are sorted. Default is pathway correlation of "Ingroup mean", but can also use "BH_pvalue" to sort by significance of the pathways.
