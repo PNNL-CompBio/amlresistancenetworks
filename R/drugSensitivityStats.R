@@ -45,7 +45,9 @@ plotAllAUCs<-function(auc.data,pat.data,drug.metric='AUC',drug.column='Condition
   library(wesanderson)
   
   pal<-wes_palette('Darjeeling1',length(unique(auc.data[[drug.column]])),type='continuous')
-    p1<-auc.data%>%
+  pal2<-wes_palette('Darjeeling1',3,type='continuous')
+  
+  p1<-auc.data%>%
     dplyr::select('AML sample',drugCol=drug.column,drugMetric=drug.metric)%>%distinct()%>%
     ggplot(aes(x=drugMetric,fill=drugCol))+geom_histogram()+ theme(legend.position = "none")+
     ggtitle(paste("Distribution of raw",drug.metric,"values by",drug.column))+scale_fill_manual(values=pal)
@@ -102,10 +104,10 @@ plotAllAUCs<-function(auc.data,pat.data,drug.metric='AUC',drug.column='Condition
     tibble::column_to_rownames('Drug')%>%
     as.matrix()
   pheatmap(auc.mat,annotation_col = pat.vars,clustering_distance_cols='correlation',
-           clustering_method='ward',cellwidth = 10,cellheight = 10, color=pal,annotation_colors=annote.colors) 
+           clustering_method='ward',cellwidth = 10,cellheight = 10, annotation_colors=annote.colors) 
   pheatmap(auc.mat,annotation_col = pat.vars,clustering_distance_cols='correlation',
            clustering_method='ward',filename = paste0(drug.metric,drug.column,'heatmap.pdf'),cellwidth = 10,cellheight = 10,
-           color=pal,annotation_colors=annote.colors) 
+           annotation_colors=annote.colors) 
  # synapseStore(paste0(drug.metric,'heatmap.pdf'),'syn22130776')
   return(pat.vars)
 }

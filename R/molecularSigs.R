@@ -1,7 +1,5 @@
 
 
-
-
 #' drugMolRandomForest
 #' builds random forest predictor of molecular data
 #' @param clin.data
@@ -312,8 +310,7 @@ miniForest<-function(tab,mol.feature,feature.val,quant=0.995){
 #' @param enet.alpha numeric vector specifying the alpha values to use when running glmnet
 #' @export 
 #' @return a data.frame with three values/columns: MSE, numFeatures, and Genes
-miniReg<-function(tab,mol.feature, enet.alpha = c(1)){
-
+miniReg<-function(tab,mol.feature, feature.val,enet.alpha = seq(0.1, 1, 0.1)){
   library(glmnet)
 #  set.seed(1010101)
   set.seed(101010101)
@@ -604,7 +601,7 @@ clusterDrugFamilyEfficacy<-function(familyName='MEK',
     pat.mat<-log10(pat.mat+0.01)
   
   pheatmap::pheatmap(pat.mat,cellwidth = 10,cellheight=10,annotation_col = drug.dat,
-                     clustering_distance_cols = 'euclidean', color=pal,annotation_colors=annote.colors,
+                     clustering_distance_cols = 'euclidean',annotation_colors=annote.colors,
                      clustering_method = 'ward.D2',filename=fname)
   
   if(doEnrich && length(rownames(pat.mat))>2){
@@ -656,8 +653,9 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
   
   #print(rownames(drug.dat))
   
-  pat.mat<-data.mat%>%select('Sample','Gene','value')%>%
-    subset(Gene%in%genes)%>%
+  pat.mat<-data.mat%>%
+    dplyr::select('Sample','Gene','value')%>%
+    subset(Gene%in%unlist(genes))%>%
     subset(`Sample`%in%sapply(rownames(drug.dat),function(x) unlist(strsplit(x,split=' '))[1]))%>%
     pivot_wider(values_from='value',
                 names_from='Sample', 
@@ -667,7 +665,6 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
 
   annote.colors<-list(SampleResponse=c(Sensitive='darkgrey',Resistant='white'))
  # names(annote.colors)<-setdiff(names(pat.vars),'overallSurvival')
-
  # print(pat.mat)
   res=data.frame(ID='',Description='',pvalue=1.0,p.adjust=1.0) 
   #zvals<-which(apply(pat.mat,2,var)==0)
@@ -681,7 +678,7 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
     pat.mat<-log10(pat.mat+0.01)
   
   pheatmap::pheatmap(pat.mat,cellwidth = 10,cellheight=10,annotation_col = drug.dat,
-                         clustering_distance_cols = 'euclidean', color=pal,annotation_colors=annote.colors,
+                         clustering_distance_cols = 'euclidean', annotation_colors=annote.colors,
                          clustering_method = 'ward.D2',filename=fname)
 
   if(doEnrich && length(rownames(pat.mat))>2){
@@ -695,4 +692,3 @@ clusterSingleDrugEfficacy<-function(drugName='Doramapimod (BIRB 796)',
   return(res)
   
 }
-
