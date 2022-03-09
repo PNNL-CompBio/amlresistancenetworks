@@ -9,6 +9,7 @@ computePhosphoNetwork(
   phos.vals = c(),
   prot.vals = c(),
   gene.vals = c(),
+  rna.vals = c(),
   nrand = 100,
   beta = 2,
   fname
@@ -18,6 +19,10 @@ computePhosphoNetwork(
 \item{phos.vals}{named list of phosphosite values}
 
 \item{prot.vals}{named list of protein values}
+
+\item{gene.vals}{named list of gene mutations}
+
+\item{rna.vals}{named list of transcripts}
 
 \item{nrand}{number of randomizations}
 
