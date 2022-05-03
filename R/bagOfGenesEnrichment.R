@@ -304,7 +304,8 @@ doRegularGo<-function(genes,bg=NULL){
 #'@import leapR
 doRegularKin<-function(genes,bg=NULL){
 
-  data('kinasesubstrates')
+  library(leapR)
+  data('kinasesubstrates',package='leapR')
   kslist<-kinasesubstrates
    #read kinase substrate database stored in data folder
   #KSDB <- read.csv(system.file('PSP&NetworKIN_Kinase_Substrate_Dataset_July2016.csv',
