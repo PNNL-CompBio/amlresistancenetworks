@@ -5,7 +5,9 @@
 #' @param genes.with.values of genes and difference values
 #' @param prot.univ the space of all proteins we are considering
 #' @return gSEA output type stuff
-computeGSEA<-function(genes.with.values,prefix,gsea_FDR=0.01,pathwaydb="geneontology_Biological_Process"){
+computeGSEA<-function(genes.with.values,prefix,gsea_FDR=0.01,
+                      pathwaydb="geneontology_Biological_Process",
+                     doPlot=TRUE){
 
   library(WebGestaltR)
   #library(ggplot2)
@@ -23,7 +25,8 @@ computeGSEA<-function(genes.with.values,prefix,gsea_FDR=0.01,pathwaydb="geneonto
                                        interestGeneType="genesymbol",
                                        collapseMethod="mean", perNum = 1000,
                                        fdrThr = gsea_FDR, nThreads = 2, isOutput = F)
-  write.table(go.bp.res.WebGestaltR, paste0("proteomics_", prefix, "_gseaGO_result.txt"), sep="\t", row.names=FALSE, quote = F)
+  
+  write.table(go.bp.res.WebGestaltR, paste0("proteomics_", prefix, "_gsea_result.txt"), sep="\t", row.names=FALSE, quote = F)
 
   all_gseaGO <- go.bp.res.WebGestaltR %>%
      filter(FDR < gsea_FDR) %>%
@@ -50,8 +53,8 @@ computeGSEA<-function(genes.with.values,prefix,gsea_FDR=0.01,pathwaydb="geneonto
           legend.position = "none") +
     ggplot2::labs(title = "", y="NES") +#for some reason labs still works with orientation before cord flip so set y
     ggplot2::ggtitle(paste('All',prefix))
-  
-  ggplot2::ggsave(paste0("allRegProts_", prefix,"_gseaGO_plot.pdf"), all_gseaGO, height = 8.5, width = 11, units = "in")
+  if(doPlot)
+    ggplot2::ggsave(paste0("allRegProts_", prefix,"_gseaGO_plot.pdf"), all_gseaGO, height = 8.5, width = 11, units = "in")
 
 
   return(go.bp.res.WebGestaltR)
@@ -71,7 +74,7 @@ computeGSEA<-function(genes.with.values,prefix,gsea_FDR=0.01,pathwaydb="geneonto
 #' @return KSEA output type stuff
 computeKSEA<-function(genes.with.values,ksea_FDR=0.05,prefix='', order_by = "z.score",
                       height = 8.5, width = 11, NetworKIN = TRUE, linkedSubs=5,
-                      suffix='png'){
+                      suffix='png',doPlot=TRUE){
   
   inputdfforKSEA <- data.frame(Protein=rep("NULL", nrow(genes.with.values)),
                                Gene=genes.with.values$Gene,
@@ -143,15 +146,18 @@ computeKSEA<-function(genes.with.values,ksea_FDR=0.05,prefix='', order_by = "z.s
   arrange_matrix <- t(as.matrix(c(1,1,2)))
   plot_both <- grid.arrange(plot_KSEA, plot_sig, layout_matrix = arrange_matrix)
 
-  ggsave(paste0("sig-included", prefix,"-ksea-plot.",suffix), device=suffix,plot_both,
+  if(doPlot){
+    ggsave(paste0("sig-included", prefix,"-ksea-plot.",suffix), device=suffix,plot_both,
          height = height, width = width, units = "in")
-
+  }
   ##join results
   #kin_res
   res_ksea<-res_ksea%>%rename(`aveSubstrateLog2FC`='log2FC')%>%left_join(subs,by='Kinase.Gene')
-  ggsave(paste0(prefix,"fig_KSEA.",suffix), plot_KSEA, device=suffix,height = height, 
-         width = width, units = "in")
-  write.table(res_ksea,paste0(prefix,'_kseaRes.csv'),sep=',')
+  if(doPlot){
+    ggsave(paste0(prefix,"fig_KSEA.",suffix), plot_KSEA, device=suffix,height = height, 
+           width = width, units = "in")
+  }
+    write.table(res_ksea,paste0(prefix,'_kseaRes.csv'),sep=',')
   return(res_ksea)
 }
 
