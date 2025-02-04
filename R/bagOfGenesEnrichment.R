@@ -5,7 +5,7 @@
 #' @param genes.with.values of genes and difference values
 #' @param prot.univ the space of all proteins we are considering
 #' @return gSEA output type stuff
-computeGSEA<-function(genes.with.values,prefix,gsea_FDR=0.01){
+computeGSEA<-function(genes.with.values,prefix,gsea_FDR=0.01,pathwaydb="geneontology_Biological_Process"){
 
   library(WebGestaltR)
   #library(ggplot2)
@@ -18,7 +18,7 @@ computeGSEA<-function(genes.with.values,prefix,gsea_FDR=0.01){
 
   go.bp.res.WebGestaltR <- WebGestaltR(enrichMethod = "GSEA",
                                        organism="hsapiens",
-                                       enrichDatabase="geneontology_Biological_Process",
+                                       enrichDatabase=pathwaydb,
                                        interestGene=inputdfforWebGestaltR,
                                        interestGeneType="genesymbol",
                                        collapseMethod="mean", perNum = 1000,
