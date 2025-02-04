@@ -11,7 +11,7 @@ computeGSEA<-function(genes.with.values,prefix,gsea_FDR=0.01,pathwaydb="geneonto
   #library(ggplot2)
   inputdfforWebGestaltR <- genes.with.values%>%
     dplyr::rename(genes='Gene',scores='value')%>%
-    dplyr::arrange(scores)
+    dplyr::arrange(desc(scores))
 
 
   #' * GSEA using gene ontology biological process gene sets
